@@ -15,7 +15,7 @@ L'interface est un objectif produit à part entière : **extrêmement intuitive,
 
 ### Fondations
 - [x] **S0 — Git + mise en ligne.** *(fait le 13/07/2026 — https://annibalxsancho.github.io/sancho-rossi/)* `git init`, `.gitignore` (.DS_Store, __pycache__), commit de l'état v9, repo GitHub, activer GitHub Pages. Done quand : l'app est accessible en HTTPS depuis le téléphone, géoloc et wake-lock fonctionnent.
-- [ ] **S1 — Modularisation de app.js.** Découper les 2581 lignes en modules ES natifs (`state.js`, `map.js`, `trails.js`, `detail.js`, `weather.js`, `security.js`, `builder.js`, `filters.js`, `api.js`…) via `<script type="module">`. **Zéro changement de comportement.** Done quand : toutes les fonctions marchent à l'identique (checklist manuelle : carte, fiche, météo, 3D, filtres, traceur, sécurité, mobile).
+- [x] **S1 — Modularisation de app.js.** *(fait le 13/07/2026)* Découpé les 2581 lignes en 14 modules ES natifs + `main.js` (`state`, `api`, `photos`, `weather`, `map`, `filters`, `trails`, `detail`, `osm-live`, `agent`, `builder`, `nav`, `security`, `ui`) chargés via `<script type="module">`. Versionnement par importmap (`?v=`), SW passé en `sr-shell-v3` (liste des modules + purge des anciens caches + `ignoreSearch`). **Zéro changement de comportement** : vérifié dans le navigateur (carte, fiche, météo, filtres, favoris, traceur, agent, sécurité, mobile 375 px, console sans erreur).
 
 ### Pivot données « toute l'Europe »
 - [ ] **S2 — Couche de stockage IndexedDB.** Petit module `storage.js` (get/put/delete par store : tracés, tuiles, méta). Migration des gros objets localStorage existants (sr-gpx, sr-elev…). Done quand : l'app lit/écrit via IndexedDB, les données existantes sont migrées.

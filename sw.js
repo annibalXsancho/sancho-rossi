@@ -1,5 +1,5 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v2";
+const SHELL_CACHE = "sr-shell-v3";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
@@ -7,9 +7,23 @@ const SHELL_FILES = [
   "./",
   "index.html",
   "css/style.css",
-  "js/app.js",
   "js/data.js",
   "js/data-osm.js",
+  "js/main.js",
+  "js/state.js",
+  "js/api.js",
+  "js/photos.js",
+  "js/weather.js",
+  "js/map.js",
+  "js/filters.js",
+  "js/trails.js",
+  "js/detail.js",
+  "js/osm-live.js",
+  "js/agent.js",
+  "js/builder.js",
+  "js/nav.js",
+  "js/security.js",
+  "js/ui.js",
   "js/viewer3d.js",
   "manifest.json",
   "assets/icon.svg",
@@ -29,7 +43,17 @@ self.addEventListener("install", (e) => {
 });
 
 self.addEventListener("activate", (e) => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(
+    caches.keys()
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((n) => n.startsWith("sr-shell-") && n !== SHELL_CACHE)
+            .map((n) => caches.delete(n))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
 });
 
 async function trimTiles() {
@@ -72,7 +96,7 @@ self.addEventListener("fetch", (e) => {
           }
           return res;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() => caches.match(e.request, { ignoreSearch: true }))
     );
   }
 });

@@ -1,0 +1,91 @@
+// Sancho Rossi — photos réelles des lieux (Wikipédia italien)
+import { state, BASE_TRAILS as TRAILS, CATALOG } from "./state.js";
+import { renderAll } from "./trails.js";
+
+const WIKI = {
+  "tre-cime-bivouac": "Tre_Cime_di_Lavaredo",
+  "braies-fanes": "Lago_di_Braies",
+  "gran-paradiso-vittorio": "Gran_Paradiso",
+  "sentiero-roma-sud": "Sentiero_Roma",
+  "val-grande-traversata": "Parco_nazionale_della_Val_Grande",
+  "laghi-gemelli": "Rifugio_Laghi_Gemelli",
+  "puez-odle": "Gruppo_delle_Odle",
+  "catinaccio-antermoia": "Catinaccio",
+  "monviso-tour": "Monviso",
+  "devero-veglia": "Alpe_Devero",
+  "rosa-ayas-lacs": "Val_d'Ayas",
+  "sassolungo-tour": "Sassolungo",
+  "sorapis-lago": "Lago_di_Sorapiss",
+  "grigna-settentrionale": "Grigna_settentrionale",
+  "baldo-crete": "Monte_Baldo",
+  "val-genova-cascades": "Val_Genova",
+  "marmolada-viel-del-pan": "Marmolada",
+};
+
+export function photoOf(trail) {
+  return state.photos[trail.id] || trail.image || null;
+}
+
+export function photoStyle(trail) {
+  const url = photoOf(trail);
+  return url
+    ? `background-image: url('${url}'), ${trail.gradient};`
+    : `background-image: ${trail.gradient};`;
+}
+
+export async function loadWikiPhotos() {
+  const missing = TRAILS.filter((t) => WIKI[t.id] && !state.photos[t.id]);
+  if (!missing.length) return;
+  await Promise.allSettled(
+    missing.map(async (t) => {
+      const res = await fetch(
+        `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(WIKI[t.id])}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const url = data.thumbnail?.source?.split("?")[0];
+      if (url) state.photos[t.id] = url;
+    })
+  );
+  localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+  renderAll();
+}
+
+// Photos des itinéraires du catalogue : article Wikipédia le plus proche du tracé
+export async function geoPhoto(trail) {
+  const [lat, lon] = trail.center;
+  const url =
+    `https://it.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
+    `&generator=geosearch&ggscoord=${lat}%7C${lon}&ggsradius=9000&ggslimit=1` +
+    `&prop=pageimages&piprop=thumbnail&pithumbsize=640`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(res.status);
+  const pages = (await res.json()).query?.pages || {};
+  return Object.values(pages)[0]?.thumbnail?.source || null;
+}
+
+export function updateCardPhotos(trail) {
+  document
+    .querySelectorAll(`.trail-card[data-id="${trail.id}"] .card-photo`)
+    .forEach((el) => (el.style.cssText = photoStyle(trail)));
+}
+
+let photoQueueRunning = false;
+export async function prefetchCatalogPhotos() {
+  if (photoQueueRunning) return;
+  photoQueueRunning = true;
+  let sinceSave = 0;
+  for (const t of CATALOG) {
+    if (state.photos[t.id] !== undefined) continue;
+    try {
+      state.photos[t.id] = await geoPhoto(t);
+    } catch {
+      break; // réseau ou quota : on reprendra à la prochaine session
+    }
+    if (state.photos[t.id]) updateCardPhotos(t);
+    if (++sinceSave % 10 === 0) localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+  photoQueueRunning = false;
+}
