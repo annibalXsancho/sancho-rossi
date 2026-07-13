@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sancho Rossi — Bivouacs et randos en Italie du Nord</title>
+  <meta name="theme-color" content="#0b0b0c" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="assets/icon-512.png" />
+  <link rel="apple-touch-icon" href="assets/icon-512.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script>
+    // Thème appliqué avant le premier rendu pour éviter le flash — noir par défaut
+    document.documentElement.dataset.theme = localStorage.getItem("sr-theme") || "dark";
+  </script>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand" id="go-home" title="Accueil">
+      <img src="assets/logo-t.png?v=2" alt="Sancho Rossi" class="brand-img"
+        onload="document.getElementById('brand-svg').style.display='none'"
+        onerror="this.style.display='none'" />
+      <svg id="brand-svg" class="brand-logo" viewBox="0 0 120 70" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round">
+          <path d="M60 64 C54 52 44 44 20 26" />
+          <path d="M46 47 C40 38 38 28 36 14" />
+          <path d="M34 38 C28 30 24 22 20 8" />
+          <path d="M24 29 C18 24 12 20 6 16" />
+          <path d="M60 64 C66 52 76 44 100 26" />
+          <path d="M74 47 C80 38 82 28 84 14" />
+          <path d="M86 38 C92 30 96 22 100 8" />
+          <path d="M96 29 C102 24 108 20 114 16" />
+        </g>
+      </svg>
+    </div>
+
+    <nav class="tab-nav" id="tab-nav">
+      <button class="tab-nav-btn active" data-view="accueil">Accueil</button>
+      <button class="tab-nav-btn" data-view="carte">Carte</button>
+      <button class="tab-nav-btn" data-view="itineraires">Itinéraires</button>
+      <button class="tab-nav-btn" data-view="securite">Sécurité</button>
+      <button class="tab-nav-btn" data-view="reglages">Réglages</button>
+    </nav>
+
+    <nav class="header-nav">
+      <button id="btn-theme" class="nav-btn nav-btn-icon" title="Basculer clair / sombre">🌙</button>
+      <button id="btn-import-gpx" class="nav-btn" title="Importer un fichier GPX">⤒ GPX</button>
+      <input id="gpx-file-input" type="file" accept=".gpx" multiple hidden />
+      <button id="btn-favorites" class="nav-btn" title="Mes itinéraires enregistrés">
+        ♥ <span id="fav-count" class="fav-count">0</span>
+      </button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ ACCUEIL ============ -->
+    <section id="view-accueil" class="view">
+      <div class="home-hero">
+        <h1>Où bivouaque-t-on <em>ce week-end</em> ?</h1>
+        <p id="home-tagline">Italie du Nord · itinéraires 2 jours · outil personnel, hors-ligne et sans compte.</p>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-head">
+          <span class="agent-dot"></span> Agent de planification <span class="agent-tag">local · hors-ligne</span>
+        </div>
+        <div class="agent-input-row">
+          <input id="agent-input" type="text"
+            placeholder="Ex. : bivouac 2 jours dans les Dolomites avec un lac, pas trop dur…" />
+          <button id="agent-send" class="btn btn-primary">→</button>
+        </div>
+        <div class="agent-quick">
+          <button class="chip" data-q="bivouac 2 jours facile avec lac">⛺ Bivouac tranquille au bord d'un lac</button>
+          <button class="chip" data-q="difficile grosse journée dénivelé">💪 Grosse journée de D+</button>
+          <button class="chip" data-q="bivouac 2 jours dolomites">🏔 2 jours dans les Dolomites</button>
+          <button class="chip" data-q="sauvage isolé bivouac">🌲 Coin sauvage et isolé</button>
+        </div>
+        <div id="agent-output" class="agent-output"></div>
+      </div>
+
+      <h2 class="home-section-title">Bivouacs recommandés</h2>
+      <div id="home-suggestions" class="cards-grid"></div>
+    </section>
+
+    <!-- ============ CARTE ============ -->
+    <section id="view-carte" class="view hidden">
+      <div id="map"></div>
+
+      <div class="map-topbar">
+        <div class="map-search">
+          <span class="search-icon">🔍</span>
+          <input id="search-input" type="search" placeholder="Rechercher un itinéraire, un massif…" autocomplete="off" />
+        </div>
+        <button id="btn-filters-map" class="btn-filters">⚙ Filtres <span id="filters-badge" class="filters-badge hidden"></span></button>
+        <button id="btn-list" class="btn-filters map-list-btn">☰ Liste</button>
+      </div>
+
+      <!-- Pile de contrôles à droite : calques, position, sentiers, circuit -->
+      <div class="layers-control map-stack" id="layers-control">
+        <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte">🗺</button>
+        <button class="map-ctl" id="btn-locate" title="Ma position">🎯</button>
+        <button class="map-ctl" id="btn-osm-search" title="Chercher les sentiers balisés de la zone">🔎</button>
+        <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé">＋</button>
+        <div class="layers-panel hidden" id="layers-panel">
+          <div class="layers-title">Fond de carte</div>
+
+          <div class="layer-row" data-layer="plan">
+            <label class="switch"><input type="checkbox" checked /><span class="slider-sw"></span></label>
+            <span class="layer-name">Plan (OpenStreetMap)</span>
+            <input type="range" class="layer-op" min="15" max="100" value="100" />
+            <span class="op-val">100%</span>
+          </div>
+          <div class="layer-row" data-layer="topo">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Topographique</span>
+            <input type="range" class="layer-op" min="15" max="100" value="100" />
+            <span class="op-val">100%</span>
+          </div>
+          <div class="layer-row" data-layer="satellite">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Satellite</span>
+            <input type="range" class="layer-op" min="15" max="100" value="100" />
+            <span class="op-val">100%</span>
+          </div>
+          <div class="layer-row" data-layer="sombre">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Sombre</span>
+            <input type="range" class="layer-op" min="15" max="100" value="100" />
+            <span class="op-val">100%</span>
+          </div>
+          <div class="layer-row" data-layer="terrainhd">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Terrain HD</span>
+            <input type="range" class="layer-op" min="15" max="100" value="100" />
+            <span class="op-val">100%</span>
+          </div>
+          <div class="layer-row" data-layer="hillshade">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Relief (ombrage)</span>
+            <input type="range" class="layer-op" min="10" max="100" value="45" />
+            <span class="op-val">45%</span>
+          </div>
+          <div class="layer-row" data-layer="trails">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Sentiers balisés</span>
+            <input type="range" class="layer-op" min="15" max="100" value="85" />
+            <span class="op-val">85%</span>
+          </div>
+          <div class="layer-row" data-layer="mtb">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">VTT balisé</span>
+            <input type="range" class="layer-op" min="15" max="100" value="85" />
+            <span class="op-val">85%</span>
+          </div>
+          <div class="layer-row" data-layer="ski">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Ski — pistes et itinéraires</span>
+            <input type="range" class="layer-op" min="15" max="100" value="85" />
+            <span class="op-val">85%</span>
+          </div>
+          <div class="layer-row" data-layer="rain">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">Précipitations (radar direct)</span>
+            <input type="range" class="layer-op" min="15" max="100" value="70" />
+            <span class="op-val">70%</span>
+          </div>
+
+          <div class="layers-title">Couches — points d'intérêt</div>
+          <div class="layer-row poi-row" data-poi="water">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">💧 Eau potable et sources</span>
+          </div>
+          <div class="layer-row poi-row" data-poi="huts">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">🏠 Refuges et abris</span>
+          </div>
+          <div class="layer-row poi-row" data-poi="rescue">
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            <span class="layer-name">⛑ Secours et bornes SOS</span>
+          </div>
+          <p class="muted poi-hint" id="poi-hint">Zoomez sur un massif : les points se chargent pour la zone affichée.</p>
+        </div>
+      </div>
+
+      <!-- HUD de navigation (mode Avancé) -->
+      <div id="nav-hud" class="nav-hud hidden">
+        <div class="nav-top">
+          <button id="nav-stop" class="btn btn-danger">■ Terminer</button>
+          <div class="nav-title" id="nav-title"></div>
+          <button id="nav-mode" class="btn">🪫 Survivor</button>
+        </div>
+        <div id="nav-offtrack" class="nav-offtrack hidden">⚠ HORS TRACÉ — <span id="nav-offdist"></span> m</div>
+        <div class="nav-bottom">
+          <div class="nav-stat"><span id="nav-remaining">—</span><label>km restants</label></div>
+          <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
+          <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
+          <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+        </div>
+      </div>
+
+      <!-- Créateur de parcours -->
+      <div id="builder-bar" class="builder-bar hidden">
+        <div class="builder-head">
+          <span>Créateur de parcours</span>
+          <span id="builder-target-info" class="builder-target-info"></span>
+        </div>
+        <div class="builder-modes">
+          <div class="filter-group" id="builder-mode">
+            <button class="chip active" data-bmode="draw">✏ Dessin libre — suit les sentiers</button>
+            <button class="chip" data-bmode="trails">Enchaîner des tracés existants</button>
+          </div>
+          <input id="builder-target" type="number" min="1" placeholder="Objectif km" title="Distance souhaitée" />
+          <button class="btn" id="builder-undo" title="Annuler le dernier point">↩</button>
+        </div>
+        <p class="builder-hint muted" id="builder-hint">Cliquez sur la carte : chaque point est relié au précédent
+        en suivant les sentiers connus. Activez les couches 💧🏠 pour passer par des points d'intérêt (cliquez-les pour les ajouter).</p>
+        <div id="builder-steps" class="builder-steps"><span class="muted">Aucune étape pour l'instant.</span></div>
+        <div class="builder-foot">
+          <span id="builder-stats" class="builder-stats">0 km · 0 étape</span>
+          <button class="btn" id="builder-cancel">Annuler</button>
+          <button class="btn btn-primary" id="builder-save">⏎ Enregistrer</button>
+        </div>
+      </div>
+
+      <!-- Prévisualisation d'un parcours cliqué sur la carte -->
+      <div id="trail-preview" class="trail-preview hidden">
+        <button class="preview-close" id="preview-close" title="Fermer">✕</button>
+        <div class="preview-photo" id="preview-photo"></div>
+        <div class="preview-body">
+          <div class="preview-title" id="preview-title"></div>
+          <div class="preview-meta" id="preview-meta"></div>
+          <div class="preview-access" id="preview-access"></div>
+          <div class="preview-actions">
+            <button class="btn btn-primary" id="preview-open">Fiche complète</button>
+            <button class="btn" id="preview-follow">▶ Suivre</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="results-panel" class="results-panel">
+        <div class="results-head">
+          <span id="results-count"></span>
+          <button id="panel-collapse" title="Replier">⌄</button>
+        </div>
+        <div id="osm-results"></div>
+        <div id="trail-list" class="trail-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ ITINÉRAIRES ============ -->
+    <section id="view-itineraires" class="view hidden">
+      <div class="view-title-row">
+        <h2 class="view-title">Itinéraires <span id="grid-count" class="muted"></span></h2>
+        <button id="btn-filters-grid" class="btn-filters">⚙ Filtres <span id="filters-badge-2" class="filters-badge hidden"></span></button>
+      </div>
+      <div id="grid-list" class="cards-grid"></div>
+    </section>
+
+    <!-- ============ SÉCURITÉ ============ -->
+    <section id="view-securite" class="view hidden">
+      <h2 class="view-title">🛟 Sécurité</h2>
+      <p class="muted view-intro">Préparez un plan de marche et partagez votre itinéraire et votre dernière position
+      connue à vos proches — par WhatsApp, SMS ou e-mail, sans compte ni serveur : tout part de votre appareil.</p>
+
+      <div class="settings-group">
+        <h3>Mes contacts de confiance</h3>
+        <div id="contacts-list"></div>
+        <div class="contact-form">
+          <input id="contact-name" type="text" placeholder="Nom (ex. Marie)" />
+          <select id="contact-channel">
+            <option value="whatsapp">WhatsApp</option>
+            <option value="sms">SMS</option>
+            <option value="email">E-mail</option>
+          </select>
+          <input id="contact-addr" type="text" placeholder="N° international (+33…) ou e-mail" />
+          <button class="btn btn-primary" id="btn-add-contact">Ajouter</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Ma position</h3>
+        <div class="settings-row">
+          <span id="pos-status" class="muted">Suivi GPS désactivé.</span>
+          <button class="btn" id="btn-track-pos">Activer le suivi</button>
+        </div>
+        <div class="settings-row">
+          <span id="last-pos" class="muted">Aucune position enregistrée.</span>
+          <button class="btn" id="btn-refresh-pos">📍 Actualiser maintenant</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Veille automatique</h3>
+        <p class="muted">Armez la veille avec votre plan de marche : si votre téléphone ne montre
+        <strong>aucune activité 5 h après l'heure de retour prévue</strong>, une pré-alerte vous est adressée
+        30 min avant l'échéance (« tout va bien ? ») ; sans réponse, un message d'alerte est
+        <strong>envoyé automatiquement</strong> sur votre canal sécurisé ntfy — vos proches y sont abonnés
+        en un clic depuis le plan de marche. Fonctionne tant que l'app est ouverte sur le téléphone
+        (écran verrouillé inclus en PWA installée).</p>
+        <div class="settings-row">
+          <span>Canal d'alerte : <a id="watch-topic-link" href="#" target="_blank" rel="noopener"></a></span>
+          <button class="btn" id="btn-copy-topic">Copier le lien</button>
+        </div>
+        <div class="settings-row">
+          <span id="watch-status" class="muted">Veille désarmée.</span>
+          <button class="btn btn-primary" id="btn-arm-watch">🛡 Armer la veille</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Plan de marche à partager</h3>
+        <div class="plan-form">
+          <select id="plan-trail"></select>
+          <input id="plan-date" type="date" />
+          <input id="plan-retour" type="time" value="18:00" title="Heure de retour prévue" />
+        </div>
+        <textarea id="plan-preview" class="notes-area" rows="7" readonly></textarea>
+        <div id="plan-share-buttons" class="plan-share"></div>
+        <p class="muted">Le message inclut l'itinéraire, l'heure de retour prévue, votre dernière position connue
+        et un lien carte. Envoyez-le avant de partir puis en fin de rando.</p>
+      </div>
+    </section>
+
+    <!-- ============ RÉGLAGES ============ -->
+    <section id="view-reglages" class="view hidden">
+      <h2 class="view-title">Réglages</h2>
+
+      <div class="settings-group">
+        <h3>Apparence</h3>
+        <label class="settings-row">
+          Thème
+          <select id="setting-theme">
+            <option value="light">Clair</option>
+            <option value="dark">Sombre</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="settings-group">
+        <h3>Carte</h3>
+        <label class="settings-row">
+          Fond de carte par défaut
+          <select id="setting-baselayer">
+            <option value="plan">Plan (OSM)</option>
+            <option value="topo">Topographique</option>
+            <option value="satellite">Satellite</option>
+            <option value="sombre">Sombre</option>
+          </select>
+        </label>
+        <div class="settings-row">
+          Cache des tuiles hors-ligne <span id="tiles-count" class="muted"></span>
+          <button class="btn" id="btn-clear-tiles">Vider</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Photos</h3>
+        <div class="settings-row">
+          Cache des photos de lieux (Wikipédia)
+          <button class="btn" id="btn-clear-photos">Vider et recharger</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Mes données</h3>
+        <div class="settings-row">
+          Favoris, notes, contacts et tracés GPX importés
+          <span>
+            <button class="btn" id="btn-export-data">Exporter (JSON)</button>
+            <button class="btn" id="btn-import-data">Importer</button>
+            <input id="data-file-input" type="file" accept=".json" hidden />
+          </span>
+        </div>
+        <div class="settings-row">
+          <span class="danger-text">Réinitialiser toutes mes données</span>
+          <button class="btn btn-danger" id="btn-reset-data">Tout effacer</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Sur votre téléphone / un autre appareil</h3>
+        <p class="muted">1 — Les deux appareils doivent être sur le même Wi-Fi.<br>
+        2 — Sur le Mac, le serveur doit être lancé en écoute réseau :
+        <code>python3 -m http.server 4173 --bind 0.0.0.0</code> depuis le dossier de l'app.<br>
+        3 — Sur le téléphone, ouvrez <strong>http://ADRESSE-IP-DU-MAC:4173</strong>
+        (l'adresse s'obtient avec <code>ipconfig getifaddr en0</code>).<br>
+        4 — Menu du navigateur → <strong>« Ajouter à l'écran d'accueil »</strong> : l'app s'installe
+        avec son icône, plein écran, comme une application native.<br>
+        ⚠ En accès réseau non sécurisé (http), le navigateur du téléphone bloque la géolocalisation
+        et le wake lock. Pour la navigation GPS sur le terrain, hébergez l'app en HTTPS
+        (Netlify / GitHub Pages, gratuit — le dossier se dépose tel quel) : toutes les fonctions
+        sont alors disponibles hors ligne après la première visite.</p>
+      </div>
+
+      <div class="settings-group">
+        <h3>Application</h3>
+        <p class="muted">Sancho Rossi v4 — PWA installable. Itinéraires balisés : géométrie réelle OpenStreetMap (~15 m).
+        Profils d'altitude : données réelles Open-Meteo. Vue 3D : relief Terrarium + imagerie Esri.
+        Aucune donnée ne quitte cet appareil sans votre action.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Panneau de filtres partagé (Carte + Itinéraires) -->
+  <section id="filters-modal" class="filters-modal hidden">
+    <div class="filters-sheet">
+      <div class="filters-head">
+        <span>Filtres</span>
+        <button id="filters-close" title="Fermer">✕</button>
+      </div>
+
+      <div class="filters-section">
+        <div class="filters-label">Durée</div>
+        <div class="filter-group" id="filter-days">
+          <button class="chip active" data-value="">Tous</button>
+          <button class="chip" data-value="2">⛺ 2 j · bivouac</button>
+          <button class="chip" data-value="1">1 jour</button>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <div class="filters-label">Difficulté</div>
+        <div class="filter-group" id="filter-difficulty">
+          <button class="chip active" data-value="">Toutes</button>
+          <button class="chip" data-value="facile">Facile</button>
+          <button class="chip" data-value="modéré">Modéré</button>
+          <button class="chip" data-value="difficile">Difficile</button>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <div class="filters-label">Source des tracés</div>
+        <div class="filter-group" id="filter-source">
+          <button class="chip active" data-value="">Toutes</button>
+          <button class="chip" data-value="bivouac">Sélection bivouac</button>
+          <button class="chip" data-value="osm">Balisés officiels</button>
+        </div>
+      </div>
+
+      <div class="filters-section filters-grid-2">
+        <label>Massif
+          <select id="filter-region"><option value="">Tous</option></select>
+        </label>
+        <label>Type
+          <select id="filter-type">
+            <option value="">Tous</option>
+            <option value="boucle">Boucle</option>
+            <option value="aller-retour">Aller-retour</option>
+            <option value="traversée">Traversée</option>
+            <option value="circuit">Mes circuits</option>
+          </select>
+        </label>
+        <label>Distance min (km)
+          <input id="filter-dist-min" type="number" min="0" placeholder="0" />
+        </label>
+        <label>Distance max (km)
+          <input id="filter-dist-max" type="number" min="0" placeholder="∞" />
+        </label>
+        <label>D+ max (m)
+          <input id="filter-gain-max" type="number" min="0" step="100" placeholder="∞" />
+        </label>
+        <label>Trier par
+          <select id="sort-by">
+            <option value="reco">Bivouacs d'abord</option>
+            <option value="distance-asc">Distance ↑</option>
+            <option value="distance-desc">Distance ↓</option>
+            <option value="elevation">Dénivelé ↓</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="filters-foot">
+        <button class="btn" id="filters-reset">Réinitialiser</button>
+        <button class="btn btn-primary" id="filters-apply">Voir <span id="filters-count"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pré-alerte de la veille automatique -->
+  <section id="prealert" class="prealert hidden">
+    <div class="prealert-title">Tout va bien ?</div>
+    <p class="prealert-text" id="prealert-text"></p>
+    <button class="prealert-ok" id="prealert-ok">✓ Je vais bien — désarmer la veille</button>
+    <div class="prealert-links" id="prealert-links"></div>
+  </section>
+
+  <!-- Mode Survivor : écran statique basse consommation -->
+  <section id="nav-survivor" class="nav-survivor hidden">
+    <div class="surv-title" id="surv-title"></div>
+    <div class="surv-main"><span id="surv-remaining">—</span><label>km restants</label></div>
+    <div class="surv-row">
+      <div class="surv-cell"><span id="surv-alt">—</span><label>altitude</label></div>
+      <div class="surv-cell"><span id="surv-heading">—</span><label>cap tracé</label></div>
+      <div class="surv-cell"><span id="surv-time">—</span><label>dernière maj</label></div>
+    </div>
+    <div id="surv-off" class="surv-off hidden">⚠ HORS TRACÉ</div>
+    <div class="surv-actions">
+      <button id="surv-advanced" class="surv-btn">Mode avancé</button>
+      <button id="surv-stop" class="surv-btn surv-btn-danger">Terminer</button>
+    </div>
+    <p class="surv-note">Écran statique noir, rafraîchi toutes les 20 s, carte coupée, veille autorisée :
+    consommation minimale. Le GPS continue d'enregistrer votre position pour la sécurité.</p>
+  </section>
+
+  <!-- Fiche itinéraire plein écran, façon AllTrails -->
+  <section id="detail-panel" class="detail-panel hidden">
+    <div class="detail-page">
+      <div class="detail-topbar">
+        <button id="detail-close" class="btn">← Retour</button>
+        <nav id="detail-breadcrumb" class="breadcrumb"></nav>
+      </div>
+      <div id="detail-content"></div>
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/data-osm.js?v=414" onerror="window.OSM_TRAILS = []"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/okug./Desktop/sancho-rossi/ 2>/dev/null && ls /Users/okug./Desktop/ | head -30)",
+      "Bash(mdfind -onlyin /Users/okug. \"trek OR AllTrails OR 'Sancho Rossi'\")",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(which node *)"
+    ]
+  }
+}

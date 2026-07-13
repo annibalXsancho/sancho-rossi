@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Sancho Rossi" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Boucle des Laghi Gemelli</name></metadata>
+  <trk>
+    <name>Boucle des Laghi Gemelli</name>
+    <trkseg>
+      <trkpt lat="45.9578" lon="9.7089"></trkpt>
+      <trkpt lat="45.9634" lon="9.7156"></trkpt>
+      <trkpt lat="45.9689" lon="9.7234"></trkpt>
+      <trkpt lat="45.9745" lon="9.7312"></trkpt>
+      <trkpt lat="45.9801" lon="9.7389"></trkpt>
+      <trkpt lat="45.9845" lon="9.7312"></trkpt>
+      <trkpt lat="45.9867" lon="9.7212"></trkpt>
+      <trkpt lat="45.9812" lon="9.7134"></trkpt>
+      <trkpt lat="45.9734" lon="9.7089"></trkpt>
+      <trkpt lat="45.9645" lon="9.7045"></trkpt>
+      <trkpt lat="45.9578" lon="9.7089"></trkpt>
+    </trkseg>
+  </trk>
+</gpx>
