@@ -14,7 +14,7 @@ L'interface est un objectif produit à part entière : **extrêmement intuitive,
 ## Sprints
 
 ### Fondations
-- [ ] **S0 — Git + mise en ligne.** `git init`, `.gitignore` (.DS_Store, __pycache__), commit de l'état v9, repo GitHub, activer GitHub Pages. Done quand : l'app est accessible en HTTPS depuis le téléphone, géoloc et wake-lock fonctionnent.
+- [x] **S0 — Git + mise en ligne.** *(fait le 13/07/2026 — https://annibalxsancho.github.io/sancho-rossi/)* `git init`, `.gitignore` (.DS_Store, __pycache__), commit de l'état v9, repo GitHub, activer GitHub Pages. Done quand : l'app est accessible en HTTPS depuis le téléphone, géoloc et wake-lock fonctionnent.
 - [ ] **S1 — Modularisation de app.js.** Découper les 2581 lignes en modules ES natifs (`state.js`, `map.js`, `trails.js`, `detail.js`, `weather.js`, `security.js`, `builder.js`, `filters.js`, `api.js`…) via `<script type="module">`. **Zéro changement de comportement.** Done quand : toutes les fonctions marchent à l'identique (checklist manuelle : carte, fiche, météo, 3D, filtres, traceur, sécurité, mobile).
 
 ### Pivot données « toute l'Europe »
@@ -38,6 +38,7 @@ L'interface est un objectif produit à part entière : **extrêmement intuitive,
 
 ## Backlog (réservoir d'idées — pas un engagement)
 Règles : une idée = une ligne, ajoutée ici dès qu'elle est exprimée, sans dévier le sprint en cours. Périodiquement (toutes les 3–4 sprints), session de tri : chaque idée est promue en sprint numéroté (avec « done quand »), fusionnée, précisée ou enterrée. Filtres de tri : sert-elle la vision (préparer/naviguer, mono-utilisateur, épuré) ? vaut-elle sa complexité permanente ?
+- Textes encore « Italie du Nord » (title de index.html, sous-titres éventuels) → passer au wording Europe.
 - Import GPX externe enrichi (fichiers d'autres sources).
 - Impression / export PDF d'une fiche rando.
 - Multi-jours > 2 (découpage par étapes).
