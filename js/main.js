@@ -27,7 +27,21 @@ initSecurity();
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  // Mise à jour transparente : quand un nouveau service worker prend le contrôle
+  // (déploiement), on recharge une fois pour ne jamais rester coincé sur une version
+  // en cache. Le garde `controller` évite un rechargement au tout premier lancement.
+  if (navigator.serviceWorker.controller) {
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
+  }
+  navigator.serviceWorker
+    .register("sw.js")
+    .then((reg) => reg.update())
+    .catch(() => {});
 }
 
 // ---------- Boot ----------
