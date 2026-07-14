@@ -4,7 +4,7 @@
 // et à terme les tuiles offline. Feuille sans dépendance interne.
 
 const DB_NAME = "sancho-rossi";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 function openDb() {
@@ -13,12 +13,18 @@ function openDb() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      // Un enregistrement par tracé (dédup par id de relation OSM en S3).
+      // v1 — objets utilisateur volumineux
+      // Un enregistrement par tracé importé/sauvegardé.
       if (!db.objectStoreNames.contains("traces")) db.createObjectStore("traces", { keyPath: "id" });
       // Clé-valeur libre : caches "elev", "photos"…
       if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
       // Réservé au pack offline (S5) : tuiles carto par clé.
       if (!db.objectStoreNames.contains("tiles")) db.createObjectStore("tiles");
+      // v2 — catalogue OSM chargé à la demande (S3)
+      // Un enregistrement par tracé balisé (dédup par id de relation OSM).
+      if (!db.objectStoreNames.contains("catalog")) db.createObjectStore("catalog", { keyPath: "id" });
+      // Clé = cellule de zone déjà interrogée (valeur { fetchedAt }), même vide.
+      if (!db.objectStoreNames.contains("zones")) db.createObjectStore("zones");
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -44,6 +50,7 @@ function run(storeName, mode, fn) {
 // ---------- Primitives par store ----------
 export const idbGet = (store, key) => run(store, "readonly", (os) => os.get(key));
 export const idbGetAll = (store) => run(store, "readonly", (os) => os.getAll());
+export const idbGetAllKeys = (store) => run(store, "readonly", (os) => os.getAllKeys());
 export const idbPut = (store, value, key) => run(store, "readwrite", (os) => os.put(value, key));
 export const idbDelete = (store, key) => run(store, "readwrite", (os) => os.delete(key));
 export const idbClear = (store) => run(store, "readwrite", (os) => os.clear());
@@ -59,9 +66,25 @@ export function saveTraces(list) {
   );
 }
 
+// ---------- Catalogue OSM à la demande (S3) ----------
+// Tracés balisés chargés selon la zone visible, dédupliqués par id de relation.
+export const loadCatalog = () => idbGetAll("catalog");
+export const putCatalogTrails = (list) =>
+  Promise.all(list.map((t) => idbPut("catalog", t)));
+
+// Cellules de zone déjà interrogées (pour ne pas refaire d'appel réseau).
+export const loadZoneKeys = () => idbGetAllKeys("zones");
+export const markZone = (key) => idbPut("zones", { fetchedAt: Date.now() }, key);
+
 // Efface toutes les données volumineuses (bouton « réinitialiser »).
 export function clearAll() {
-  return Promise.all([idbClear("traces"), idbClear("meta"), idbClear("tiles")]);
+  return Promise.all([
+    idbClear("traces"),
+    idbClear("meta"),
+    idbClear("tiles"),
+    idbClear("catalog"),
+    idbClear("zones"),
+  ]);
 }
 
 // Migration unique depuis localStorage : recopie les gros objets dans IndexedDB

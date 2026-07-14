@@ -17,20 +17,20 @@
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./js/state.js": "./js/state.js?v=501",
-        "./js/storage.js": "./js/storage.js?v=501",
+        "./js/state.js": "./js/state.js?v=502",
+        "./js/storage.js": "./js/storage.js?v=502",
         "./js/api.js": "./js/api.js?v=501",
-        "./js/photos.js": "./js/photos.js?v=501",
+        "./js/photos.js": "./js/photos.js?v=502",
         "./js/weather.js": "./js/weather.js?v=500",
         "./js/map.js": "./js/map.js?v=500",
-        "./js/filters.js": "./js/filters.js?v=500",
-        "./js/trails.js": "./js/trails.js?v=501",
-        "./js/detail.js": "./js/detail.js?v=501",
-        "./js/osm-live.js": "./js/osm-live.js?v=500",
-        "./js/agent.js": "./js/agent.js?v=500",
+        "./js/filters.js": "./js/filters.js?v=502",
+        "./js/trails.js": "./js/trails.js?v=502",
+        "./js/detail.js": "./js/detail.js?v=502",
+        "./js/catalog.js": "./js/catalog.js?v=502",
+        "./js/agent.js": "./js/agent.js?v=502",
         "./js/builder.js": "./js/builder.js?v=501",
         "./js/nav.js": "./js/nav.js?v=500",
-        "./js/security.js": "./js/security.js?v=500",
+        "./js/security.js": "./js/security.js?v=502",
         "./js/ui.js": "./js/ui.js?v=501",
         "./js/viewer3d.js": "./js/viewer3d.js?v=500"
       }
@@ -122,11 +122,10 @@
         <button id="btn-list" class="btn-filters map-list-btn">☰ Liste</button>
       </div>
 
-      <!-- Pile de contrôles à droite : calques, position, sentiers, circuit -->
+      <!-- Pile de contrôles à droite : calques, position, circuit -->
       <div class="layers-control map-stack" id="layers-control">
         <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte">🗺</button>
         <button class="map-ctl" id="btn-locate" title="Ma position">🎯</button>
-        <button class="map-ctl" id="btn-osm-search" title="Chercher les sentiers balisés de la zone">🔎</button>
         <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé">＋</button>
         <div class="layers-panel hidden" id="layers-panel">
           <div class="layers-title">Fond de carte</div>
@@ -542,7 +541,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script src="js/data-osm.js?v=414" onerror="window.OSM_TRAILS = []"></script>
-  <script type="module" src="js/main.js?v=501"></script>
+  <script type="module" src="js/main.js?v=502"></script>
 </body>
 </html>

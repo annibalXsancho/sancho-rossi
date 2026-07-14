@@ -1,9 +1,8 @@
 // Sancho Rossi — état central et utilitaires de tracés
 // Seul module autorisé en import top-level par les autres (feuille sans dépendance).
 
-// Globales des scripts classiques data.js / data-osm.js (environnement lexical global)
+// Graine curatée embarquée (script classique data.js, environnement lexical global).
 export const BASE_TRAILS = typeof TRAILS !== "undefined" ? TRAILS : [];
-export const CATALOG = typeof OSM_TRAILS !== "undefined" ? OSM_TRAILS : [];
 
 export const state = {
   view: "accueil",
@@ -27,11 +26,17 @@ export const state = {
   elev: {},
   contacts: JSON.parse(localStorage.getItem("sr-contacts") || "[]"),
   lastPos: JSON.parse(localStorage.getItem("sr-lastpos") || "null"),
-  osmLive: [],
+  // Catalogue OSM chargé à la demande selon la zone (S3), dédup par id de relation.
+  catalog: new Map(),
 };
 
+// Tracés balisés actuellement chargés (Map id → trail).
+export function catalogTrails() {
+  return [...state.catalog.values()];
+}
+
 export function allTrails() {
-  return [...state.imported, ...BASE_TRAILS, ...CATALOG, ...state.osmLive];
+  return [...state.imported, ...BASE_TRAILS, ...catalogTrails()];
 }
 
 export function getTrail(id) {
@@ -82,8 +87,6 @@ export function normalizeOsmTrail(t) {
   t.track = chains.flat();
   return t;
 }
-
-CATALOG.forEach(normalizeOsmTrail);
 
 // ---------- Utilitaires géo purs ----------
 export function sampleTrack(track, n = 100) {

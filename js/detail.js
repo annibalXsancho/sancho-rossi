@@ -1,5 +1,5 @@
 // Sancho Rossi — fiche itinéraire (page plein écran, façon AllTrails) + vue 3D + profil
-import { state, CATALOG, getTrail, trackOf, sampleTrack, haversineKm, saveNote } from "./state.js";
+import { state, catalogTrails, getTrail, trackOf, sampleTrack, haversineKm, saveNote } from "./state.js";
 import { ensureElevation } from "./api.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
@@ -183,7 +183,7 @@ export function renderDetail(id) {
   // Tracés officiels proches (fiches de la sélection bivouac uniquement)
   const nearbyEl = document.getElementById("nearby-official");
   if (nearbyEl) {
-    const near = CATALOG
+    const near = catalogTrails()
       .map((c) => ({ c, d: haversineKm(c.center, t.center) }))
       .filter((x) => x.d < 12)
       .sort((a, b) => a.d - b.d)

@@ -1,5 +1,5 @@
 // Sancho Rossi — rendu des cartes d'itinéraires, favoris, sélection, GPX import/export
-import { state, BASE_TRAILS as TRAILS, CATALOG, getTrail, trackOf, trackDistanceKm } from "./state.js";
+import { state, BASE_TRAILS as TRAILS, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
 import { map, markers, addMarker, drawActiveTrack } from "./map.js";
@@ -72,7 +72,7 @@ export function renderList() {
 
 function renderGrid() {
   const trails = filteredTrails();
-  const total = [...state.imported, ...TRAILS, ...CATALOG].length;
+  const total = allTrails().length;
   document.getElementById("grid-count").textContent = `(${trails.length}/${total})`;
   document.getElementById("grid-list").innerHTML = trails.length
     ? trails.map(cardHTML).join("")
@@ -81,7 +81,7 @@ function renderGrid() {
 
 function renderHome() {
   document.getElementById("home-tagline").textContent =
-    `Italie du Nord · ${TRAILS.length + CATALOG.length} itinéraires dont ${CATALOG.length} tracés balisés officiels · hors-ligne et sans compte.`;
+    `Toute l'Europe · ${allTrails().length} itinéraires chargés · sentiers balisés à la demande · sans compte, hors-ligne.`;
   document.getElementById("home-suggestions").innerHTML =
     TRAILS.filter((t) => t.bivouac).slice(0, 3).map(cardHTML).join("");
 }

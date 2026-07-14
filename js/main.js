@@ -1,17 +1,17 @@
 // Sancho Rossi — point d'entrée : orchestration de l'initialisation des modules.
 // L'ordre reproduit celui des sections de l'ex-app.js monolithique.
-import { state, BASE_TRAILS, CATALOG } from "./state.js";
+import { state, BASE_TRAILS } from "./state.js";
 import { initUi, refreshTilesCount } from "./ui.js";
 import { initMap, addMarker } from "./map.js";
 import { initFilters } from "./filters.js";
 import { initTrails, renderAll, renderFavCount } from "./trails.js";
 import { initDetail } from "./detail.js";
-import { initOsmLive } from "./osm-live.js";
+import { initCatalog, hydrateCatalog } from "./catalog.js";
 import { initAgent } from "./agent.js";
 import { initBuilder } from "./builder.js";
 import { initNav } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
-import { loadWikiPhotos, prefetchCatalogPhotos } from "./photos.js";
+import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 
 initUi();
@@ -19,7 +19,7 @@ initMap();
 initFilters();
 initTrails();
 initDetail();
-initOsmLive();
+initCatalog();
 initAgent();
 initBuilder();
 initNav();
@@ -32,16 +32,18 @@ if ("serviceWorker" in navigator) {
 
 // ---------- Boot ----------
 // Charge les objets volumineux depuis IndexedDB (+ migration localStorage) avant
-// de poser les marqueurs et de rendre les listes.
-loadPersisted().then((persisted) => {
+// de poser les marqueurs et de rendre les listes. Le catalogue balisé est ré-hydraté
+// depuis IndexedDB (zones déjà visitées) ; le reste se charge à la demande à la carte.
+loadPersisted().then(async (persisted) => {
   Object.assign(state, persisted);
 
-  // Marqueurs des tracés (importés + catalogue bivouac + balisés) sur la carte
-  [...state.imported, ...BASE_TRAILS, ...CATALOG].forEach(addMarker);
+  // Marqueurs de la graine curatée + tracés importés
+  [...state.imported, ...BASE_TRAILS].forEach(addMarker);
+  await hydrateCatalog();
 
   renderAll();
   renderFavCount();
   refreshTilesCount();
   checkWatch();
-  loadWikiPhotos().then(prefetchCatalogPhotos);
+  loadWikiPhotos();
 });

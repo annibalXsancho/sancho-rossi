@@ -1,5 +1,5 @@
 // Sancho Rossi — photos réelles des lieux (Wikipédia italien)
-import { state, BASE_TRAILS as TRAILS, CATALOG } from "./state.js";
+import { state, BASE_TRAILS as TRAILS } from "./state.js";
 import { renderAll } from "./trails.js";
 import { putMeta } from "./storage.js";
 
@@ -69,24 +69,4 @@ export function updateCardPhotos(trail) {
   document
     .querySelectorAll(`.trail-card[data-id="${trail.id}"] .card-photo`)
     .forEach((el) => (el.style.cssText = photoStyle(trail)));
-}
-
-let photoQueueRunning = false;
-export async function prefetchCatalogPhotos() {
-  if (photoQueueRunning) return;
-  photoQueueRunning = true;
-  let sinceSave = 0;
-  for (const t of CATALOG) {
-    if (state.photos[t.id] !== undefined) continue;
-    try {
-      state.photos[t.id] = await geoPhoto(t);
-    } catch {
-      break; // réseau ou quota : on reprendra à la prochaine session
-    }
-    if (state.photos[t.id]) updateCardPhotos(t);
-    if (++sinceSave % 10 === 0) putMeta("photos", state.photos);
-    await new Promise((r) => setTimeout(r, 350));
-  }
-  putMeta("photos", state.photos);
-  photoQueueRunning = false;
 }

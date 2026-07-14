@@ -1,6 +1,6 @@
 // Sancho Rossi — sécurité : veille automatique ntfy, contacts, position, plan de marche
 // Indissociables : planMessage/showPrealert lisent watchTopic + state.contacts.
-import { state, BASE_TRAILS as TRAILS, CATALOG, getTrail, trackOf } from "./state.js";
+import { state, BASE_TRAILS as TRAILS, catalogTrails, getTrail, trackOf } from "./state.js";
 
 // ---------- Veille automatique : alerte si aucune activité après l'heure prévue ----------
 let watchTopic = localStorage.getItem("sr-topic");
@@ -235,7 +235,7 @@ export function renderSafety() {
   renderWatchStatus();
   const sel = document.getElementById("plan-trail");
   const current = sel.value;
-  const opts = [...state.imported, ...TRAILS, ...CATALOG];
+  const opts = [...state.imported, ...TRAILS, ...catalogTrails()];
   const favs = opts.filter((t) => state.favorites.has(t.id));
   const rest = opts.filter((t) => !state.favorites.has(t.id));
   sel.innerHTML =

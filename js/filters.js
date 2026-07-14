@@ -1,10 +1,10 @@
 // Sancho Rossi — filtres et tri des itinéraires + panneau de filtres partagé
-import { state, BASE_TRAILS as TRAILS, CATALOG } from "./state.js";
+import { state, allTrails } from "./state.js";
 import { renderAll, renderList } from "./trails.js";
 
 export function filteredTrails() {
   const q = state.search.trim().toLowerCase();
-  let list = [...state.imported, ...TRAILS, ...CATALOG].filter((t) => {
+  let list = allTrails().filter((t) => {
     if (state.favoritesOnly && !state.favorites.has(t.id)) return false;
     if (state.source === "bivouac" && t.osm) return false;
     if (state.source === "osm" && !t.osm) return false;
@@ -47,6 +47,21 @@ function activeFiltersCount() {
   ].filter(Boolean).length;
 }
 
+// Le catalogue étant chargé à la demande, la liste des régions est reconstruite
+// à partir des tracés actuellement chargés (rafraîchie à l'ouverture des filtres).
+export function refreshRegionOptions() {
+  const sel = document.getElementById("filter-region");
+  const current = state.region;
+  [...sel.querySelectorAll("option")].forEach((o) => { if (o.value) o.remove(); });
+  [...new Set(allTrails().map((t) => t.region).filter(Boolean))].sort().forEach((r) => {
+    const opt = document.createElement("option");
+    opt.value = r;
+    opt.textContent = r;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
 export function updateFiltersBadge(resultCount) {
   const n = activeFiltersCount();
   ["filters-badge", "filters-badge-2"].forEach((id) => {
@@ -63,6 +78,7 @@ export function initFilters() {
 
   function openFilters() {
     filtersModal.classList.remove("hidden");
+    refreshRegionOptions();
     updateFiltersBadge(filteredTrails().length);
   }
 
@@ -123,13 +139,7 @@ export function initFilters() {
   bindChips("filter-source", "source");
 
   const regionSelect = document.getElementById("filter-region");
-  [...new Set([...TRAILS, ...CATALOG].map((t) => t.region))].sort().forEach((r) => {
-    const opt = document.createElement("option");
-    opt.value = r;
-    opt.textContent = r;
-    regionSelect.appendChild(opt);
-  });
-
+  refreshRegionOptions();
   regionSelect.addEventListener("change", (e) => { state.region = e.target.value; renderAll(); });
   document.getElementById("filter-type").addEventListener("change", (e) => { state.type = e.target.value; renderAll(); });
   document.getElementById("sort-by").addEventListener("change", (e) => { state.sortBy = e.target.value; renderAll(); });

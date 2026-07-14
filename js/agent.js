@@ -1,5 +1,5 @@
 // Sancho Rossi — agent local (Accueil) : suggestions heuristiques sans réseau
-import { BASE_TRAILS as TRAILS, CATALOG } from "./state.js";
+import { BASE_TRAILS as TRAILS, catalogTrails } from "./state.js";
 import { cardHTML } from "./trails.js";
 
 const AGENT_REGIONS = {
@@ -21,7 +21,7 @@ function agentAnswer(query) {
     region: Object.keys(AGENT_REGIONS).find((k) => q.includes(k)),
   };
 
-  const scored = [...TRAILS, ...CATALOG].map((t) => {
+  const scored = [...TRAILS, ...catalogTrails()].map((t) => {
     let score = 0;
     const reasons = [];
     if (wants.bivouac && t.bivouac) { score += 4; reasons.push("2 j · bivouac"); }
