@@ -132,7 +132,7 @@ export function initUi() {
   });
 
   document.getElementById("btn-reset-data").addEventListener("click", async () => {
-    if (!confirm("Effacer favoris, notes, GPX importés, contacts et caches ? Cette action est définitive.")) return;
+    if (!confirm("Effacer favoris, notes, randos enregistrées, GPX importés, contacts et caches ? Cette action est définitive.")) return;
     ["sr-favorites", "sr-notes", "sr-gpx", "sr-photos", "sr-baselayer", "sr-elev", "sr-contacts", "sr-lastpos", "sr-theme"]
       .forEach((k) => localStorage.removeItem(k));
     await clearAll();

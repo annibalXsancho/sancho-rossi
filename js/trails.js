@@ -1,5 +1,6 @@
 // Sancho Rossi — rendu des cartes d'itinéraires, favoris, sélection, GPX import/export
 import { state, BASE_TRAILS as TRAILS, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js";
+import { ensureElevation } from "./api.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
 import { map, markers, addMarker, drawActiveTrack } from "./map.js";
@@ -93,13 +94,59 @@ export function renderAll() {
   if (state.selectedId && getTrail(state.selectedId)) renderDetail(state.selectedId);
 }
 
-// ---------- Favoris ----------
-export function toggleFavorite(id) {
-  if (state.favorites.has(id)) state.favorites.delete(id);
-  else state.favorites.add(id);
+// ---------- Favoris / « Mes randos » ----------
+function persistFavorites() {
   localStorage.setItem("sr-favorites", JSON.stringify([...state.favorites]));
+}
+
+// Retire la copie locale d'un tracé enregistré (OSM). Ne touche pas aux GPX/circuits
+// de l'utilisateur (supprimés via le bouton dédié, pas par le cœur).
+function removeSavedCopy(id) {
+  state.imported = state.imported.filter((t) => t.id !== id);
+  saveTraces(state.imported);
+  const cat = state.catalog.get(id);
+  if (cat) addMarker(cat); // le tracé existe encore au catalogue : rebranche son marqueur
+  else { markers.get(id)?.remove(); markers.delete(id); }
+}
+
+// Enregistrer = copier localement géométrie complète + méta + profil altimétrique,
+// pour un affichage intégral hors-ligne même si le cache catalogue est vidé.
+async function persistFullCopy(t) {
+  // Profil relevé une fois (renseigne state.elev, persisté dans le store meta) : suffit
+  // à afficher hors-ligne le profil des tracés déjà locaux (graine, GPX, circuits).
+  const eles = await ensureElevation(t).catch(() => null);
+  // Seuls les tracés OSM (catalogue volatile, vidable) doivent être copiés localement.
+  if (!t.osm) return;
+  const copy = structuredClone(t);
+  copy.saved = true;
+  if (eles && eles.length > 1) {
+    copy.eles = eles;
+    const e = state.elev[t.id];
+    if (e) { copy.elevationGain = e.gain; copy.altMax = e.max; }
+  }
+  state.imported = state.imported.filter((x) => x.id !== t.id);
+  state.imported.unshift(copy);
+  await saveTraces(state.imported);
+  addMarker(copy); // tooltip avec le D+ relevé, masque le marqueur catalogue (même id)
   renderAll();
+}
+
+export function toggleFavorite(id) {
+  if (state.favorites.has(id)) {
+    state.favorites.delete(id);
+    persistFavorites();
+    const local = state.imported.find((t) => t.id === id);
+    if (local?.saved) removeSavedCopy(id);
+    renderAll();
+    renderFavCount();
+    return;
+  }
+  state.favorites.add(id);
+  persistFavorites();
+  renderAll(); // retour immédiat : le cœur s'allume
   renderFavCount();
+  const t = getTrail(id);
+  if (t) persistFullCopy(t).catch(() => {}); // copie + profil en tâche de fond
 }
 
 export function renderFavCount() {

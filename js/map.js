@@ -222,6 +222,9 @@ function hoverCardHTML(trail) {
 }
 
 export function addMarker(trail) {
+  // Idempotent : un même id peut être reposé (copie enregistrée + entrée catalogue,
+  // ré-hydratation au boot) — on retire l'ancien marqueur avant d'en poser un neuf.
+  markers.get(trail.id)?.remove();
   const marker = L.marker(trail.center, {
     icon: L.divIcon({
       className: trail.osm ? "trail-marker trail-marker-osm" : "trail-marker",

@@ -35,8 +35,17 @@ export function catalogTrails() {
   return [...state.catalog.values()];
 }
 
+// Union dédupliquée par id, les tracés locaux (imported : GPX, circuits, copies
+// enregistrées) l'emportant sur la graine puis le catalogue OSM chargé à la demande.
 export function allTrails() {
-  return [...state.imported, ...BASE_TRAILS, ...catalogTrails()];
+  const seen = new Set();
+  const out = [];
+  for (const t of [...state.imported, ...BASE_TRAILS, ...catalogTrails()]) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    out.push(t);
+  }
+  return out;
 }
 
 export function getTrail(id) {

@@ -51,9 +51,10 @@ if ("serviceWorker" in navigator) {
 loadPersisted().then(async (persisted) => {
   Object.assign(state, persisted);
 
-  // Marqueurs de la graine curatée + tracés importés
-  [...state.imported, ...BASE_TRAILS].forEach(addMarker);
+  // Le catalogue OSM d'abord, puis la graine curatée et les tracés locaux : une copie
+  // enregistrée (dans imported) reprend ainsi le marqueur de son homologue catalogue.
   await hydrateCatalog();
+  [...state.imported, ...BASE_TRAILS].forEach(addMarker);
 
   renderAll();
   renderFavCount();
