@@ -88,6 +88,10 @@ button { color: inherit; }
 .tab-nav-btn:hover { color: var(--text); }
 .tab-nav-btn.active { color: var(--text); border-bottom-color: var(--red); }
 
+/* Libellés sur grand écran, icônes traits simples sur mobile (voir @media 700px) */
+.tab-nav-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.tab-nav-btn svg { width: 22px; height: 22px; display: none; flex-shrink: 0; }
+
 .header-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .nav-btn {
@@ -232,6 +236,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .map-search input {
   flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
@@ -240,7 +245,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   color: var(--text);
 }
 
-.search-icon { opacity: 0.5; font-size: 13px; }
+.search-icon { display: flex; align-items: center; color: var(--text); opacity: 0.5; }
+.search-icon svg { width: 16px; height: 16px; }
 
 .map-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .map-chips .filter-group { display: flex; gap: 4px; }
@@ -276,9 +282,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 
 .map-ctl {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 42px;
   height: 42px;
-  font-size: 18px;
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--surface) 84%, transparent);
@@ -287,7 +296,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   cursor: pointer;
 }
 
-.map-ctl:hover, .map-ctl.active { border-color: var(--red); }
+.map-ctl svg { width: 20px; height: 20px; }
+.map-ctl:hover, .map-ctl.active { border-color: var(--red); color: var(--red); }
 .map-ctl:disabled { opacity: 0.6; cursor: wait; }
 
 .map-stack .layers-panel { position: absolute; top: 0; right: 50px; }
@@ -1182,6 +1192,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 
 .btn-filters:hover { border-color: var(--red); color: var(--red); }
+.btn-filters svg { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-filters-icon { padding: 10px 12px; }
 
 .filters-badge {
   background: var(--red);
@@ -1404,6 +1416,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   }
 
   .tab-nav-btn.active { border-top-color: var(--red); }
+  /* Icônes seules dans la barre du bas : plus de mots rognés */
+  .tab-nav-btn { flex-direction: column; gap: 0; padding: 0 4px; }
+  .tab-nav-btn svg { display: block; }
+  .tab-nav-btn .tab-label { display: none; }
 
   main { bottom: 54px; }
   .detail-panel { bottom: 54px; }

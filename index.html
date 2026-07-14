@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=504" />
   <script type="importmap">
     {
       "imports": {
@@ -31,7 +31,7 @@
         "./js/builder.js": "./js/builder.js?v=501",
         "./js/nav.js": "./js/nav.js?v=500",
         "./js/security.js": "./js/security.js?v=502",
-        "./js/ui.js": "./js/ui.js?v=503",
+        "./js/ui.js": "./js/ui.js?v=504",
         "./js/viewer3d.js": "./js/viewer3d.js?v=500"
       }
     }
@@ -62,15 +62,29 @@
     </div>
 
     <nav class="tab-nav" id="tab-nav">
-      <button class="tab-nav-btn active" data-view="accueil">Accueil</button>
-      <button class="tab-nav-btn" data-view="carte">Carte</button>
-      <button class="tab-nav-btn" data-view="itineraires">Itinéraires</button>
-      <button class="tab-nav-btn" data-view="securite">Sécurité</button>
-      <button class="tab-nav-btn" data-view="reglages">Réglages</button>
+      <button class="tab-nav-btn active" data-view="accueil" title="Accueil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/></svg>
+        <span class="tab-label">Accueil</span>
+      </button>
+      <button class="tab-nav-btn" data-view="carte" title="Carte">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>
+        <span class="tab-label">Carte</span>
+      </button>
+      <button class="tab-nav-btn" data-view="itineraires" title="Itinéraires">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H14a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h5.8"/></svg>
+        <span class="tab-label">Itinéraires</span>
+      </button>
+      <button class="tab-nav-btn" data-view="securite" title="Sécurité">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.2 3 7.4 7 8.5 4-1.1 7-4.3 7-8.5V6l-7-3Z"/></svg>
+        <span class="tab-label">Sécurité</span>
+      </button>
+      <button class="tab-nav-btn" data-view="reglages" title="Réglages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9" cy="8" r="2.4" fill="var(--bg)"/><circle cx="15" cy="16" r="2.4" fill="var(--bg)"/></svg>
+        <span class="tab-label">Réglages</span>
+      </button>
     </nav>
 
     <nav class="header-nav">
-      <button id="btn-theme" class="nav-btn nav-btn-icon" title="Basculer clair / sombre">🌙</button>
       <button id="btn-import-gpx" class="nav-btn" title="Importer un fichier GPX">⤒ GPX</button>
       <input id="gpx-file-input" type="file" accept=".gpx" multiple hidden />
       <button id="btn-favorites" class="nav-btn" title="Mes itinéraires enregistrés">
@@ -115,18 +129,31 @@
 
       <div class="map-topbar">
         <div class="map-search">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          </span>
           <input id="search-input" type="search" placeholder="Rechercher un itinéraire, un massif…" autocomplete="off" />
         </div>
-        <button id="btn-filters-map" class="btn-filters">⚙ Filtres <span id="filters-badge" class="filters-badge hidden"></span></button>
-        <button id="btn-list" class="btn-filters map-list-btn">☰ Liste</button>
+        <button id="btn-filters-map" class="btn-filters btn-filters-icon" title="Filtres">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+          <span id="filters-badge" class="filters-badge hidden"></span>
+        </button>
+        <button id="btn-list" class="btn-filters btn-filters-icon map-list-btn" title="Liste des itinéraires">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+        </button>
       </div>
 
       <!-- Pile de contrôles à droite : calques, position, circuit -->
       <div class="layers-control map-stack" id="layers-control">
-        <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte">🗺</button>
-        <button class="map-ctl" id="btn-locate" title="Ma position">🎯</button>
-        <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé">＋</button>
+        <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte" aria-label="Calques de carte">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
+        </button>
+        <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
+        </button>
+        <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé" aria-label="Créer un parcours">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
         <div class="layers-panel hidden" id="layers-panel">
           <div class="layers-title">Fond de carte</div>
 
@@ -277,7 +304,9 @@
     <section id="view-itineraires" class="view hidden">
       <div class="view-title-row">
         <h2 class="view-title">Itinéraires <span id="grid-count" class="muted"></span></h2>
-        <button id="btn-filters-grid" class="btn-filters">⚙ Filtres <span id="filters-badge-2" class="filters-badge hidden"></span></button>
+        <button id="btn-filters-grid" class="btn-filters">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+          Filtres <span id="filters-badge-2" class="filters-badge hidden"></span></button>
       </div>
       <div id="grid-list" class="cards-grid"></div>
     </section>

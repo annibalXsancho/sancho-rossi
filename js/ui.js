@@ -9,10 +9,8 @@ import { saveTraces, putMeta, clearAll } from "./storage.js";
 
 // ---------- Thème ----------
 function applyTheme(theme) {
-  const themeBtn = document.getElementById("btn-theme");
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("sr-theme", theme);
-  themeBtn.textContent = theme === "dark" ? "☀️" : "🌙";
   document.getElementById("setting-theme").value = theme;
 }
 
@@ -43,12 +41,8 @@ export async function refreshTilesCount() {
 }
 
 export function initUi() {
-  const themeBtn = document.getElementById("btn-theme");
   const themeSelect = document.getElementById("setting-theme");
   applyTheme(document.documentElement.dataset.theme || "light");
-  themeBtn.addEventListener("click", () =>
-    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
-  );
   themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
 
   // Échap : referme fiche puis panneau de calques
