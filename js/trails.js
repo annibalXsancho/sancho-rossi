@@ -304,14 +304,18 @@ export function initTrails() {
     if (errors.length) alert("Import impossible —\n" + errors.join("\n"));
   });
 
-  // Liste repliable (mobile : repliée par défaut pour laisser la carte respirer)
+  // Liste repliable. Le bouton « Liste » de la barre reste le point de ré-ouverture
+  // (la flèche de repli disparaît avec le panneau qui glisse hors écran).
   const resultsPanel = document.getElementById("results-panel");
-  document.getElementById("btn-list").addEventListener("click", () =>
-    resultsPanel.classList.toggle("collapsed")
-  );
-  if (window.innerWidth < 700) resultsPanel.classList.add("collapsed");
-
-  document.getElementById("panel-collapse").addEventListener("click", () => {
+  const listBtn = document.getElementById("btn-list");
+  const syncListBtn = () =>
+    listBtn.classList.toggle("active", !resultsPanel.classList.contains("collapsed"));
+  const toggleList = () => {
     resultsPanel.classList.toggle("collapsed");
-  });
+    syncListBtn();
+  };
+  listBtn.addEventListener("click", toggleList);
+  document.getElementById("panel-collapse").addEventListener("click", toggleList);
+  if (window.innerWidth < 700) resultsPanel.classList.add("collapsed"); // mobile : repliée
+  syncListBtn();
 }

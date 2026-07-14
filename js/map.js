@@ -269,8 +269,37 @@ export function addMarker(trail) {
 // ---------- Prévisualisation d'un parcours (clic sur la carte) ----------
 const accessCache = new Map();
 
+let previewTrail = null;
+
 export function hidePreview() {
+  previewTrail = null;
   document.getElementById("trail-preview").classList.add("hidden");
+}
+
+// Ancre la carte de prévisualisation juste à côté du marqueur cliqué (desktop).
+// Sur mobile (≤700 px) on garde la bottom-sheet définie en CSS.
+function positionPreview(trail) {
+  const el = document.getElementById("trail-preview");
+  if (window.innerWidth < 700) {
+    el.classList.remove("anchored", "preview-below");
+    el.style.left = el.style.top = el.style.bottom = "";
+    return;
+  }
+  el.classList.add("anchored");
+  const pt = map.latLngToContainerPoint(trail.center);
+  const size = map.getSize();
+  const w = el.offsetWidth || 320;
+  const h = el.offsetHeight || 200;
+  const gap = 16;
+  const left = Math.max(8, Math.min(pt.x - w / 2, size.x - w - 8));
+  let top = pt.y - h - gap;              // au-dessus du point par défaut
+  const below = top < 8;
+  if (below) top = pt.y + gap;           // pas la place au-dessus → en dessous
+  top = Math.min(top, size.y - h - 8);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+  el.style.bottom = "auto";
+  el.classList.toggle("preview-below", below);
 }
 
 async function fetchAccess(trail, el) {
@@ -323,7 +352,10 @@ export function showPreview(trail) {
       );
     });
   }
-  document.getElementById("trail-preview").classList.remove("hidden");
+  const previewEl = document.getElementById("trail-preview");
+  previewEl.classList.remove("hidden");
+  previewTrail = trail;
+  positionPreview(trail);
 }
 
 export function initMap() {
@@ -369,6 +401,13 @@ export function initMap() {
   map.on("moveend", () => {
     clearTimeout(poiMoveTimer);
     poiMoveTimer = setTimeout(() => Object.keys(poiState).forEach(refreshPoi), 700);
+  });
+
+  // La prévisualisation reste collée à son marqueur pendant les déplacements de carte
+  map.on("move zoom", () => {
+    if (previewTrail && !document.getElementById("trail-preview").classList.contains("hidden")) {
+      positionPreview(previewTrail);
+    }
   });
 
   // ---- Bouton de localisation ----
