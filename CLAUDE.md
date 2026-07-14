@@ -45,3 +45,4 @@ L'exigence esthétique fait partie du produit : interface **belle, fluide, moder
 - Géoloc/wake-lock bloqués en HTTP non sécurisé.
 - `import()` dynamique dans un script classique se résout par rapport à l'URL du script.
 - Mobile ≤700 px : tab-nav en bas, bottom-sheets, aucun bouton flottant en bas d'écran.
+- **Tuiles carto = réponses opaques cross-origin** (fetch `no-cors`) : le script ne peut PAS lire leurs octets → **impossible en IndexedDB** ; seul le **Cache Storage** les détient (packs offline `sr-pack-<id>`). Clé de cache **normalisée** (sous-domaine `{s}` retiré) identique côté page et SW, sinon Leaflet (a/b/c rotatif) rate l'entrée. Taille par tuile inaccessible → jauge via `navigator.storage.estimate()`.
