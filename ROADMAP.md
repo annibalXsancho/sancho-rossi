@@ -42,6 +42,7 @@ Règles : une idée = une ligne, ajoutée ici dès qu'elle est exprimée, sans d
 - Import GPX externe enrichi (fichiers d'autres sources).
 - Impression / export PDF d'une fiche rando.
 - Multi-jours > 2 (découpage par étapes).
+- **Fiabilité des tracés & métriques (prioritaire — signalé le 14/07/2026).** Beaucoup de tracés OSM chargés à la demande s'affichent quasi en ligne droite → distance, D+ et durée de marche faux. Exigence utilisateur : les tracés doivent **coller aux sentiers réels** avec des **métriques fiables**. Pistes à trancher en sprint dédié : (1) diagnostiquer la complétude de la géométrie Overpass `out geom` — une relation longue à cheval sur plusieurs cellules 0,25° peut ne charger qu'une géométrie partielle (sauts / segments non chaînés malgré `orderSegments`), envisager de charger la géométrie complète de la relation (par id) plutôt que par bbox ; (2) **recaler le tracé sur le réseau de sentiers via BRouter** (`profile=hiking-mountain`, altitudes en 3e coord → géométrie fidèle + distance + D+ fiables d'un coup) ; (3) remplacer le D+ actuel (échantillon Open-Meteo 100 pts, grossier) par l'élévation BRouter par point ; (4) **estimer la durée** (Naismith/Tobler) au lieu du « — » actuel pour les tracés OSM. Done quand : sur une zone donnée, les tracés suivent visiblement les sentiers connus et distance/D+/durée sont crédibles.
 
 ## Décisions actées (ne pas rouvrir sans demande explicite)
 - Statique sans Node ; GitHub Pages ; IndexedDB pour le volumineux.
