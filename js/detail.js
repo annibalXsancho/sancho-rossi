@@ -3,6 +3,7 @@ import { state, CATALOG, getTrail, trackOf, sampleTrack, haversineKm, saveNote }
 import { ensureElevation } from "./api.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
+import { putMeta } from "./storage.js";
 import { hidePreview, clearActiveTrack } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported } from "./trails.js";
 import { switchTab } from "./ui.js";
@@ -209,7 +210,7 @@ export function renderDetail(id) {
     geoPhoto(t)
       .then((url) => {
         state.photos[t.id] = url;
-        localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+        putMeta("photos", state.photos);
         if (url && state.selectedId === id) {
           document.querySelector(".detail-hero").style.cssText = photoStyle(t);
           updateCardPhotos(t);

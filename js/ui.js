@@ -5,6 +5,7 @@ import { renderAll, renderFavCount } from "./trails.js";
 import { isDetailOpen, closeDetail } from "./detail.js";
 import { renderSafety, saveContacts } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
+import { saveTraces, putMeta, clearAll } from "./storage.js";
 
 // ---------- Thème ----------
 function applyTheme(theme) {
@@ -84,7 +85,7 @@ export function initUi() {
 
   document.getElementById("btn-clear-photos").addEventListener("click", () => {
     state.photos = {};
-    localStorage.removeItem("sr-photos");
+    putMeta("photos", {});
     loadWikiPhotos();
   });
 
@@ -119,7 +120,7 @@ export function initUi() {
       (payload.contacts || []).forEach((c) => { if (!knownContacts.has(c.id)) state.contacts.push(c); });
       localStorage.setItem("sr-favorites", JSON.stringify([...state.favorites]));
       localStorage.setItem("sr-notes", JSON.stringify(state.notes));
-      localStorage.setItem("sr-gpx", JSON.stringify(state.imported));
+      saveTraces(state.imported);
       saveContacts();
       renderAll();
       renderFavCount();
@@ -130,10 +131,11 @@ export function initUi() {
     dataInput.value = "";
   });
 
-  document.getElementById("btn-reset-data").addEventListener("click", () => {
+  document.getElementById("btn-reset-data").addEventListener("click", async () => {
     if (!confirm("Effacer favoris, notes, GPX importés, contacts et caches ? Cette action est définitive.")) return;
     ["sr-favorites", "sr-notes", "sr-gpx", "sr-photos", "sr-baselayer", "sr-elev", "sr-contacts", "sr-lastpos", "sr-theme"]
       .forEach((k) => localStorage.removeItem(k));
+    await clearAll();
     caches?.delete("sr-tiles-v1");
     location.reload();
   });

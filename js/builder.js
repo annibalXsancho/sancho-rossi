@@ -3,6 +3,7 @@ import { state, trackOf, haversineKm } from "./state.js";
 import { map, addMarker } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
+import { saveTraces } from "./storage.js";
 
 export const builder = {
   active: false,
@@ -219,7 +220,7 @@ export function initBuilder() {
       segments,
     };
     state.imported.unshift(trail);
-    localStorage.setItem("sr-gpx", JSON.stringify(state.imported));
+    saveTraces(state.imported);
     addMarker(trail);
     builderExit();
     renderAll();

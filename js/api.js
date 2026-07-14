@@ -1,5 +1,6 @@
 // Sancho Rossi — appels API partagés (Overpass, Open-Meteo Elevation)
 import { state, trackOf, sampleTrack } from "./state.js";
+import { putMeta } from "./storage.js";
 
 // Interrogation Overpass avec miroir de secours en cas de saturation (429)
 export async function overpassFetch(query) {
@@ -46,6 +47,6 @@ export async function ensureElevation(trail) {
     else if (ref - e > 4) ref = e;
   }
   state.elev[trail.id] = { eles, gain: Math.round(gain), max: Math.round(Math.max(...eles)) };
-  localStorage.setItem("sr-elev", JSON.stringify(state.elev));
+  putMeta("elev", state.elev);
   return eles;
 }

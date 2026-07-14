@@ -21,9 +21,10 @@ export const state = {
   selectedId: null,
   favorites: new Set(JSON.parse(localStorage.getItem("sr-favorites") || "[]")),
   notes: JSON.parse(localStorage.getItem("sr-notes") || "{}"),
-  imported: JSON.parse(localStorage.getItem("sr-gpx") || "[]"),
-  photos: JSON.parse(localStorage.getItem("sr-photos") || "{}"),
-  elev: JSON.parse(localStorage.getItem("sr-elev") || "{}"),
+  // Objets volumineux : chargés depuis IndexedDB au boot (loadPersisted), voir storage.js
+  imported: [],
+  photos: {},
+  elev: {},
   contacts: JSON.parse(localStorage.getItem("sr-contacts") || "[]"),
   lastPos: JSON.parse(localStorage.getItem("sr-lastpos") || "null"),
   osmLive: [],

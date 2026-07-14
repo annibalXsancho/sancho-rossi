@@ -1,6 +1,7 @@
 // Sancho Rossi — photos réelles des lieux (Wikipédia italien)
 import { state, BASE_TRAILS as TRAILS, CATALOG } from "./state.js";
 import { renderAll } from "./trails.js";
+import { putMeta } from "./storage.js";
 
 const WIKI = {
   "tre-cime-bivouac": "Tre_Cime_di_Lavaredo",
@@ -47,7 +48,7 @@ export async function loadWikiPhotos() {
       if (url) state.photos[t.id] = url;
     })
   );
-  localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+  putMeta("photos", state.photos);
   renderAll();
 }
 
@@ -83,9 +84,9 @@ export async function prefetchCatalogPhotos() {
       break; // réseau ou quota : on reprendra à la prochaine session
     }
     if (state.photos[t.id]) updateCardPhotos(t);
-    if (++sinceSave % 10 === 0) localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+    if (++sinceSave % 10 === 0) putMeta("photos", state.photos);
     await new Promise((r) => setTimeout(r, 350));
   }
-  localStorage.setItem("sr-photos", JSON.stringify(state.photos));
+  putMeta("photos", state.photos);
   photoQueueRunning = false;
 }

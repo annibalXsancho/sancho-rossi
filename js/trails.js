@@ -5,6 +5,7 @@ import { filteredTrails, updateFiltersBadge } from "./filters.js";
 import { map, markers, addMarker, drawActiveTrack } from "./map.js";
 import { renderDetail, closeDetail } from "./detail.js";
 import { switchTab } from "./ui.js";
+import { saveTraces } from "./storage.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -206,7 +207,7 @@ function parseGPX(xmlText, fileName) {
 
 export function deleteImported(id) {
   state.imported = state.imported.filter((t) => t.id !== id);
-  localStorage.setItem("sr-gpx", JSON.stringify(state.imported));
+  saveTraces(state.imported);
   markers.get(id)?.remove();
   markers.delete(id);
   state.favorites.delete(id);
@@ -247,7 +248,7 @@ export function initTrails() {
       }
     }
     gpxInput.value = "";
-    localStorage.setItem("sr-gpx", JSON.stringify(state.imported));
+    saveTraces(state.imported);
     renderAll();
     if (lastId) {
       switchTab("carte");
