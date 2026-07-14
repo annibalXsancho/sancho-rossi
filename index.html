@@ -11,27 +11,28 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=505" />
+  <link rel="stylesheet" href="css/style.css?v=506" />
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
         "./js/state.js": "./js/state.js?v=503",
-        "./js/storage.js": "./js/storage.js?v=502",
+        "./js/storage.js": "./js/storage.js?v=505",
         "./js/api.js": "./js/api.js?v=501",
         "./js/photos.js": "./js/photos.js?v=502",
-        "./js/weather.js": "./js/weather.js?v=500",
-        "./js/map.js": "./js/map.js?v=504",
+        "./js/weather.js": "./js/weather.js?v=505",
+        "./js/map.js": "./js/map.js?v=505",
         "./js/filters.js": "./js/filters.js?v=502",
-        "./js/trails.js": "./js/trails.js?v=504",
-        "./js/detail.js": "./js/detail.js?v=502",
+        "./js/trails.js": "./js/trails.js?v=505",
+        "./js/detail.js": "./js/detail.js?v=505",
         "./js/catalog.js": "./js/catalog.js?v=502",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/builder.js": "./js/builder.js?v=501",
-        "./js/nav.js": "./js/nav.js?v=500",
+        "./js/nav.js": "./js/nav.js?v=505",
         "./js/security.js": "./js/security.js?v=502",
-        "./js/ui.js": "./js/ui.js?v=504",
+        "./js/ui.js": "./js/ui.js?v=505",
+        "./js/offline.js": "./js/offline.js?v=505",
         "./js/viewer3d.js": "./js/viewer3d.js?v=500"
       }
     }
@@ -409,6 +410,15 @@
       </div>
 
       <div class="settings-group">
+        <h3>Packs hors-ligne (terrain)</h3>
+        <p class="muted">Chaque pack embarque le corridor de carte (tous calques, z12–15), les points
+        d'eau/refuges/secours et un snapshot météo autour d'une rando — pour naviguer en mode avion.
+        Créez-en un depuis une fiche → « ⤓ Terrain ».</p>
+        <div id="offline-gauge" class="offline-gauge"></div>
+        <div id="packs-list" class="packs-list"></div>
+      </div>
+
+      <div class="settings-group">
         <h3>Photos</h3>
         <div class="settings-row">
           Cache des photos de lieux (Wikipédia)
@@ -570,6 +580,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script type="module" src="js/main.js?v=504"></script>
+  <script type="module" src="js/main.js?v=505"></script>
 </body>
 </html>

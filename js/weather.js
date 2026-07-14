@@ -1,5 +1,6 @@
 // Sancho Rossi — météo Open-Meteo : 7 jours + heure par heure + météo sur la route
 import { trackOf } from "./state.js";
+import { putPackMeta, getPackMeta } from "./storage.js";
 
 const weatherCache = new Map();
 
@@ -219,6 +220,14 @@ function bindRouteWeather(trail, container) {
   });
 }
 
+// Snapshot météo embarqué dans un pack offline (S5). Stocké dans le store "tiles"
+// (métadonnées de pack), clé "wx:<id>". Appelé par js/offline.js à la construction.
+export async function saveWeatherSnapshot(trail) {
+  const data = await fetchWeather(trail);
+  await putPackMeta(`wx:${trail.id}`, { data, at: Date.now() });
+  return data;
+}
+
 export async function loadWeatherTab(trail, el) {
   try {
     const data = await fetchWeather(trail);
@@ -226,6 +235,14 @@ export async function loadWeatherTab(trail, el) {
     el.insertAdjacentHTML("beforeend", routeWeatherHTML(trail));
     bindRouteWeather(trail, el);
   } catch (err) {
+    // Hors-ligne : retomber sur le snapshot du pack si la rando en a un.
+    const snap = await getPackMeta(`wx:${trail.id}`).catch(() => null);
+    if (snap?.data) {
+      renderWeatherInto(el, snap.data);
+      el.insertAdjacentHTML("afterbegin",
+        `<p class="wx-snapshot">📦 Snapshot enregistré le ${new Date(snap.at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · hors-ligne. « Météo sur la route » nécessite une connexion.</p>`);
+      return;
+    }
     el.innerHTML = `<p class="muted">Prévisions indisponibles (${err.message}). Vérifiez la connexion internet.</p>`;
   }
 }

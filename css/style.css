@@ -1174,6 +1174,41 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .settings-group h3 + .settings-row, .settings-group h3 + p, .settings-group h3 + div { border-top: none; }
 .danger-text { color: var(--red); }
 
+/* ---- Packs offline (S5) ---- */
+.offline-gauge { margin: 4px 0 14px; display: flex; flex-direction: column; gap: 6px; }
+.gauge-track {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  background: var(--red);
+  transition: width 220ms ease-out;
+}
+.packs-list { display: flex; flex-direction: column; }
+.pack-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.pack-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pack-info strong { font-size: 13.5px; }
+.pack-info .muted { font-size: 12px; }
+.wx-snapshot {
+  font-size: 12.5px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border-left: 2px solid var(--red);
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
 /* ============ Panneau de filtres partagé ============ */
 .btn-filters {
   display: inline-flex;

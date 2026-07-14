@@ -18,7 +18,10 @@ function openDb() {
       if (!db.objectStoreNames.contains("traces")) db.createObjectStore("traces", { keyPath: "id" });
       // Clé-valeur libre : caches "elev", "photos"…
       if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
-      // Réservé au pack offline (S5) : tuiles carto par clé.
+      // Pack offline (S5) : métadonnées légères par clé — manifeste des packs,
+      // POI "poi:<id>", snapshot météo "wx:<id>". Les tuiles elles-mêmes sont des
+      // réponses opaques cross-origin : illisibles par le script → stockées dans le
+      // Cache Storage (buckets "sr-pack-<id>"), jamais ici.
       if (!db.objectStoreNames.contains("tiles")) db.createObjectStore("tiles");
       // v2 — catalogue OSM chargé à la demande (S3)
       // Un enregistrement par tracé balisé (dédup par id de relation OSM).
@@ -75,6 +78,12 @@ export const putCatalogTrails = (list) =>
 // Cellules de zone déjà interrogées (pour ne pas refaire d'appel réseau).
 export const loadZoneKeys = () => idbGetAllKeys("zones");
 export const markZone = (key) => idbPut("zones", { fetchedAt: Date.now() }, key);
+
+// ---------- Packs offline (S5) ----------
+// Métadonnées légères du pack (manifeste, POI, snapshot météo) dans le store tiles.
+export const putPackMeta = (key, value) => idbPut("tiles", value, key);
+export const getPackMeta = (key) => idbGet("tiles", key);
+export const delPackMeta = (key) => idbDelete("tiles", key);
 
 // Efface toutes les données volumineuses (bouton « réinitialiser »).
 export function clearAll() {

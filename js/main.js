@@ -13,6 +13,7 @@ import { initNav } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
+import { initOffline } from "./offline.js";
 
 initUi();
 initMap();
@@ -50,6 +51,10 @@ if ("serviceWorker" in navigator) {
 // depuis IndexedDB (zones déjà visitées) ; le reste se charge à la demande à la carte.
 loadPersisted().then(async (persisted) => {
   Object.assign(state, persisted);
+
+  // Manifeste des packs offline chargé avant tout rendu (le bouton « Terrain » de la
+  // fiche et la liste des Réglages lisent hasPack/listPacks de façon synchrone).
+  await initOffline();
 
   // Le catalogue OSM d'abord, puis la graine curatée et les tracés locaux : une copie
   // enregistrée (dans imported) reprend ainsi le marqueur de son homologue catalogue.

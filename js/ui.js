@@ -6,6 +6,7 @@ import { isDetailOpen, closeDetail } from "./detail.js";
 import { renderSafety, saveContacts } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { saveTraces, putMeta, clearAll } from "./storage.js";
+import { listPacks, deletePack, deleteAllPacks, storageEstimate } from "./offline.js";
 
 // ---------- Thème ----------
 function applyTheme(theme) {
@@ -26,6 +27,45 @@ export function switchTab(name) {
   );
   if (name === "carte") setTimeout(() => map.invalidateSize(), 60);
   if (name === "securite") renderSafety();
+  if (name === "reglages") renderOffline();
+}
+
+// ---------- Réglages : packs offline + jauge de stockage (S5) ----------
+export async function renderOffline() {
+  const listEl = document.getElementById("packs-list");
+  if (listEl) {
+    const packs = listPacks();
+    listEl.innerHTML = packs.length
+      ? packs
+          .map(
+            (p) => `
+      <div class="pack-row">
+        <div class="pack-info">
+          <strong>${p.name}</strong>
+          <span class="muted">${p.tileCount.toLocaleString("fr-FR")} tuiles · ${p.poiCount} POI${p.weatherAt ? " · météo" : ""} · ${new Date(p.createdAt).toLocaleDateString("fr-FR")}</span>
+        </div>
+        <button class="btn btn-danger" data-del-pack="${p.id}">Supprimer</button>
+      </div>`
+          )
+          .join("")
+      : `<p class="muted">Aucun pack. Ouvrez une rando puis « ⤓ Terrain » pour l'emporter hors-ligne.</p>`;
+    listEl.querySelectorAll("[data-del-pack]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        await deletePack(b.dataset.delPack);
+        renderOffline();
+      })
+    );
+  }
+
+  const g = document.getElementById("offline-gauge");
+  if (g) {
+    const est = await storageEstimate();
+    g.innerHTML = est
+      ? `<div class="gauge-track"><div class="gauge-fill" style="width:${est.pct.toFixed(1)}%"></div></div>
+         <span class="muted">${est.usedMB.toFixed(0)} Mo utilisés${est.quotaMB ? ` sur ${(est.quotaMB / 1024).toFixed(1)} Go disponibles` : ""}</span>`
+      : "";
+  }
 }
 
 // ---------- Réglages : jauge de tuiles en cache ----------
@@ -129,7 +169,8 @@ export function initUi() {
     if (!confirm("Effacer favoris, notes, randos enregistrées, GPX importés, contacts et caches ? Cette action est définitive.")) return;
     ["sr-favorites", "sr-notes", "sr-gpx", "sr-photos", "sr-baselayer", "sr-elev", "sr-contacts", "sr-lastpos", "sr-theme"]
       .forEach((k) => localStorage.removeItem(k));
-    await clearAll();
+    await deleteAllPacks();   // buckets Cache Storage sr-pack-*
+    await clearAll();         // stores IndexedDB (dont manifeste/POI/météo des packs)
     caches?.delete("sr-tiles-v1");
     location.reload();
   });

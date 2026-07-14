@@ -8,6 +8,20 @@ import { renderDetail } from "./detail.js";
 import { startNavigation } from "./nav.js";
 import { savePos } from "./security.js";
 
+// ---------- Modèles de tuiles (source unique, réutilisée par le pack offline S5) ----------
+// name → { url (avec {s}{z}{x}{y}), maxZoom }. L'ordre {y}/{x} d'ArcGIS est déjà
+// encodé dans l'URL. Sert à construire les couches Leaflet ci-dessous ET à télécharger
+// les corridors de tuiles (js/offline.js). Exclus des packs : mtb, ski, rain.
+export const TILE_TEMPLATES = {
+  plan: { url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", maxZoom: 19 },
+  topo: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", maxZoom: 17 },
+  satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", maxZoom: 19 },
+  sombre: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", maxZoom: 19 },
+  terrainhd: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}", maxZoom: 13 },
+  hillshade: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}", maxZoom: 16 },
+  trails: { url: "https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", maxZoom: 18 },
+};
+
 // ---------- Carte + calques ----------
 const baseLayers = {
   plan: L.tileLayer("https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", {
@@ -114,7 +128,7 @@ export function applyLayer(name) {
 }
 
 // ---- Couches de points d'intérêt (Overpass) : eau, refuges, secours ----
-const POI_DEFS = {
+export const POI_DEFS = {
   water: {
     icon: "💧",
     label: (t) => t.name || "Eau potable",

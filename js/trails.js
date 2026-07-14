@@ -111,12 +111,17 @@ function removeSavedCopy(id) {
 
 // Enregistrer = copier localement géométrie complète + méta + profil altimétrique,
 // pour un affichage intégral hors-ligne même si le cache catalogue est vidé.
-async function persistFullCopy(t) {
+// Renvoie le tracé local exploitable hors-ligne (la copie pour un OSM, le tracé lui-même
+// pour une graine/GPX/circuit déjà local). Réutilisé par le pack offline (S5).
+export async function ensureSavedCopy(t) {
+  // Déjà une copie locale (ré-enregistrement, ou tracé importé) : rien à copier.
+  const existing = state.imported.find((x) => x.id === t.id);
+  if (existing) { await ensureElevation(existing).catch(() => null); return existing; }
   // Profil relevé une fois (renseigne state.elev, persisté dans le store meta) : suffit
   // à afficher hors-ligne le profil des tracés déjà locaux (graine, GPX, circuits).
   const eles = await ensureElevation(t).catch(() => null);
   // Seuls les tracés OSM (catalogue volatile, vidable) doivent être copiés localement.
-  if (!t.osm) return;
+  if (!t.osm) return t;
   const copy = structuredClone(t);
   copy.saved = true;
   if (eles && eles.length > 1) {
@@ -127,8 +132,16 @@ async function persistFullCopy(t) {
   state.imported = state.imported.filter((x) => x.id !== t.id);
   state.imported.unshift(copy);
   await saveTraces(state.imported);
+  // Enregistrer = « Mes randos » : le cœur suit (ex. téléchargement d'un pack sur un OSM
+  // non encore favori). Idempotent si l'appel vient déjà de toggleFavorite.
+  if (!state.favorites.has(copy.id)) {
+    state.favorites.add(copy.id);
+    persistFavorites();
+    renderFavCount();
+  }
   addMarker(copy); // tooltip avec le D+ relevé, masque le marqueur catalogue (même id)
   renderAll();
+  return copy;
 }
 
 export function toggleFavorite(id) {
@@ -146,7 +159,7 @@ export function toggleFavorite(id) {
   renderAll(); // retour immédiat : le cœur s'allume
   renderFavCount();
   const t = getTrail(id);
-  if (t) persistFullCopy(t).catch(() => {}); // copie + profil en tâche de fond
+  if (t) ensureSavedCopy(t).catch(() => {}); // copie + profil en tâche de fond
 }
 
 export function renderFavCount() {

@@ -8,6 +8,7 @@ import { hidePreview, clearActiveTrack } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
+import { hasPack, estimatePack, buildPack } from "./offline.js";
 
 // ---------- Profil d'altitude ----------
 function profileSVGFromValues(values, W = 640, H = 150) {
@@ -101,6 +102,7 @@ export function renderDetail(id) {
       <button class="btn btn-primary" id="btn-follow">▶ Suivre ce tracé</button>
       <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
       <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
+      <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
       <button class="btn" id="btn-gpx">⤓ GPX</button>
       <button class="btn" id="btn-safety">🛟 Partager</button>
       ${t.imported ? `<button class="btn btn-danger" id="btn-delete-gpx">🗑</button>` : ""}
@@ -220,6 +222,7 @@ export function renderDetail(id) {
   }
 
   document.getElementById("btn-detail-fav").addEventListener("click", () => toggleFavorite(id));
+  document.getElementById("btn-offline").addEventListener("click", () => downloadPack(t, id));
   document.getElementById("btn-gpx").addEventListener("click", () => downloadGPX(t));
   document.getElementById("btn-itinerary").addEventListener("click", () => {
     switchTab("carte");
@@ -294,6 +297,42 @@ async function load3D(trail) {
   } catch (err) {
     intro.querySelector("#btn-load-3d").textContent = "▶ Réessayer";
     alert(`Vue 3D indisponible : ${err.message}`);
+  }
+}
+
+// Téléchargement d'un pack « pour le terrain » depuis la fiche. La fiche peut se
+// re-rendre pendant l'opération (auto-save d'un OSM → renderAll) : on re-cible donc
+// toujours le bouton par son id pour refléter la progression sur l'élément visible.
+async function downloadPack(t, id) {
+  if (hasPack(id)) { closeDetail(); switchTab("reglages"); return; }
+  const est = estimatePack(t);
+  if (est.tiles > 8000) {
+    alert(`« ${t.name} » est trop long pour un pack unique (~${est.tiles} tuiles).`);
+    return;
+  }
+  if (!confirm(
+    `Télécharger « ${t.name} » pour le terrain ?\n\n` +
+    `~${est.tiles} tuiles (~${est.mb} Mo) + points d'eau/refuges + météo.\n` +
+    `À faire de préférence en Wi-Fi.`
+  )) return;
+
+  const setBtn = (text) => {
+    const b = document.getElementById("btn-offline");
+    if (b) { b.disabled = true; b.textContent = text; }
+  };
+  setBtn("⏳ Préparation…");
+  try {
+    await buildPack(t, (p) => {
+      if (p.phase === "tiles") setBtn(`⏳ Carte ${Math.round((p.done / p.total) * 100) || 0} %`);
+      else if (p.phase === "poi") setBtn("⏳ Points d'intérêt…");
+      else if (p.phase === "weather") setBtn("⏳ Météo…");
+    });
+    const b = document.getElementById("btn-offline");
+    if (b) { b.disabled = false; b.textContent = "✓ Hors-ligne"; b.classList.add("faved"); }
+  } catch (err) {
+    const b = document.getElementById("btn-offline");
+    if (b) { b.disabled = false; b.textContent = "⤓ Terrain"; }
+    alert(`Téléchargement incomplet : ${err.message}`);
   }
 }
 

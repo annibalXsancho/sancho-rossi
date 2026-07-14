@@ -1,5 +1,5 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v9";
+const SHELL_CACHE = "sr-shell-v10";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
@@ -24,6 +24,7 @@ const SHELL_FILES = [
   "js/nav.js",
   "js/security.js",
   "js/ui.js",
+  "js/offline.js",
   "js/viewer3d.js",
   "manifest.json",
   "assets/icon.svg",
@@ -34,7 +35,28 @@ const TILE_HOSTS = [
   "tile.opentopomap.org",
   "server.arcgisonline.com",
   "tile.waymarkedtrails.org",
+  "basemaps.cartocdn.com",
 ];
+
+// Clé de cache normalisée des tuiles de pack — DOIT rester identique à celle de
+// js/offline.js : le sous-domaine rotatif {s} (a/b/c/d) doit taper la même entrée.
+function normTileKey(urlStr) {
+  const u = new URL(urlStr);
+  u.hostname = u.hostname.replace(/^[a-d]\./, "");
+  return `${u.protocol}//${u.hostname}${u.pathname}`;
+}
+
+// Cherche une tuile dans les buckets de packs offline (sr-pack-*), servie hors-ligne
+// et jamais évincée (contrairement au cache de navigation opportuniste).
+async function matchPackTile(urlStr) {
+  const key = normTileKey(urlStr);
+  const names = (await caches.keys()).filter((n) => n.startsWith("sr-pack-"));
+  for (const n of names) {
+    const hit = await (await caches.open(n)).match(key);
+    if (hit) return hit;
+  }
+  return null;
+}
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -68,10 +90,13 @@ async function trimTiles() {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
-  // Tuiles cartographiques : cache d'abord (fonctionnement hors-ligne)
+  // Tuiles cartographiques : pack offline d'abord, puis cache de navigation, puis réseau.
   if (TILE_HOSTS.some((h) => url.hostname.endsWith(h))) {
     e.respondWith(
-      caches.open(TILES_CACHE).then(async (cache) => {
+      (async () => {
+        const packed = await matchPackTile(e.request.url);
+        if (packed) return packed;
+        const cache = await caches.open(TILES_CACHE);
         const hit = await cache.match(e.request);
         if (hit) return hit;
         const res = await fetch(e.request);
@@ -80,7 +105,7 @@ self.addEventListener("fetch", (e) => {
           if (Math.random() < 0.02) trimTiles();
         }
         return res;
-      })
+      })()
     );
     return;
   }

@@ -4,6 +4,7 @@ import { map } from "./map.js";
 import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { savePos } from "./security.js";
+import { hasPack, packPoiLayer } from "./offline.js";
 
 const nav = {
   active: false,
@@ -17,6 +18,7 @@ const nav = {
   marker: null,
   lastPan: 0,
   wakeLock: null,
+  poiLayer: null,   // POI eau/refuges/secours du pack offline, visibles hors-ligne
 };
 
 async function requestWakeLock() {
@@ -78,6 +80,14 @@ export function startNavigation(id) {
   document.getElementById("nav-hud").classList.remove("hidden");
   document.getElementById("nav-title").textContent = t.name;
   document.getElementById("surv-title").textContent = t.name;
+
+  // Pack offline : les POI eau/refuges/secours enregistrés s'affichent, y compris
+  // sans réseau (Overpass live indisponible en mode avion).
+  if (hasPack(id)) {
+    packPoiLayer(id).then((group) => {
+      if (group && nav.active && nav.trail?.id === id) { nav.poiLayer = group; group.addTo(map); }
+    }).catch(() => {});
+  }
 
   nav.watchId = navigator.geolocation.watchPosition(onNavFix, (err) => {
     document.getElementById("nav-offtrack").classList.remove("hidden");
@@ -148,6 +158,8 @@ function stopNavigation() {
   nav.active = false;
   nav.marker?.remove();
   nav.marker = null;
+  nav.poiLayer?.remove();
+  nav.poiLayer = null;
   releaseWakeLock();
   setSurvivor(false);
   document.body.classList.remove("nav-active");
