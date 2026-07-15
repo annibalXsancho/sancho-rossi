@@ -994,12 +994,26 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   bottom: 0;
   left: 0;
   right: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
   background: var(--bg);
   border-top: 2px solid var(--red);
   pointer-events: auto;
 }
+
+.nav-stats { display: grid; grid-template-columns: repeat(4, 1fr); }
+
+.nav-gps {
+  padding: 6px 10px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--border);
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+.nav-gps[data-state="warn"] { color: #d9a441; }
+.nav-gps[data-state="poor"] { color: var(--red); }
+.nav-gps[data-state="lost"] { color: #fff; background: var(--red); border-bottom-color: var(--red); }
 
 .nav-stat { padding: 12px 8px 14px; text-align: center; border-left: 1px solid var(--border); }
 .nav-stat:first-child { border-left: none; }
@@ -1062,6 +1076,15 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 
 .surv-off.hidden { display: none; }
+
+.surv-gps {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--red);
+}
+.surv-gps.hidden { display: none; }
 .surv-actions { display: flex; gap: 10px; }
 
 .surv-btn {

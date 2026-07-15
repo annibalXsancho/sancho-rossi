@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=506" />
+  <link rel="stylesheet" href="css/style.css?v=507" />
   <script type="importmap">
     {
       "imports": {
@@ -29,7 +29,7 @@
         "./js/catalog.js": "./js/catalog.js?v=502",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/builder.js": "./js/builder.js?v=501",
-        "./js/nav.js": "./js/nav.js?v=505",
+        "./js/nav.js": "./js/nav.js?v=506",
         "./js/security.js": "./js/security.js?v=502",
         "./js/ui.js": "./js/ui.js?v=505",
         "./js/offline.js": "./js/offline.js?v=505",
@@ -245,10 +245,13 @@
         </div>
         <div id="nav-offtrack" class="nav-offtrack hidden">⚠ HORS TRACÉ — <span id="nav-offdist"></span> m</div>
         <div class="nav-bottom">
-          <div class="nav-stat"><span id="nav-remaining">—</span><label>km restants</label></div>
-          <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
-          <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
-          <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+          <div id="nav-gps" class="nav-gps" data-state="search">Recherche du signal GPS…</div>
+          <div class="nav-stats">
+            <div class="nav-stat"><span id="nav-remaining">—</span><label>km restants</label></div>
+            <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
+            <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
+            <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+          </div>
         </div>
       </div>
 
@@ -559,6 +562,7 @@
       <div class="surv-cell"><span id="surv-time">—</span><label>dernière maj</label></div>
     </div>
     <div id="surv-off" class="surv-off hidden">⚠ HORS TRACÉ</div>
+    <div id="surv-gps" class="surv-gps hidden">⚠ SIGNAL GPS PERDU</div>
     <div class="surv-actions">
       <button id="surv-advanced" class="surv-btn">Mode avancé</button>
       <button id="surv-stop" class="surv-btn surv-btn-danger">Terminer</button>
