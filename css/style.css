@@ -505,7 +505,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .builder-foot { display: flex; align-items: center; gap: 8px; }
 
 /* ============ Générateur de boucle ============ */
-.loops-bar { border-top-color: var(--red); }
+/* Barre ancrée en haut à gauche (et non centrée) pour ne pas masquer la boucle. */
+.loops-bar { border-top-color: var(--red); left: 12px; transform: none; width: min(360px, calc(100vw - 24px)); }
 .loops-start { font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
 .loops-start:not(.muted) { color: var(--text); font-variant-numeric: tabular-nums; }
 .loops-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -534,6 +535,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .loops-metric label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
 .loops-actions { display: flex; gap: 8px; }
 .loops-actions .btn { flex: 1; }
+
+/* Mode boucle : la carte reste visible, les panneaux d'exploration s'effacent
+   (sinon la liste des résultats surgit par-dessus la carte → écran instable). */
+.loops-active .map-topbar,
+.loops-active .results-panel { display: none; }
 .builder-stats { flex: 1; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* Fil d'Ariane cliquable */
