@@ -199,7 +199,7 @@ Date : ${dateFr} — retour prévu à ${retour}
 Point de départ : https://maps.google.com/?q=${start[0].toFixed(5)},${start[1].toFixed(5)}
 ${posLine}
 🔔 Abonne-toi à mon canal d'alerte automatique : https://ntfy.sh/${watchTopic} (application ou site ntfy — tu recevras une notification si je ne donne pas signe de vie)
-⚠️ Sans nouvelles de moi 2 h après l'heure de retour prévue, appelle les secours : 112 (ou 118 secours alpin Italie) en indiquant ce message.`;
+⚠️ Sans nouvelles de moi ${ALERT_DELAY_H} h après l'heure de retour prévue, appelle les secours : 112 (ou 118 secours alpin Italie) en indiquant ce message.`;
 }
 
 function renderPlanPreview() {
