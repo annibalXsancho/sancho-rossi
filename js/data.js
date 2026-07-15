@@ -1,4 +1,5 @@
-// Sancho Rossi — base de données des itinéraires (Italie du Nord)
+// Sancho Rossi — jeu d'itinéraires « graine » (Alpes italiennes). Point de départ
+// embarqué ; la couverture Europe se fait par chargement à la demande (catalog.js).
 // Priorité : itinéraires 2 jours avec nuit de bivouac.
 // Champs terrain : eau (points d'eau), bivouacSpot, periode (fenêtre conseillée).
 

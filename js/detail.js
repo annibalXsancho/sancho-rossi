@@ -58,7 +58,7 @@ export function renderDetail(id) {
   viewer3dActive = false;
 
   breadcrumbEl.innerHTML =
-    `<button class="bc-link" data-bc="all">Italie</button> / ` +
+    `<button class="bc-link" data-bc="all">Europe</button> / ` +
     `<button class="bc-link" data-bc="region">${t.region}</button> / <strong>${t.name}</strong>`;
   breadcrumbEl.querySelectorAll(".bc-link").forEach((b) =>
     b.addEventListener("click", () => {

@@ -82,7 +82,7 @@ export function checkWatch() {
     ntfyPush("🚨 ALERTE — Sancho Rossi",
       `Aucune activité ${ALERT_DELAY_H} h après le retour prévu.\n` +
       `Itinéraire : ${watch.trailName}\nRetour prévu : ${new Date(watch.retour).toLocaleString("fr-FR")}\n${pos}\n` +
-      `Prévenir les secours : 112 (118 secours alpin Italie).`, "urgent");
+      `Prévenir les secours : 112 (numéro d'urgence européen, secours en montagne inclus).`, "urgent");
     showPrealert(true);
   } else if (now >= watch.deadline - PREWARN_MIN * 60000 && !watch.prewarned) {
     watch.prewarned = true;
@@ -199,7 +199,7 @@ Date : ${dateFr} — retour prévu à ${retour}
 Point de départ : https://maps.google.com/?q=${start[0].toFixed(5)},${start[1].toFixed(5)}
 ${posLine}
 🔔 Abonne-toi à mon canal d'alerte automatique : https://ntfy.sh/${watchTopic} (application ou site ntfy — tu recevras une notification si je ne donne pas signe de vie)
-⚠️ Sans nouvelles de moi ${ALERT_DELAY_H} h après l'heure de retour prévue, appelle les secours : 112 (ou 118 secours alpin Italie) en indiquant ce message.`;
+⚠️ Sans nouvelles de moi ${ALERT_DELAY_H} h après l'heure de retour prévue, appelle les secours : 112 (numéro d'urgence européen, secours en montagne inclus) en indiquant ce message.`;
 }
 
 function renderPlanPreview() {

@@ -1,7 +1,7 @@
 {
   "name": "Sancho Rossi",
   "short_name": "Sancho Rossi",
-  "description": "Bivouacs et randonnées en Italie du Nord — outil personnel hors-ligne",
+  "description": "Bivouacs et randonnées en Europe — outil personnel hors-ligne",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b0b0c",

@@ -1,9 +1,10 @@
 // Sancho Rossi — générateur de boucles à la demande (rando clef en main)
-// Départ = ancre de l'utilisateur (village / route / là où est laissée la moto).
-// On charge le réseau de sentiers autour du départ (Overpass), on AIMANTE les
-// waypoints d'un anneau sur de vrais nœuds de sentier, puis on route en boucle par
-// BRouter (hiking-mountain, altitudes en 3ᵉ coord). On génère plusieurs candidats et
-// on garde celui qui retrace le moins (pas d'aller-retour) tout en visant la distance.
+// Départ = ancre de l'utilisateur (village / route / là où est laissée la moto) et
+// point SUR la boucle, jamais le centre : la boucle S'OUVRE dans une direction puis
+// revient au départ (pas d'encerclement ni d'aller-retour radial). On charge le réseau
+// de sentiers autour du départ (Overpass), on AIMANTE les waypoints sur de vrais nœuds,
+// puis on route en boucle par BRouter (hiking-mountain, altitudes en 3ᵉ coord). On
+// génère plusieurs DIRECTIONS et on garde celle qui retrace le moins en visant la distance.
 import { haversineKm, state } from "./state.js";
 import { map, addMarker } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
@@ -25,19 +26,27 @@ const loops = {
   ghost: null,
 };
 
-// ---------- Géométrie de l'anneau ----------
+// ---------- Géométrie de la boucle ----------
 function offsetKm(lat, lon, rKm, angleRad) {
   const dLat = (rKm / 111.32) * Math.cos(angleRad);
   const dLon = (rKm / (111.32 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angleRad);
   return [lat + dLat, lon + dLon];
 }
 
-function ringWaypoints(start, rKm, n, baseAngle) {
+// Le départ est un point SUR la boucle, pas le centre. On place le centre de l'anneau à
+// une distance rKm dans la direction `heading` : le départ tombe alors sur le bord proche
+// du cercle. On répartit n waypoints sur le RESTE du cercle (créneau du départ laissé
+// libre) → la route départ→w1→…→wn→départ trace le tour en s'éloignant dans `heading`
+// puis revient, sans rayon aller-retour. Changer `heading` = boucle dans une autre direction.
+function loopWaypoints(start, rKm, n, heading) {
+  const [cLat, cLon] = offsetKm(start.lat, start.lon, rKm, heading);
+  const back = heading + Math.PI; // relèvement centre → départ
+  const step = (2 * Math.PI) / (n + 1); // n waypoints + le créneau libre du départ
   const pts = [];
-  for (let i = 0; i < n; i++) {
-    const ang = baseAngle + (i / n) * 2 * Math.PI;
-    const jitter = 0.9 + 0.2 * (0.5 + 0.5 * Math.sin(i * 2.4 + baseAngle));
-    pts.push(offsetKm(start.lat, start.lon, rKm * jitter, ang));
+  for (let i = 1; i <= n; i++) {
+    const ang = back + i * step;
+    const jitter = 0.9 + 0.2 * (0.5 + 0.5 * Math.sin(i * 2.4 + heading));
+    pts.push(offsetKm(cLat, cLon, rKm * jitter, ang));
   }
   return pts;
 }
@@ -75,7 +84,9 @@ function startNodes(start, target) {
   const key = `${start.lat.toFixed(3)},${start.lon.toFixed(3)}/${Math.round(target)}`;
   if (loops.nodesKey === key && loops.nodesPromise) return loops.nodesPromise;
   loops.nodesKey = key;
-  const radiusM = Math.round(Math.max(target / 6 * 1.7, 1.3) * 1000);
+  // La boucle est décalée dans une direction : son bord lointain atteint ~2·r depuis le
+  // départ. On élargit donc le rayon de lecture pour couvrir la moitié éloignée.
+  const radiusM = Math.round(Math.max(target / 6 * 2.2, 1.5) * 1000);
   const q =
     `[out:json][timeout:20];` +
     `way["highway"~"^(path|track|footway|bridleway|steps|cycleway)$"]` +
@@ -172,7 +183,7 @@ async function generateLoop() {
   const n = target < 10 ? 4 : 5;
   const anchor = [start.lat, start.lon];
   const routeAt = async (rKm, angle) => {
-    try { return await brouterLoop([anchor, ...snapWaypoints(ringWaypoints(start, rKm, n, angle), nodes), anchor]); }
+    try { return await brouterLoop([anchor, ...snapWaypoints(loopWaypoints(start, rKm, n, angle), nodes), anchor]); }
     catch { return null; } // candidat perdu (BRouter lent/429) : ignoré
   };
 
@@ -181,7 +192,7 @@ async function generateLoop() {
   const base = await routeAt(r, loops.baseAngle);
   if (base) r = Math.max(0.3, Math.min(r * (target / base.distance), target / 2.5));
 
-  // 2) Quatre orientations en parallèle au rayon calibré.
+  // 2) Quatre directions de sortie en parallèle au rayon calibré.
   const offs = [0, (2 * Math.PI) / 5, (4 * Math.PI) / 5, (6 * Math.PI) / 5];
   const batch = await Promise.all(offs.map((o) => routeAt(r, loops.baseAngle + o)));
   const candidates = [base, ...batch].filter(Boolean);
@@ -225,8 +236,12 @@ function drawStart() {
 function drawGhost(on) {
   if (loops.ghost) { loops.ghost.remove(); loops.ghost = null; }
   if (on && loops.start) {
-    loops.ghost = L.circle([loops.start.lat, loops.start.lon], {
-      radius: (loops.targetKm / 6) * 1000, color: "#ff2d20", weight: 1.5,
+    // Anneau fantôme DÉCALÉ dans la direction de sortie : il effleure le départ et bombe
+    // dans le sens où partira la boucle (aperçu de la forme réelle, plus un cercle centré).
+    const rKm = loops.targetKm / 6.28;
+    const [cLat, cLon] = offsetKm(loops.start.lat, loops.start.lon, rKm, loops.baseAngle);
+    loops.ghost = L.circle([cLat, cLon], {
+      radius: rKm * 1000, color: "#ff2d20", weight: 1.5,
       dashArray: "6 8", fill: false, opacity: 0.6,
     }).addTo(loops.layer);
   }

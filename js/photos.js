@@ -1,4 +1,6 @@
-// Sancho Rossi — photos réelles des lieux (Wikipédia italien)
+// Sancho Rossi — photos réelles des lieux. Graine : articles Wikipédia dédiés
+// (it.wikipedia pour les tracés italiens embarqués). Catalogue Europe : géosearch
+// Wikimedia Commons (geoPhoto), indépendant de la langue du pays.
 import { state, BASE_TRAILS as TRAILS } from "./state.js";
 import { renderAll } from "./trails.js";
 import { putMeta } from "./storage.js";
@@ -52,17 +54,20 @@ export async function loadWikiPhotos() {
   renderAll();
 }
 
-// Photos des itinéraires du catalogue : article Wikipédia le plus proche du tracé
+// Photos des itinéraires du catalogue : image géolocalisée la plus proche du tracé.
+// Wikimedia Commons (et non une Wikipédia nationale) → couverture Europe entière,
+// indépendante de la langue du pays. On prend la vignette `thumbnail.source` telle
+// quelle (pas d'upscale, cf. CLAUDE.md → ERR_BLOCKED_BY_ORB).
 export async function geoPhoto(trail) {
   const [lat, lon] = trail.center;
   const url =
-    `https://it.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
-    `&generator=geosearch&ggscoord=${lat}%7C${lon}&ggsradius=9000&ggslimit=1` +
-    `&prop=pageimages&piprop=thumbnail&pithumbsize=640`;
+    `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
+    `&generator=geosearch&ggsnamespace=6&ggscoord=${lat}%7C${lon}&ggsradius=9000&ggslimit=1` +
+    `&prop=imageinfo&iiprop=url&iiurlwidth=480`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(res.status);
   const pages = (await res.json()).query?.pages || {};
-  return Object.values(pages)[0]?.thumbnail?.source || null;
+  return Object.values(pages)[0]?.imageinfo?.[0]?.thumburl || null;
 }
 
 export function updateCardPhotos(trail) {
