@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=507" />
+  <link rel="stylesheet" href="css/style.css?v=508" />
   <script type="importmap">
     {
       "imports": {
@@ -22,13 +22,14 @@
         "./js/api.js": "./js/api.js?v=501",
         "./js/photos.js": "./js/photos.js?v=502",
         "./js/weather.js": "./js/weather.js?v=505",
-        "./js/map.js": "./js/map.js?v=505",
+        "./js/map.js": "./js/map.js?v=508",
         "./js/filters.js": "./js/filters.js?v=502",
         "./js/trails.js": "./js/trails.js?v=505",
         "./js/detail.js": "./js/detail.js?v=505",
         "./js/catalog.js": "./js/catalog.js?v=502",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/builder.js": "./js/builder.js?v=501",
+        "./js/loops.js": "./js/loops.js?v=507",
         "./js/nav.js": "./js/nav.js?v=506",
         "./js/security.js": "./js/security.js?v=506",
         "./js/ui.js": "./js/ui.js?v=505",
@@ -155,6 +156,9 @@
         <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé" aria-label="Créer un parcours">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
+        <button class="map-ctl" id="btn-loops" title="Générer une boucle clef en main" aria-label="Générer une boucle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 1-5.66 2.34"/><path d="M6 3.5 6.3 6.6 9.4 6.3"/></svg>
+        </button>
         <div class="layers-panel hidden" id="layers-panel">
           <div class="layers-title">Fond de carte</div>
 
@@ -276,6 +280,30 @@
           <span id="builder-stats" class="builder-stats">0 km · 0 étape</span>
           <button class="btn" id="builder-cancel">Annuler</button>
           <button class="btn btn-primary" id="builder-save">⏎ Enregistrer</button>
+        </div>
+      </div>
+
+      <!-- Générateur de boucle clef en main -->
+      <div id="loops-bar" class="builder-bar loops-bar hidden">
+        <div class="builder-head">
+          <span>Générer une boucle</span>
+        </div>
+        <p id="loops-start" class="loops-start muted">Cliquez le départ sur la carte, ou ⌖ ma position</p>
+        <div class="loops-controls">
+          <input id="loops-target" type="number" min="2" step="1" value="12" title="Distance de marche visée" />
+          <span class="loops-unit">km de marche</span>
+          <button class="btn btn-primary" id="loops-generate">Génère</button>
+        </div>
+        <p id="loops-status" class="loops-status muted hidden"></p>
+        <div id="loops-result" class="loops-result hidden">
+          <div id="loops-metrics" class="loops-metrics"></div>
+          <div class="loops-actions">
+            <button class="btn" id="loops-another">↻ Autre proposition</button>
+            <button class="btn btn-primary" id="loops-save">⏎ Enregistrer</button>
+          </div>
+        </div>
+        <div class="builder-foot">
+          <button class="btn" id="loops-cancel">Fermer</button>
         </div>
       </div>
 
@@ -584,6 +612,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script type="module" src="js/main.js?v=505"></script>
+  <script type="module" src="js/main.js?v=508"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import { state, trackOf } from "./state.js";
 import { overpassFetch } from "./api.js";
 import { photoOf, photoStyle } from "./photos.js";
 import { builder, builderAdd, builderAddPoint } from "./builder.js";
+import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
 import { startNavigation } from "./nav.js";
@@ -437,6 +438,7 @@ export function initMap() {
     locCircle = L.circle(e.latlng, { radius: e.accuracy, weight: 1, color: "#2b7de0", fillOpacity: 0.12 }).addTo(map);
     locMarker = L.circleMarker(e.latlng, { radius: 8, color: "#fff", weight: 2.5, fillColor: "#2b7de0", fillOpacity: 1 }).addTo(map);
     savePos({ coords: { latitude: e.latlng.lat, longitude: e.latlng.lng, accuracy: e.accuracy } });
+    if (loops.active) setLoopStart(e.latlng); // « ma position » = départ de la boucle
   });
 
   map.on("locationerror", (e) => alert(`Position introuvable : ${e.message}`));
@@ -447,6 +449,7 @@ export function initMap() {
       builderAddPoint(e.latlng);
       return;
     }
+    if (loops.active) { setLoopStart(e.latlng); return; }
     layersPanel.classList.add("hidden");
   });
 

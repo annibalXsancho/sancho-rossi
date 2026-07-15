@@ -9,6 +9,7 @@ import { initDetail } from "./detail.js";
 import { initCatalog, hydrateCatalog } from "./catalog.js";
 import { initAgent } from "./agent.js";
 import { initBuilder } from "./builder.js";
+import { initLoops } from "./loops.js";
 import { initNav } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
@@ -23,6 +24,7 @@ initDetail();
 initCatalog();
 initAgent();
 initBuilder();
+initLoops();
 initNav();
 initSecurity();
 
