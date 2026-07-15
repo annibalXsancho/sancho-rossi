@@ -5,7 +5,6 @@
 // BRouter (hiking-mountain, altitudes en 3ᵉ coord). On génère plusieurs candidats et
 // on garde celui qui retrace le moins (pas d'aller-retour) tout en visant la distance.
 import { haversineKm, state } from "./state.js";
-import { overpassFetch } from "./api.js";
 import { map, addMarker } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
@@ -20,6 +19,7 @@ const loops = {
   routed: null,       // dernière boucle retenue { track, eles, distance, retrace }
   nodes: null,        // nœuds de sentier autour du départ (cache Overpass)
   nodesKey: null,
+  nodesPromise: null, // chargement en cours/terminé (préchauffé dès le ping)
   layer: L.layerGroup(),
   startMarker: null,
   ghost: null,
@@ -43,25 +43,47 @@ function ringWaypoints(start, rKm, n, baseAngle) {
 }
 
 // ---------- Réseau de sentiers (Overpass) : nœuds sur lesquels aimanter ----------
-async function ensureNodes(start, target) {
-  const key = `${start.lat.toFixed(3)},${start.lon.toFixed(3)}/${Math.round(target)}`;
-  if (loops.nodesKey === key && loops.nodes) return loops.nodes;
-  const radiusM = Math.round(Math.max(target / 6 * 1.7, 1.3) * 1000);
-  const q =
-    `[out:json][timeout:25];` +
-    `way["highway"~"^(path|track|footway|bridleway|steps|cycleway)$"]` +
-    `(around:${radiusM},${start.lat},${start.lon});out geom;`;
-  let nodes = [];
-  try {
-    const data = await overpassFetch(q);
+// On COURSE les deux miroirs Overpass (le plus rapide gagne) avec un plafond de 12 s :
+// overpass-api.de est souvent lent/429, kumi plus fiable — attendre l'un puis l'autre en
+// série faisait « pendre » la génération ~40 s (cause du ressenti « ça bug »).
+function raceOverpass(q) {
+  const hit = async (url) => {
+    const res = await fetch(url, {
+      method: "POST",
+      body: "data=" + encodeURIComponent(q),
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    const nodes = [];
     for (const el of data.elements || []) {
       if (el.geometry) for (const g of el.geometry) nodes.push([g.lat, g.lon]);
     }
-  } catch { nodes = []; } // réseau indisponible : on retombera sur l'anneau géométrique
-  // On ne met en cache QUE les succès : un échec transitoire (Overpass 429, fréquent)
-  // ne doit pas condamner l'aimantage pour ce départ — la prochaine génération réessaie.
-  if (nodes.length) { loops.nodes = nodes; loops.nodesKey = key; }
-  return nodes;
+    if (!nodes.length) throw new Error("empty");
+    return nodes;
+  };
+  return Promise.any([
+    hit("https://overpass.kumi.systems/api/interpreter"),
+    hit("https://overpass-api.de/api/interpreter"),
+  ]);
+}
+
+// Lance (ou réutilise) le chargement des nœuds de sentier autour du départ. Appelé dès
+// le ping (préchauffage) : les sentiers sont ainsi prêts quand l'utilisateur clique Génère.
+// En cas d'échec on résout à [] (repli sur l'anneau géométrique), sans jamais bloquer.
+function startNodes(start, target) {
+  const key = `${start.lat.toFixed(3)},${start.lon.toFixed(3)}/${Math.round(target)}`;
+  if (loops.nodesKey === key && loops.nodesPromise) return loops.nodesPromise;
+  loops.nodesKey = key;
+  const radiusM = Math.round(Math.max(target / 6 * 1.7, 1.3) * 1000);
+  const q =
+    `[out:json][timeout:20];` +
+    `way["highway"~"^(path|track|footway|bridleway|steps|cycleway)$"]` +
+    `(around:${radiusM},${start.lat},${start.lon});out geom;`;
+  loops.nodesPromise = raceOverpass(q)
+    .then((nodes) => { loops.nodes = nodes; return nodes; })
+    .catch(() => { loops.nodes = []; return []; });
+  return loops.nodesPromise;
 }
 
 function nearestNode(pt, nodes) {
@@ -137,38 +159,35 @@ function score(routed, target) {
   return Math.abs(routed.distance - target) / target + routed.retrace * 1.6;
 }
 
-// Génère une boucle en deux temps :
-//  1) calibre le rayon de l'anneau sur la distance RÉELLE mesurée (en montagne les
-//     sentiers serpentent : la longueur vaut 3-4× le périmètre géométrique, un rayon
-//     fixe est donc inutilisable — on ajuste sur ce que BRouter renvoie) ;
-//  2) essaie quelques orientations et garde la MOINS « aller-retour ».
+// Génère une boucle qui part du départ (l'ancre), fait ~la distance demandée et y
+// revient, en minimisant l'aller-retour :
+//  1) un appel de calibration cale le rayon de l'anneau sur la longueur RÉELLE (en
+//     montagne les sentiers serpentent, et le facteur varie — on ajuste sur BRouter) ;
+//  2) plusieurs orientations sont routées EN PARALLÈLE (rapide) et on garde celle qui
+//     revient le plus proprement au point de départ (le moins retracée).
 async function generateLoop() {
   const start = loops.start;
   const target = loops.targetKm;
-  const nodes = await ensureNodes(start, target);
+  const nodes = await startNodes(start, target); // préchauffé au ping : souvent déjà prêt
   const n = target < 10 ? 4 : 5;
   const anchor = [start.lat, start.lon];
-  const routeAt = (rKm, angle) =>
-    brouterLoop([anchor, ...snapWaypoints(ringWaypoints(start, rKm, n, angle), nodes), anchor]);
+  const routeAt = async (rKm, angle) => {
+    try { return await brouterLoop([anchor, ...snapWaypoints(ringWaypoints(start, rKm, n, angle), nodes), anchor]); }
+    catch { return null; } // candidat perdu (BRouter lent/429) : ignoré
+  };
 
-  // Phase 1 — calibration distance (≤ 2 appels)
-  let r = target / 7;
-  let base = null;
-  for (let i = 0; i < 2; i++) {
-    try { base = await routeAt(r, loops.baseAngle); } catch { break; }
-    const ratio = base.distance / target;
-    if (ratio >= 0.8 && ratio <= 1.2) break;
-    r = Math.max(0.3, Math.min(r * (target / base.distance), target / 3));
-  }
-  const candidates = base ? [base] : [];
+  // 1) Calibration du rayon sur la distance réelle mesurée.
+  let r = target / 8;
+  const base = await routeAt(r, loops.baseAngle);
+  if (base) r = Math.max(0.3, Math.min(r * (target / base.distance), target / 2.5));
 
-  // Phase 2 — deux autres orientations au rayon calibré (nœuds déjà en cache)
-  for (const a of [loops.baseAngle + (2 * Math.PI) / 3, loops.baseAngle + (4 * Math.PI) / 3]) {
-    try { candidates.push(await routeAt(r, a)); } catch { /* candidat perdu */ }
-  }
+  // 2) Quatre orientations en parallèle au rayon calibré.
+  const offs = [0, (2 * Math.PI) / 5, (4 * Math.PI) / 5, (6 * Math.PI) / 5];
+  const batch = await Promise.all(offs.map((o) => routeAt(r, loops.baseAngle + o)));
+  const candidates = [base, ...batch].filter(Boolean);
   if (!candidates.length) throw new Error("Aucune boucle routable depuis ce départ.");
 
-  // Parmi les candidats dans la tolérance de distance, on prend le moins retracé.
+  // Parmi les candidats dans la tolérance de distance, on prend le moins « aller-retour ».
   const inTol = candidates.filter((c) => Math.abs(c.distance - target) / target <= 0.25);
   const pool = inTol.length ? inTol : candidates;
   pool.sort((a, b) => a.retrace - b.retrace || score(a, target) - score(b, target));
@@ -298,12 +317,16 @@ export function setStart(latlng) {
   loops.routed = null;
   loops.nodes = null;
   loops.nodesKey = null;
+  loops.nodesPromise = null;
   loops.layer.clearLayers();
   loops.startMarker = null;
   drawStart();
   drawGhost(true);
   renderStartLabel();
   renderResult();
+  // Préchauffage : on charge les sentiers tout de suite (le plus souvent prêts quand
+  // l'utilisateur clique « Génère »), sans bloquer.
+  startNodes(loops.start, Number(el("loops-target")?.value) || loops.targetKm);
 }
 
 function saveLoop() {
@@ -359,6 +382,7 @@ function exitLoops() {
   loops.ghost = null;
   loops.nodes = null;
   loops.nodesKey = null;
+  loops.nodesPromise = null;
   loops.layer.clearLayers();
   loops.layer.remove();
   document.body.classList.remove("loops-active");
