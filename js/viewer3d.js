@@ -311,8 +311,19 @@ export function dispose() {
   rafId = null;
   controls?.dispose();
   controls = null;
+  // Libère explicitement la mémoire GPU (géométries, matériaux, textures) : sinon
+  // chaque ouverture fuit ~16 Mo de texture + le relief, jamais récupérés.
+  scene?.traverse((obj) => {
+    obj.geometry?.dispose();
+    const mats = Array.isArray(obj.material) ? obj.material : obj.material ? [obj.material] : [];
+    mats.forEach((m) => { m.map?.dispose(); m.dispose(); });
+  });
   if (renderer) {
     renderer.dispose();
+    // renderer.dispose() NE libère PAS le contexte WebGL : sans forceContextLoss, les
+    // contextes s'accumulent jusqu'à la limite du navigateur (~16) qui perd alors le plus
+    // ancien → vue noire / « crash ». On le relâche donc à chaque fermeture.
+    renderer.forceContextLoss();
     renderer.domElement.remove();
     renderer = null;
   }
