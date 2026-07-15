@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=510" />
+  <link rel="stylesheet" href="css/style.css?v=511" />
   <script type="importmap">
     {
       "imports": {
@@ -30,6 +30,7 @@
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/builder.js": "./js/builder.js?v=501",
         "./js/loops.js": "./js/loops.js?v=512",
+        "./js/geosearch.js": "./js/geosearch.js?v=514",
         "./js/nav.js": "./js/nav.js?v=506",
         "./js/security.js": "./js/security.js?v=506",
         "./js/ui.js": "./js/ui.js?v=505",
@@ -134,7 +135,8 @@
           <span class="search-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
           </span>
-          <input id="search-input" type="search" placeholder="Rechercher un itinéraire, un massif…" autocomplete="off" />
+          <input id="search-input" type="search" placeholder="Rechercher un lieu, un massif…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
+          <div id="search-suggest" class="search-suggest hidden" role="listbox"></div>
         </div>
         <button id="btn-filters-map" class="btn-filters btn-filters-icon" title="Filtres">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
@@ -612,6 +614,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script type="module" src="js/main.js?v=508"></script>
+  <script type="module" src="js/main.js?v=509"></script>
 </body>
 </html>

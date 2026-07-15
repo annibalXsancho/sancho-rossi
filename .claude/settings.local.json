@@ -5,7 +5,8 @@
       "Bash(mdfind -onlyin /Users/okug. \"trek OR AllTrails OR 'Sancho Rossi'\")",
       "Bash(npm create *)",
       "Bash(npm install *)",
-      "Bash(which node *)"
+      "Bash(which node *)",
+      "Bash(cd /Users/okug./Desktop/sancho-rossi *)"
     ]
   }
 }

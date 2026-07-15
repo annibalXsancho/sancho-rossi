@@ -18,7 +18,8 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 
 ## APIs (toutes gratuites, sans clé, couverture Europe)
 - **Overpass** (tracés + POI) : `relation["route"="hiking"](bbox);out geom N;` — jamais `out tags geom` (syntaxe invalide). Miroir kumi.systems + `AbortSignal.timeout(25s)` ; 429 fréquents sur overpass-api.de.
-- **Open-Meteo** : météo (daily+hourly), géocodage, Elevation (**max 100 pts/req**).
+- **Open-Meteo** : météo (daily+hourly), géocodage **de villes** (météo sur la route, `weather.js`), Elevation (**max 100 pts/req**).
+- **Nominatim** (nominatim.openstreetmap.org, `format=jsonv2&addressdetails=1`) : géocodage **par lieu** de la recherche carte (`geosearch.js`, S7). Choisi contre Open-Meteo qui triait par population et égarait les massifs (« Mont Blanc » → Maurice, « Dolomites » → barrage du Montana). Couvre les reliefs européens + renvoie une `boundingbox` pour cadrer la vue. Politique ≤ 1 req/s → débounce 500 ms + requête annulée à chaque frappe (mono-utilisateur = OK).
 - **BRouter** (brouter.de, `profile=hiking-mountain`) : routage rando, altitudes en 3e coordonnée, CORS ouvert.
 - **OSRM** (router.project-osrm.org) : temps de route voiture.
 - **Wikipédia geosearch** : photos de lieux — utiliser `thumbnail.source` tel quel, **jamais d'upscale 640px** (ERR_BLOCKED_BY_ORB). File d'attente 350 ms.
