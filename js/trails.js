@@ -87,10 +87,19 @@ function renderHome() {
     TRAILS.filter((t) => t.bivouac).slice(0, 3).map(cardHTML).join("");
 }
 
-export function renderAll() {
+// Rafraîchit listes / grille / accueil SANS re-rendre la fiche ouverte. À utiliser pour
+// les rafraîchissements en tâche de fond (chargement de zone catalog) : re-rendre la fiche
+// détruirait l'onglet actif (on retombait sur l'Aperçu au moment de charger la vue 3D).
+export function renderLists() {
   renderList();
   renderGrid();
   renderHome();
+}
+
+export function renderAll() {
+  renderLists();
+  // Re-render de la fiche réservé aux actions volontaires (ex. cœur favori) : jamais
+  // déclenché par un chargement de zone en arrière-plan (voir renderLists / catalog.js).
   if (state.selectedId && getTrail(state.selectedId)) renderDetail(state.selectedId);
 }
 

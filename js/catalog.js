@@ -5,7 +5,7 @@
 import { state, catalogTrails, normalizeOsmTrail, trackDistanceKm } from "./state.js";
 import { overpassFetch } from "./api.js";
 import { map, addMarker } from "./map.js";
-import { renderAll } from "./trails.js";
+import { renderLists } from "./trails.js";
 import { loadCatalog, loadZoneKeys, markZone, putCatalogTrails } from "./storage.js";
 
 const CELL = 0.25;               // ~25 km : taille de la cellule de cache
@@ -126,7 +126,7 @@ async function loadVisibleZones() {
   setStatus("⏳ Chargement des sentiers de la zone…");
   let ok = false;
   for (const cell of missing) ok = (await loadCell(cell)) || ok;
-  renderAll();
+  renderLists(); // listes seules : ne pas détruire une fiche ouverte (onglet actif / vue 3D)
   if (ok) {
     const n = countInView();
     setStatus(n ? `${n} sentier${n > 1 ? "s" : ""} balisé${n > 1 ? "s" : ""} dans la zone.` : "Aucun sentier balisé dans cette zone.");
