@@ -1,5 +1,5 @@
-// Sancho Rossi — recherche par lieu (S7)
-// Le champ de recherche de la carte devient un géocodeur : en tapant un lieu
+// Sancho Rossi — recherche par lieu (S7) + fabrique d'autocomplétion réutilisable
+// Le champ de recherche de la carte est un géocodeur : en tapant un lieu
 // (« Chamonix », « Dolomites », « Massif des Écrins »…), une liste de suggestions
 // apparaît ; la sélection recentre la carte, ce qui déclenche le chargement à la
 // demande des tracés de la zone (catalog.js sur `moveend`). Le filtre texte local de
@@ -11,6 +11,11 @@
 // et renvoie une bbox par résultat, qui sert à cadrer la vue (serré pour une ville,
 // large pour un massif). Politique d'usage : ≤ 1 req/s → débounce confortable, requête
 // annulée à chaque frappe, mono-utilisateur donc largement dans les clous.
+//
+// `createGeoSuggest` est la fabrique : le module était un singleton (état de module +
+// ids câblés en dur), donc un second champ ne pouvait pas s'y brancher. Le
+// planificateur (S-PLAN) en monte une deuxième instance pour son champ « point de
+// passage » — d'où l'état déplacé en closure, une instance = un champ.
 import { state } from "./state.js";
 import { map } from "./map.js";
 import { switchTab } from "./ui.js";
@@ -45,115 +50,94 @@ function shape(r) {
   return { name, sub, lat: +r.lat, lon: +r.lon, bounds };
 }
 
-let box, input, controller, timer;
-let results = [];
-let activeIdx = -1;
+// Branche une autocomplétion Nominatim sur un couple champ/liste.
+//   input     : <input type="text">
+//   box       : conteneur des suggestions
+//   onPick    : (résultat mis en forme) => void
+//   container : zone « à l'intérieur » de laquelle un clic ne referme pas la liste
+// → { clear() } pour vider le champ et la liste de l'extérieur.
+export function createGeoSuggest({ input, box, onPick, container = input?.parentElement }) {
+  if (!input || !box) return { clear() {} };
+  let controller, timer;
+  let results = [];
+  let activeIdx = -1;
 
-function loadingRow() {
-  box.innerHTML = `<div class="geo-empty geo-loading">Recherche…</div>`;
-  box.classList.remove("hidden");
-  input.setAttribute("aria-expanded", "true");
-}
-
-async function fetchSuggest(q) {
-  controller?.abort();
-  controller = new AbortController();
-  loadingRow();
-  try {
-    const url =
-      `${GEO_URL}?q=${encodeURIComponent(q)}&format=jsonv2` +
-      `&limit=6&addressdetails=1&accept-language=fr`;
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error();
-    results = (await res.json()).map(shape);
-    activeIdx = -1;
-    render(q);
-  } catch (err) {
-    if (err.name === "AbortError") return; // remplacée par une frappe plus récente
-    results = [];
-    box.innerHTML = `<div class="geo-empty">Recherche indisponible — réessayez.</div>`;
-    box.classList.remove("hidden");
-  }
-}
-
-function render(q) {
-  if (!results.length) {
-    box.innerHTML = `<div class="geo-empty">Aucun lieu « ${escapeHtml(q)} ».</div>`;
+  function loadingRow() {
+    box.innerHTML = `<div class="geo-empty geo-loading">Recherche…</div>`;
     box.classList.remove("hidden");
     input.setAttribute("aria-expanded", "true");
-    return;
   }
-  box.innerHTML = results
-    .map(
-      (r, i) => `<button type="button" class="geo-item${i === activeIdx ? " active" : ""}" data-i="${i}" role="option">
-        <span class="geo-pin">${PIN_SVG}</span>
-        <span class="geo-text">
-          <span class="geo-name">${escapeHtml(r.name)}</span>
-          ${r.sub ? `<span class="geo-sub">${escapeHtml(r.sub)}</span>` : ""}
-        </span>
-      </button>`
-    )
-    .join("");
-  box.classList.remove("hidden");
-  input.setAttribute("aria-expanded", "true");
-}
 
-function hide() {
-  box.classList.add("hidden");
-  box.innerHTML = "";
-  activeIdx = -1;
-  input.setAttribute("aria-expanded", "false");
-}
-
-// Recentre la carte sur le lieu choisi : le `moveend` déclenche le chargement des
-// tracés de la zone. On cadre sur la bbox du lieu (bornée pour rester dans la plage
-// de zoom qui charge le catalogue), et on vide le filtre texte pour ne pas masquer
-// la nouvelle liste.
-function fly(r) {
-  input.value = "";
-  if (state.search) {
-    state.search = "";
-    renderList();
+  async function fetchSuggest(q) {
+    controller?.abort();
+    controller = new AbortController();
+    loadingRow();
+    try {
+      const url =
+        `${GEO_URL}?q=${encodeURIComponent(q)}&format=jsonv2` +
+        `&limit=6&addressdetails=1&accept-language=fr`;
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error();
+      results = (await res.json()).map(shape);
+      activeIdx = -1;
+      render(q);
+    } catch (err) {
+      if (err.name === "AbortError") return; // remplacée par une frappe plus récente
+      results = [];
+      box.innerHTML = `<div class="geo-empty">Recherche indisponible — réessayez.</div>`;
+      box.classList.remove("hidden");
+    }
   }
-  hide();
-  results = [];
-  if (state.view !== "carte") switchTab("carte");
 
-  if (r.bounds) {
-    const b = L.latLngBounds(r.bounds);
-    let z = map.getBoundsZoom(b);
-    z = Math.max(FIT_MIN_ZOOM, Math.min(FIT_MAX_ZOOM, z));
-    map.flyTo(b.getCenter(), z, { duration: 0.9 });
-  } else {
-    map.flyTo([r.lat, r.lon], FIT_MAX_ZOOM, { duration: 0.9 });
+  function render(q) {
+    if (!results.length) {
+      box.innerHTML = `<div class="geo-empty">Aucun lieu « ${escapeHtml(q)} ».</div>`;
+      box.classList.remove("hidden");
+      input.setAttribute("aria-expanded", "true");
+      return;
+    }
+    box.innerHTML = results
+      .map(
+        (r, i) => `<button type="button" class="geo-item${i === activeIdx ? " active" : ""}" data-i="${i}" role="option">
+          <span class="geo-pin">${PIN_SVG}</span>
+          <span class="geo-text">
+            <span class="geo-name">${escapeHtml(r.name)}</span>
+            ${r.sub ? `<span class="geo-sub">${escapeHtml(r.sub)}</span>` : ""}
+          </span>
+        </button>`
+      )
+      .join("");
+    box.classList.remove("hidden");
+    input.setAttribute("aria-expanded", "true");
   }
-}
 
-function pick(i) {
-  const r = results[i];
-  if (r) fly(r);
-}
+  function hide() {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    activeIdx = -1;
+    input.setAttribute("aria-expanded", "false");
+  }
 
-// Entrée : si des suggestions sont affichées, on prend la surlignée (sinon la
-// première) ; sinon on géocode à la volée puis on file au premier résultat.
-async function submit() {
-  const q = input.value.trim();
-  if (q.length < MIN_CHARS) return;
-  if (!results.length) await fetchSuggest(q);
-  pick(activeIdx >= 0 ? activeIdx : 0);
-}
+  function pick(i) {
+    const r = results[i];
+    if (r) onPick(r);
+  }
 
-function move(delta) {
-  if (!results.length) return;
-  activeIdx = (activeIdx + delta + results.length) % results.length;
-  render(input.value.trim());
-  box.querySelector(".geo-item.active")?.scrollIntoView({ block: "nearest" });
-}
+  // Entrée : si des suggestions sont affichées, on prend la surlignée (sinon la
+  // première) ; sinon on géocode à la volée puis on file au premier résultat.
+  async function submit() {
+    const q = input.value.trim();
+    if (q.length < MIN_CHARS) return;
+    if (!results.length) await fetchSuggest(q);
+    pick(activeIdx >= 0 ? activeIdx : 0);
+  }
 
-export function initGeoSearch() {
-  input = document.getElementById("search-input");
-  box = document.getElementById("search-suggest");
-  if (!input || !box) return;
+  function move(delta) {
+    if (!results.length) return;
+    activeIdx = (activeIdx + delta + results.length) % results.length;
+    render(input.value.trim());
+    box.querySelector(".geo-item.active")?.scrollIntoView({ block: "nearest" });
+  }
 
   input.addEventListener("input", () => {
     const q = input.value.trim();
@@ -184,6 +168,46 @@ export function initGeoSearch() {
 
   // Clic hors du champ + suggestions → on referme.
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".map-search")) hide();
+    if (container && !container.contains(e.target)) hide();
+  });
+
+  return {
+    clear() {
+      input.value = "";
+      results = [];
+      hide();
+    },
+  };
+}
+
+// Recentre la carte sur le lieu choisi : le `moveend` déclenche le chargement des
+// tracés de la zone. On cadre sur la bbox du lieu (bornée pour rester dans la plage
+// de zoom qui charge le catalogue), et on vide le filtre texte pour ne pas masquer
+// la nouvelle liste.
+export function initGeoSearch() {
+  const input = document.getElementById("search-input");
+  const box = document.getElementById("search-suggest");
+  if (!input || !box) return;
+
+  const suggest = createGeoSuggest({
+    input,
+    box,
+    container: input.closest(".map-search"),
+    onPick(r) {
+      suggest.clear();
+      if (state.search) {
+        state.search = "";
+        renderList();
+      }
+      if (state.view !== "carte") switchTab("carte");
+
+      if (r.bounds) {
+        const b = L.latLngBounds(r.bounds);
+        const z = Math.max(FIT_MIN_ZOOM, Math.min(FIT_MAX_ZOOM, map.getBoundsZoom(b)));
+        map.flyTo(b.getCenter(), z, { duration: 0.9 });
+      } else {
+        map.flyTo([r.lat, r.lon], FIT_MAX_ZOOM, { duration: 0.9 });
+      }
+    },
   });
 }

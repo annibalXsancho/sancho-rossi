@@ -10,6 +10,8 @@ import { map, addMarker } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
+import { brouterRoute } from "./brouter.js";
+import { computeGain, naismithHours, fmtDuration } from "./metrics.js";
 
 const loops = {
   active: false,
@@ -125,24 +127,17 @@ function snapWaypoints(ring, nodes) {
 }
 
 // ---------- Routage BRouter (boucle en un seul appel) ----------
+// Le client est mutualisé (js/brouter.js). Deux garde-fous restent SPÉCIFIQUES à la
+// boucle et ne remontent pas dans le module commun : au moins 3 points de passage
+// (une boucle n'est pas un A→B) et le rejet des boucles dégénérées (< 4 points de
+// tracé), qui trahissent un anneau écrasé plutôt qu'un vrai tour.
 async function brouterLoop(waypoints) {
-  // supprime les points consécutifs quasi identiques (BRouter refuse les via nuls)
-  const pts = waypoints.filter((p, i) => i === 0 || haversineKm(p, waypoints[i - 1]) > 0.03);
-  if (pts.length < 3) throw new Error("waypoints insuffisants");
-  const lonlats = pts.map(([lat, lon]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join("|");
-  const url =
-    `https://brouter.de/brouter?lonlats=${lonlats}` +
-    `&profile=hiking-mountain&alternativeidx=0&format=geojson`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`BRouter ${res.status}`);
-  const feat = (await res.json()).features?.[0];
-  if (!feat) throw new Error("BRouter : aucune route");
-  const track = feat.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-  let eles = feat.geometry.coordinates.map((c) => c[2]);
-  if (eles.some((v) => v == null) || eles.length !== track.length) eles = null;
-  const distance = Number(feat.properties["track-length"]) / 1000;
-  if (!(distance > 0) || track.length < 4) throw new Error("BRouter : boucle dégénérée");
-  return { track, eles, distance, retrace: retraceFraction(track) };
+  if (waypoints.filter((p, i) => i === 0 || haversineKm(p, waypoints[i - 1]) > 0.03).length < 3) {
+    throw new Error("waypoints insuffisants");
+  }
+  const r = await brouterRoute(waypoints, { timeout: 15000 });
+  if (r.track.length < 4) throw new Error("BRouter : boucle dégénérée");
+  return { ...r, retrace: retraceFraction(r.track) };
 }
 
 // Fraction du tracé retracée : on ré-échantillonne à ~50 m (sinon la densité des
@@ -203,25 +198,6 @@ async function generateLoop() {
   const pool = inTol.length ? inTol : candidates;
   pool.sort((a, b) => a.retrace - b.retrace || score(a, target) - score(b, target));
   return pool[0];
-}
-
-// ---------- Métriques ----------
-function computeGain(eles) {
-  let gain = 0, ref = eles[0];
-  for (const e of eles) {
-    if (e - ref > 4) { gain += e - ref; ref = e; }
-    else if (ref - e > 4) ref = e;
-  }
-  return Math.round(gain);
-}
-
-function naismithHours(distKm, gainM) {
-  return distKm / 4.5 + gainM / 600; // Naismith/Tobler : ~4,5 km/h + 600 m/h de montée
-}
-
-function fmtDuration(h) {
-  if (h < 9) return `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
-  return `${Math.round(h / 7)} j (est.)`;
 }
 
 // ---------- Rendu carte ----------

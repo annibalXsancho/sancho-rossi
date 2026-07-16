@@ -611,11 +611,115 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .loops-actions { display: flex; gap: 8px; }
 .loops-actions .btn { flex: 1; }
 
-/* Mode boucle : la carte reste visible, les panneaux d'exploration s'effacent
-   (sinon la liste des résultats surgit par-dessus la carte → écran instable). */
+/* Mode boucle / planificateur : la carte reste visible, les panneaux d'exploration
+   s'effacent (sinon la liste des résultats surgit par-dessus la carte → écran
+   instable). Partagé par #loops-bar et #plan-bar. */
 .loops-active .map-topbar,
 .loops-active .results-panel { display: none; }
 .builder-stats { flex: 1; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---------- Planificateur d'itinéraire (S-PLAN-A) ---------- */
+.plan-bar { border-top-color: var(--red); left: 12px; transform: none; width: min(380px, calc(100vw - 24px)); }
+
+.plan-search-wrap {
+  position: relative; /* ancre .search-suggest, comme .map-search */
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  margin-bottom: 10px;
+}
+.plan-search-wrap .search-icon { display: flex; color: var(--text-soft); }
+.plan-search-wrap .search-icon svg { width: 15px; height: 15px; }
+.plan-search-wrap input {
+  flex: 1; min-width: 0;
+  background: none; border: none; outline: none;
+  color: var(--text); font: inherit; font-size: 13px;
+}
+.plan-search-wrap input::placeholder { color: var(--text-soft); }
+
+/* La liste est de longueur libre (≠ boucles) : elle défile au lieu d'étirer le
+   panneau jusqu'à sortir de l'écran. */
+.plan-steps { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; max-height: 172px; overflow-y: auto; }
+.plan-hint { font-size: 12px; line-height: 1.45; margin: 2px 0 0; }
+
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  transition: border-color 150ms ease-out, background 150ms ease-out;
+}
+.plan-row:hover { border-color: var(--border-strong); }
+
+.plan-grip {
+  background: none; border: none; padding: 0;
+  color: var(--text-soft); font-size: 13px; line-height: 1;
+  cursor: grab;
+  touch-action: none; /* le glisser au doigt ne doit pas faire défiler le panneau */
+}
+.plan-dragging, .plan-dragging .plan-grip { cursor: grabbing; user-select: none; }
+
+.plan-letter {
+  flex: none;
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 800;
+  border-radius: 2px;
+}
+.plan-name {
+  flex: 1; min-width: 0;
+  font-size: 12.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.plan-rm {
+  background: none; border: none; padding: 0 2px;
+  color: var(--text-soft); font-size: 12px; cursor: pointer;
+  transition: color 150ms ease-out;
+}
+.plan-rm:hover { color: var(--red); }
+
+.plan-profile { margin-top: 2px; }
+.plan-profile .elevation-chart { width: 100%; height: 60px; display: block; }
+
+.plan-tools { display: flex; gap: 6px; margin-bottom: 10px; }
+.plan-tools .btn { flex: 1; font-size: 11px; padding: 6px 4px; }
+
+/* Marqueur de point de passage : lettre A, B, C… posée sur la carte */
+.plan-wp {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  background: var(--red); color: #fff;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  font-size: 12px; font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+/* Cotation SAC : la provenance est toujours affichée à côté du niveau — une cote
+   estimée qui se présenterait comme sûre serait un piège en montagne. */
+.plan-sac { display: flex; align-items: center; gap: 6px; }
+.plan-sac.hidden { display: none; }
+.plan-sac-level {
+  padding: 1px 6px;
+  background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+  border-radius: 2px;
+}
+.plan-sac.estimated .plan-sac-level {
+  background: transparent; color: var(--text-soft);
+  border: 1px dashed var(--border-strong);
+}
+.plan-sac-src { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
 
 /* Fil d'Ariane cliquable */
 .bc-link {
@@ -1622,6 +1726,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .map-stack .layers-panel { right: 50px; max-width: calc(100vw - 74px); }
   .results-panel { top: 64px; bottom: 76px; }
   .builder-bar { top: auto; bottom: 0; left: 0; transform: none; width: 100%; border-left: none; border-right: none; }
+  .plan-bar { max-height: 76vh; overflow-y: auto; }
+  .plan-steps { max-height: 132px; }
   .trail-preview { left: 0; right: 0; bottom: 0; width: 100%; border-left: none; border-right: none; }
   .preview-photo { height: 84px; }
 

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=519" />
+  <link rel="stylesheet" href="css/style.css?v=520" />
   <script type="importmap">
     {
       "imports": {
@@ -22,15 +22,17 @@
         "./js/api.js": "./js/api.js?v=501",
         "./js/photos.js": "./js/photos.js?v=515",
         "./js/weather.js": "./js/weather.js?v=505",
-        "./js/map.js": "./js/map.js?v=519",
+        "./js/map.js": "./js/map.js?v=520",
         "./js/filters.js": "./js/filters.js?v=502",
         "./js/trails.js": "./js/trails.js?v=517",
-        "./js/detail.js": "./js/detail.js?v=515",
+        "./js/detail.js": "./js/detail.js?v=520",
         "./js/catalog.js": "./js/catalog.js?v=517",
         "./js/agent.js": "./js/agent.js?v=502",
-        "./js/builder.js": "./js/builder.js?v=501",
-        "./js/loops.js": "./js/loops.js?v=516",
-        "./js/geosearch.js": "./js/geosearch.js?v=514",
+        "./js/brouter.js": "./js/brouter.js?v=520",
+        "./js/metrics.js": "./js/metrics.js?v=520",
+        "./js/planner.js": "./js/planner.js?v=521",
+        "./js/loops.js": "./js/loops.js?v=520",
+        "./js/geosearch.js": "./js/geosearch.js?v=520",
         "./js/nav.js": "./js/nav.js?v=506",
         "./js/security.js": "./js/security.js?v=515",
         "./js/ui.js": "./js/ui.js?v=505",
@@ -155,8 +157,10 @@
         <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
         </button>
-        <button class="map-ctl" id="btn-builder" title="Créer un parcours personnalisé" aria-label="Créer un parcours">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <!-- Points de passage reliés. Ne PAS reprendre la S-courbe à deux cercles :
+             c'est l'icône de l'onglet « Itinéraires » de la tab-nav. -->
+        <button class="map-ctl" id="btn-planner" title="Planifier un itinéraire" aria-label="Planifier un itinéraire">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18.5 9.5 11l5 3.5L19.5 5.5"/><circle cx="4.5" cy="18.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="9.5" cy="11" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19.5" cy="5.5" r="1.9" fill="currentColor" stroke="none"/></svg>
         </button>
         <button class="map-ctl" id="btn-loops" title="Générer une boucle clef en main" aria-label="Générer une boucle">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 1-5.66 2.34"/><path d="M6 3.5 6.3 6.6 9.4 6.3"/></svg>
@@ -261,27 +265,33 @@
         </div>
       </div>
 
-      <!-- Créateur de parcours -->
-      <div id="builder-bar" class="builder-bar hidden">
+      <!-- Planificateur d'itinéraire (S-PLAN-A) -->
+      <div id="plan-bar" class="builder-bar plan-bar hidden">
         <div class="builder-head">
-          <span>Créateur de parcours</span>
-          <span id="builder-target-info" class="builder-target-info"></span>
+          <span>Planificateur d'itinéraire</span>
+          <span id="plan-sac" class="plan-sac hidden"></span>
         </div>
-        <div class="builder-modes">
-          <div class="filter-group" id="builder-mode">
-            <button class="chip active" data-bmode="draw">✏ Dessin libre — suit les sentiers</button>
-            <button class="chip" data-bmode="trails">Enchaîner des tracés existants</button>
-          </div>
-          <input id="builder-target" type="number" min="1" placeholder="Objectif km" title="Distance souhaitée" />
-          <button class="btn" id="builder-undo" title="Annuler le dernier point">↩</button>
+        <div class="plan-search-wrap" id="plan-search-wrap">
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          </span>
+          <input id="plan-search" type="text" placeholder="Choisir un point de passage…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
+          <div id="plan-suggest" class="search-suggest plan-suggest hidden" role="listbox"></div>
         </div>
-        <p class="builder-hint muted" id="builder-hint">Cliquez sur la carte : chaque point est relié au précédent
-        en suivant les sentiers connus. Activez les couches 💧🏠 pour passer par des points d'intérêt (cliquez-les pour les ajouter).</p>
-        <div id="builder-steps" class="builder-steps"><span class="muted">Aucune étape pour l'instant.</span></div>
+        <div id="plan-steps" class="plan-steps"></div>
+        <p id="plan-status" class="loops-status muted hidden"></p>
+        <div id="plan-result" class="loops-result hidden">
+          <div id="plan-metrics" class="loops-metrics"></div>
+          <div id="plan-profile" class="plan-profile"></div>
+        </div>
+        <div class="plan-tools">
+          <button class="btn" id="plan-reverse" title="Inverser le sens de parcours">⇅ Inverser</button>
+          <button class="btn" id="plan-fit" title="Cadrer l'itinéraire">⤢ Cadrer</button>
+          <button class="btn" id="plan-reset" title="Effacer tous les points">↺ Réinitialiser</button>
+        </div>
         <div class="builder-foot">
-          <span id="builder-stats" class="builder-stats">0 km · 0 étape</span>
-          <button class="btn" id="builder-cancel">Annuler</button>
-          <button class="btn btn-primary" id="builder-save">⏎ Enregistrer</button>
+          <button class="btn" id="plan-cancel">Fermer</button>
+          <button class="btn btn-primary" id="plan-save">⏎ Enregistrer</button>
         </div>
       </div>
 
@@ -614,6 +624,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script type="module" src="js/main.js?v=509"></script>
+  <script type="module" src="js/main.js?v=520"></script>
 </body>
 </html>

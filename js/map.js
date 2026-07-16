@@ -2,7 +2,7 @@
 import { state, trackOf } from "./state.js";
 import { overpassFetch } from "./api.js";
 import { photoOf, photoStyle } from "./photos.js";
-import { builder, builderAdd, builderAddPoint } from "./builder.js";
+import { planner, plannerAddPoint } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
@@ -179,11 +179,11 @@ async function refreshPoi(kind) {
       const marker = L.marker([lat, lon], {
         icon: L.divIcon({ className: "poi-marker", html: def.icon, iconSize: [22, 22] }),
       });
-      // En mode dessin, un point d'intérêt cliqué devient une étape du parcours
+      // Planificateur ouvert : un point d'intérêt cliqué devient un point de passage
       marker.on("click", () => {
-        if (builder.active && builder.mode === "draw") {
+        if (planner.active) {
           marker.closePopup();
-          builderAddPoint(L.latLng(lat, lon));
+          plannerAddPoint(L.latLng(lat, lon), def.label(tags));
         }
       });
       marker.bindPopup(
@@ -271,9 +271,8 @@ export function addMarker(trail) {
     hoverTrack?.remove();
     hoverTrack = null;
     marker.closeTooltip();
-    if (builder.active) {
-      if (builder.mode === "trails") builderAdd(trail);
-      else builderAddPoint(L.latLng(trail.center[0], trail.center[1]));
+    if (planner.active) {
+      plannerAddPoint(L.latLng(trail.center[0], trail.center[1]), trail.name);
       return;
     }
     showPreview(trail);
@@ -470,12 +469,10 @@ export function initMap() {
 
   map.on("locationerror", (e) => alert(`Position introuvable : ${e.message}`));
 
-  // Clic sur la carte : point de dessin en mode créateur, sinon referme les calques
+  // Clic sur la carte : point de passage si le planificateur est ouvert, départ de
+  // boucle si le générateur l'est, sinon referme les calques
   map.on("click", (e) => {
-    if (builder.active && builder.mode === "draw") {
-      builderAddPoint(e.latlng);
-      return;
-    }
+    if (planner.active) { plannerAddPoint(e.latlng); return; }
     if (loops.active) { setLoopStart(e.latlng); return; }
     layersPanel.classList.add("hidden");
   });

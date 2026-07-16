@@ -11,7 +11,11 @@ import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 
 // ---------- Profil d'altitude ----------
-function profileSVGFromValues(values, W = 640, H = 150) {
+// Exporté pour la vignette du planificateur (js/planner.js).
+// ⚠ L'axe X est INDEXÉ, pas kilométrique : le profil suppose des points équidistants,
+// ce que ne sont ni les tracés OSM ni la sortie BRouter → allure légèrement déformée.
+// Corrigé en S-PLAN-B (axe en distance cumulée, cf. metrics.js/cumulativeKm).
+export function profileSVGFromValues(values, W = 640, H = 150) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
