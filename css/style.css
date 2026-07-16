@@ -687,8 +687,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 .plan-rm:hover { color: var(--red); }
 
-.plan-profile { margin-top: 2px; }
-.plan-profile .elevation-chart { width: 100%; height: 60px; display: block; }
+.plan-profile { margin-top: 4px; }
 
 .plan-tools { display: flex; gap: 6px; margin-bottom: 10px; }
 .plan-tools .btn { flex: 1; font-size: 11px; padding: 6px 4px; }
@@ -996,10 +995,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   border-radius: var(--radius);
   padding: 10px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
 }
-
-.side-profile .elevation-chart { height: 130px; }
+.side-profile > .muted { margin: auto; }
 
 .detail-statsbar {
   display: grid;
@@ -1094,8 +1093,69 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .detail-description { font-size: 14px; line-height: 1.7; max-width: 760px; }
 
-.elevation-chart { width: 100%; border-radius: var(--radius); background: var(--surface-2); }
-.elevation-chart polygon { fill: rgba(255, 45, 32, 0.16) !important; }
+/* ============ Profil d'altitude interactif (S-PLAN-B) ============ */
+.prof { width: 100%; --surf-sentier: #ff2d20; --surf-chemin: #d99a2b; --surf-chemin-terre: #a9713c; --surf-route: #7d8590; --surf-asphalte: #4a4e57; --surf-autre: #3a3a40; }
+.prof-plot { position: relative; width: 100%; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; }
+.prof-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+.prof-area { fill: rgba(255, 45, 32, 0.14); stroke: none; }
+.prof-line { fill: none; stroke: var(--red); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.prof-grid { stroke: var(--border); stroke-width: 1; }
+.prof-axis-label { fill: var(--text-soft); font-size: 10px; font-variant-numeric: tabular-nums; }
+.prof-alt { fill: var(--text); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.prof-alt-min { fill: var(--text-soft); font-weight: 600; }
+
+.prof-cursor.hidden, .prof-sel.hidden, .prof-tip.hidden, .prof-unzoom.hidden { display: none; }
+.prof-cursor-line { stroke: var(--text); stroke-width: 1; opacity: 0.5; stroke-dasharray: 3 3; }
+.prof-cursor-dot { fill: var(--red); stroke: #fff; stroke-width: 1.5; }
+.prof-sel { fill: rgba(255, 45, 32, 0.14); stroke: var(--red); stroke-width: 1; stroke-dasharray: 3 2; }
+
+.prof-band { rx: 0; }
+.prof-band[data-cls="sentier"] { fill: var(--surf-sentier); }
+.prof-band[data-cls="chemin"] { fill: var(--surf-chemin); }
+.prof-band[data-cls="chemin-terre"] { fill: var(--surf-chemin-terre); }
+.prof-band[data-cls="route"] { fill: var(--surf-route); }
+.prof-band[data-cls="asphalte"] { fill: var(--surf-asphalte); }
+.prof-band[data-cls="autre"] { fill: var(--surf-autre); }
+
+.prof-tip {
+  position: absolute; top: 4px; pointer-events: none;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  padding: 2px 7px; font-size: 11px; white-space: nowrap; color: var(--text);
+  font-variant-numeric: tabular-nums; box-shadow: var(--shadow); z-index: 2;
+}
+.prof-tip b { font-weight: 700; }
+.prof-tip-surf { color: var(--text-soft); }
+
+.prof-unzoom {
+  position: absolute; top: 5px; right: 5px; z-index: 2;
+  width: 24px; height: 24px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  color: var(--text); cursor: pointer; font-size: 14px; line-height: 1;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+.prof-unzoom:hover { border-color: var(--red); color: var(--red); }
+
+.prof-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.prof-leg {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--text-soft); font-variant-numeric: tabular-nums;
+}
+.prof-leg b { color: var(--text); font-weight: 700; }
+.prof-swatch { width: 11px; height: 3px; border-radius: 1px; flex: 0 0 auto; }
+.prof-swatch[data-cls="sentier"] { background: var(--surf-sentier); }
+.prof-swatch[data-cls="chemin"] { background: var(--surf-chemin); }
+.prof-swatch[data-cls="chemin-terre"] { background: var(--surf-chemin-terre); }
+.prof-swatch[data-cls="route"] { background: var(--surf-route); }
+.prof-swatch[data-cls="asphalte"] { background: var(--surf-asphalte); }
+.prof-swatch[data-cls="autre"] { background: var(--surf-autre); }
+
+.prof-compact .prof-legend { margin-top: 6px; gap: 3px 9px; }
+.prof-compact .prof-leg { font-size: 10px; gap: 4px; }
 
 .terrain-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
 

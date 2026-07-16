@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=521" />
+  <link rel="stylesheet" href="css/style.css?v=522" />
   <script type="importmap">
     {
       "imports": {
@@ -25,12 +25,14 @@
         "./js/map.js": "./js/map.js?v=520",
         "./js/filters.js": "./js/filters.js?v=503",
         "./js/trails.js": "./js/trails.js?v=518",
-        "./js/detail.js": "./js/detail.js?v=520",
+        "./js/detail.js": "./js/detail.js?v=522",
         "./js/catalog.js": "./js/catalog.js?v=518",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/brouter.js": "./js/brouter.js?v=520",
         "./js/metrics.js": "./js/metrics.js?v=520",
-        "./js/planner.js": "./js/planner.js?v=521",
+        "./js/surface.js": "./js/surface.js?v=522",
+        "./js/profile.js": "./js/profile.js?v=522",
+        "./js/planner.js": "./js/planner.js?v=522",
         "./js/loops.js": "./js/loops.js?v=520",
         "./js/geosearch.js": "./js/geosearch.js?v=520",
         "./js/nav.js": "./js/nav.js?v=506",
@@ -293,6 +295,10 @@
         <div id="plan-result" class="loops-result hidden">
           <div id="plan-metrics" class="loops-metrics"></div>
           <div id="plan-profile" class="plan-profile"></div>
+        </div>
+        <div class="plan-tools">
+          <button class="btn" id="plan-undo" title="Annuler (⌘Z)" disabled>↶ Annuler</button>
+          <button class="btn" id="plan-redo" title="Refaire (⇧⌘Z)" disabled>↷ Refaire</button>
         </div>
         <div class="plan-tools">
           <button class="btn" id="plan-reverse" title="Inverser le sens de parcours">⇅ Inverser</button>

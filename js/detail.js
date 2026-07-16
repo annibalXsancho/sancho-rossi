@@ -1,6 +1,7 @@
 // Sancho Rossi — fiche itinéraire (page plein écran, façon AllTrails) + vue 3D + profil
 import { state, catalogTrails, getTrail, trackOf, sampleTrack, haversineKm, saveNote } from "./state.js";
 import { ensureElevation } from "./api.js";
+import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
@@ -10,37 +11,16 @@ import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 
-// ---------- Profil d'altitude ----------
-// Exporté pour la vignette du planificateur (js/planner.js).
-// ⚠ L'axe X est INDEXÉ, pas kilométrique : le profil suppose des points équidistants,
-// ce que ne sont ni les tracés OSM ni la sortie BRouter → allure légèrement déformée.
-// Corrigé en S-PLAN-B (axe en distance cumulée, cf. metrics.js/cumulativeKm).
-export function profileSVGFromValues(values, W = 640, H = 150) {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const pad = 6;
-  const coords = values.map((v, i) => {
-    const x = pad + (i / (values.length - 1)) * (W - pad * 2);
-    const y = H - pad - ((v - min) / span) * (H - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  return `
-    <svg class="elevation-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Profil d'altitude">
-      <polygon points="${pad},${H - pad} ${coords.join(" ")} ${W - pad},${H - pad}"
-        fill="rgba(45,106,47,0.25)" />
-      <polyline points="${coords.join(" ")}" fill="none" stroke="var(--green-line, #2d6a2f)" stroke-width="2.5"
-        stroke-linejoin="round" stroke-linecap="round" />
-      <text x="${pad + 4}" y="15" font-size="12" font-weight="700" fill="var(--chart-text, #1e4a20)">${Math.round(max)} m</text>
-      <text x="${pad + 4}" y="${H - 10}" font-size="12" font-weight="700" fill="var(--chart-text2, #5c6b5c)">${Math.round(min)} m</text>
-    </svg>`;
-}
-
 const detailPanel = document.getElementById("detail-panel");
 const detailContent = document.getElementById("detail-content");
 const breadcrumbEl = document.getElementById("detail-breadcrumb");
 let miniMap = null;
+let miniCursor = null;
+let profile = null;
 let viewer3dActive = false;
+// Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
+// fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
+let renderSeq = 0;
 
 export function isDetailOpen() {
   return !detailPanel.classList.contains("hidden");
@@ -48,11 +28,30 @@ export function isDetailOpen() {
 
 function destroyMiniMap() {
   if (miniMap) { miniMap.remove(); miniMap = null; }
+  miniCursor = null;
+  profile?.destroy();
+  profile = null;
+}
+
+// Survol du profil → point sur la mini-carte. C'est ce qui rend le profil lisible :
+// « cette rampe, c'est où ? » n'a plus besoin d'être deviné.
+function showOnMiniMap(p) {
+  if (!miniMap) return;
+  if (!p) { miniCursor?.remove(); miniCursor = null; return; }
+  if (!miniCursor) {
+    miniCursor = L.circleMarker([p.lat, p.lon], {
+      radius: 5, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
+      interactive: false,
+    }).addTo(miniMap);
+  } else {
+    miniCursor.setLatLng([p.lat, p.lon]);
+  }
 }
 
 export function renderDetail(id) {
   const t = getTrail(id);
   const faved = state.favorites.has(id);
+  const seq = ++renderSeq;
   const gain = t.elevationGain ?? state.elev[id]?.gain;
   const amax = t.altMax ?? state.elev[id]?.max;
   // Entrée dans l'historique à l'ouverture : le bouton retour referme la fiche
@@ -168,11 +167,29 @@ export function renderDetail(id) {
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(miniMap);
   const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(miniMap);
   miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
+  // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du
+  // profil (l'autre sens passe par showOnMiniMap). Le profil arrive après (async) :
+  // le handler lit `profile` au moment de l'événement, jamais à l'attache.
+  line.on("mousemove", (e) => {
+    const km = profile?.kmNear(e.latlng.lat, e.latlng.lng);
+    if (km != null) profile.setCursorKm(km);
+  });
+  line.on("mouseout", () => profile?.setCursorKm(null));
 
   // Profil réel
   ensureElevation(t)
     .then((eles) => {
-      document.getElementById("side-profile").innerHTML = profileSVGFromValues(eles);
+      if (seq !== renderSeq) return; // une autre fiche s'est ouverte entre-temps
+      profile = createProfile(document.getElementById("side-profile"), {
+        eles,
+        // Le même fil que celui sur lequel ensureElevation a relevé l'altitude —
+        // c'est ce qui permet à profile.js de réaligner les deux (cf. sampleTrack).
+        track: t.mainline || trackOf(t),
+        ways: t.ways,
+        totalKm: t.distance,
+        height: 130,
+        onHover: showOnMiniMap,
+      });
       const e = state.elev[id];
       if (e) {
         document.getElementById("stat-gain").innerHTML = `${e.gain.toLocaleString("fr-FR")}<small> m</small>`;
@@ -180,6 +197,7 @@ export function renderDetail(id) {
       }
     })
     .catch(() => {
+      if (seq !== renderSeq) return;
       document.getElementById("side-profile").innerHTML =
         `<p class="muted">Profil indisponible hors connexion.</p>`;
       document.getElementById("stat-gain").textContent = gain ? Math.round(gain) : "—";

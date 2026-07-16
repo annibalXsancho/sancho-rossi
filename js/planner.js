@@ -20,12 +20,13 @@ import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
 import { brouterRoute } from "./brouter.js";
 import { createGeoSuggest } from "./geosearch.js";
-import { profileSVGFromValues } from "./detail.js";
+import { createProfile } from "./profile.js";
 import {
   computeGain, computeLoss, naismithHours, fmtDuration, sacRating, SAC_LABEL,
 } from "./metrics.js";
 
 const REROUTE_DEBOUNCE_MS = 250; // coalesce les éditions rapprochées (glisser, réordonner)
+const HISTORY_MAX = 60;
 
 export const planner = {
   active: false,
@@ -38,6 +39,10 @@ export const planner = {
   controller: null,
   timer: null,
   suggest: null,
+  profile: null,   // instance de profile.js (vignette du panneau)
+  cursor: null,    // marqueur de position, piloté par le survol du profil
+  history: [[]],   // instantanés de `waypoints` — l'état vide est le fond de pile
+  hIndex: 0,
 };
 
 const el = (id) => document.getElementById(id);
@@ -50,6 +55,40 @@ const escapeHtml = (s) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 
+// ---------- Historique (annuler / refaire) ----------
+// On mémorise la SUITE DE POINTS, pas le tracé routé : c'est l'entrée utilisateur, la
+// seule chose que l'utilisateur a « faite » et veut défaire. Le tracé s'en redéduit par
+// un reroute — annuler puis refaire relance donc BRouter, ce qui est correct (l'état
+// est reconstruit, jamais rejoué depuis un cache potentiellement périmé).
+const snapshot = () => planner.waypoints.map((w) => ({ ...w }));
+
+// Appelée APRÈS chaque mutation initiée par l'utilisateur. Tronque la branche « refaire »
+// (on repart d'un état intermédiaire → le futur qu'on avait n'existe plus).
+function commit() {
+  planner.history.length = planner.hIndex + 1;
+  planner.history.push(snapshot());
+  if (planner.history.length > HISTORY_MAX) planner.history.shift();
+  planner.hIndex = planner.history.length - 1;
+}
+
+function restore(snap) {
+  planner.waypoints = snap.map((w) => ({ ...w }));
+  const maxSeq = planner.waypoints.reduce((m, w) => Math.max(m, +String(w.id).slice(1) || 0), 0);
+  planner.seq = Math.max(planner.seq, maxSeq); // pas de collision d'id après un ajout post-annulation
+  redraw();
+  reroute();
+}
+
+function undo() {
+  if (planner.hIndex === 0) return;
+  restore(planner.history[--planner.hIndex]);
+}
+
+function redo() {
+  if (planner.hIndex >= planner.history.length - 1) return;
+  restore(planner.history[++planner.hIndex]);
+}
+
 // ---------- Mutations (toutes passent par reroute) ----------
 export function plannerAddPoint(latlng, name = null) {
   planner.waypoints.push({
@@ -58,18 +97,51 @@ export function plannerAddPoint(latlng, name = null) {
     lon: latlng.lng,
     name,
   });
+  commit();
   redraw();
   reroute();
 }
 
+// Insertion d'un point SUR le tracé : on le glisse entre les deux waypoints dont le
+// segment routé passe au plus près du clic. Sans ça, ajouter un détour au milieu d'un
+// long itinéraire obligeait à tout réordonner à la main.
+function insertPointAt(latlng) {
+  const wp = { id: `w${++planner.seq}`, lat: latlng.lat, lon: latlng.lng, name: null };
+  const at = nearestLegIndex(latlng);
+  if (at == null) planner.waypoints.push(wp);
+  else planner.waypoints.splice(at, 0, wp);
+  commit();
+  redraw();
+  reroute();
+}
+
+// Index d'insertion (1…n-1) : le point du tracé routé le plus proche du clic, ramené
+// au segment de waypoints qui le contient. null si moins de deux waypoints.
+function nearestLegIndex(latlng) {
+  const wps = planner.waypoints;
+  const track = planner.routed?.track;
+  if (wps.length < 2 || !track?.length) return null;
+  let bi = 0, bd = Infinity;
+  for (let i = 0; i < track.length; i++) {
+    const d = (track[i][0] - latlng.lat) ** 2 + (track[i][1] - latlng.lng) ** 2;
+    if (d < bd) { bd = d; bi = i; }
+  }
+  const frac = bi / (track.length - 1);
+  // Réparti uniformément entre les waypoints : approximation suffisante pour choisir
+  // un segment (le reroute corrige la géométrie exacte de toute façon).
+  return Math.min(wps.length - 1, Math.max(1, Math.round(frac * (wps.length - 1))));
+}
+
 function removeWaypoint(id) {
   planner.waypoints = planner.waypoints.filter((w) => w.id !== id);
+  commit();
   redraw();
   reroute();
 }
 
 function reverseRoute() {
   planner.waypoints.reverse();
+  commit();
   redraw();
   reroute();
 }
@@ -78,6 +150,7 @@ function resetRoute() {
   planner.waypoints = [];
   planner.routed = null;
   planner.controller?.abort();
+  commit();
   redraw();
   render();
 }
@@ -129,14 +202,26 @@ function redraw() {
   planner.markers.clear();
   const r = planner.routed;
   if (r?.track?.length > 1) {
-    planner.layer.addLayer(
-      L.polyline(r.track, {
-        color: "#ff2d20",
-        weight: 4,
-        opacity: 0.95,
-        dashArray: r.fallback ? "7 7" : null,
-      })
-    );
+    const line = L.polyline(r.track, {
+      color: "#ff2d20",
+      weight: 4,
+      opacity: 0.95,
+      dashArray: r.fallback ? "7 7" : null,
+    });
+    // Cliquer SUR le tracé insère un point de passage à cet endroit (détour). Le clic
+    // « dans le vide » ajoute en bout de course (map.js) — stopPropagation évite que
+    // les deux se déclenchent pour un même clic.
+    if (!r.fallback) {
+      line.on("click", (e) => { L.DomEvent.stop(e); insertPointAt(e.latlng); });
+      // Sens carte → profil : longer le tracé du doigt/curseur déplace le curseur du
+      // profil. Complète le contrat « carte ↔ profil » (l'autre sens est showCursorOnMap).
+      line.on("mousemove", (e) => {
+        const km = planner.profile?.kmNear(e.latlng.lat, e.latlng.lng);
+        if (km != null) planner.profile.setCursorKm(km);
+      });
+      line.on("mouseout", () => planner.profile?.setCursorKm(null));
+    }
+    planner.layer.addLayer(line);
   }
   planner.waypoints.forEach((w, i) => {
     const marker = L.marker([w.lat, w.lon], {
@@ -149,12 +234,26 @@ function redraw() {
       w.lat = ll.lat;
       w.lon = ll.lng;
       w.name = null; // le point n'est plus le lieu nommé qu'on avait choisi
+      commit();
       renderList();
       reroute();
     });
     planner.layer.addLayer(marker);
     planner.markers.set(w.id, marker);
   });
+}
+
+// Survol du profil → point sur la carte principale. Même contrat que la fiche.
+function showCursorOnMap(p) {
+  if (!p) { planner.cursor?.remove(); planner.cursor = null; return; }
+  if (!planner.cursor) {
+    planner.cursor = L.circleMarker([p.lat, p.lon], {
+      radius: 5, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
+      interactive: false,
+    }).addTo(map);
+  } else {
+    planner.cursor.setLatLng([p.lat, p.lon]);
+  }
 }
 
 function fitRoute() {
@@ -192,6 +291,10 @@ function renderMetrics() {
   if (!r || r.fallback || r.distance == null) {
     box.classList.add("hidden");
     el("plan-sac").classList.add("hidden");
+    planner.profile?.destroy();
+    planner.profile = null;
+    planner.cursor?.remove();
+    planner.cursor = null;
     return;
   }
   const gain = r.eles ? computeGain(r.eles) : null;
@@ -205,11 +308,19 @@ function renderMetrics() {
     `<div class="loops-metric"><span>${gain != null ? fr(gain) : "—"}</span><label>m D+</label></div>` +
     `<div class="loops-metric"><span>${loss != null ? fr(loss) : "—"}</span><label>m D−</label></div>`;
 
-  // Vignette de profil. NB : l'axe X de profileSVGFromValues est indexé, pas
-  // kilométrique — les points BRouter n'étant pas équidistants, le profil est
-  // légèrement déformé. Défaut préexistant sur TOUS les tracés de l'app ; corrigé
-  // en S-PLAN-B (axe en distance cumulée), pas ici.
-  el("plan-profile").innerHTML = r.eles ? profileSVGFromValues(r.eles, 320, 70) : "";
+  // Vignette de profil interactive : axe en km, survol lié à la carte, glisser pour
+  // zoomer, bande de revêtement. Les points BRouter étant déjà à la géométrie réelle,
+  // `track`/`eles` coïncident et l'axe kilométrique est exact.
+  planner.profile?.destroy();
+  planner.profile = null;
+  if (r.eles) {
+    planner.profile = createProfile(el("plan-profile"), {
+      eles: r.eles, track: r.track, ways: r.ways, totalKm: r.distance,
+      height: 84, compact: true, onHover: showCursorOnMap,
+    });
+  } else {
+    el("plan-profile").innerHTML = "";
+  }
 
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });
   const pill = el("plan-sac");
@@ -244,6 +355,8 @@ function render(errMsg) {
   el("plan-save").disabled = !planner.routed || planner.routed.fallback || planner.routing;
   el("plan-reverse").disabled = planner.waypoints.length < 2;
   el("plan-reset").disabled = !planner.waypoints.length;
+  el("plan-undo").disabled = planner.hIndex === 0;
+  el("plan-redo").disabled = planner.hIndex >= planner.history.length - 1;
 }
 
 // ---------- Réordonnancement par glisser ----------
@@ -273,10 +386,12 @@ function initReorder() {
       renderList();
       redraw(); // les lettres des marqueurs suivent l'ordre en direct
     };
+    const startOrder = planner.waypoints.map((w) => w.id).join();
     const up = () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
       document.body.classList.remove("plan-dragging");
+      if (planner.waypoints.map((w) => w.id).join() !== startOrder) commit(); // seulement si l'ordre a bougé
       reroute();
     };
     document.addEventListener("pointermove", move);
@@ -368,6 +483,12 @@ function exitPlanner() {
   planner.layer.clearLayers();
   planner.layer.remove();
   planner.suggest?.clear();
+  planner.profile?.destroy();
+  planner.profile = null;
+  planner.cursor?.remove();
+  planner.cursor = null;
+  planner.history = [[]];
+  planner.hIndex = 0;
   document.body.classList.remove("loops-active");
   el("plan-bar").classList.add("hidden");
   el("btn-planner").classList.remove("active");
@@ -394,6 +515,8 @@ export function initPlanner() {
     if (planner.active) { exitPlanner(); return; }
     closeDetail();
     planner.active = true;
+    planner.history = [[]];
+    planner.hIndex = 0;
     // Même leçon qu'en S-BOUCLES : on masque la liste de résultats et la barre de
     // recherche, sinon le panneau surgit par-dessus la carte (« la page saute »).
     document.body.classList.add("loops-active");
@@ -408,4 +531,18 @@ export function initPlanner() {
   el("plan-cancel").addEventListener("click", exitPlanner);
   el("plan-save").addEventListener("click", savePlan);
   el("plan-fit").addEventListener("click", fitRoute);
+  el("plan-undo").addEventListener("click", undo);
+  el("plan-redo").addEventListener("click", redo);
+
+  // Raccourcis clavier (usage Mac depuis le bureau) — inactifs dès qu'on saisit du
+  // texte, pour ne pas voler ⌘Z à la zone de recherche ou aux notes.
+  document.addEventListener("keydown", (e) => {
+    if (!planner.active) return;
+    const tag = e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) return;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      e.shiftKey ? redo() : undo();
+    }
+  });
 }
