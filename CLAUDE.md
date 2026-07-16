@@ -35,6 +35,7 @@ L'exigence esthétique fait partie du produit : interface **belle, fluide, moder
 - Chaque sprint qui touche l'UI doit livrer à ce niveau — le polish n'est pas une étape « plus tard ».
 
 ## Méthode de travail
+- **`git fetch origin` AVANT de lire ROADMAP.md**, en tout début de session. Le travail se fait depuis plusieurs machines : le ROADMAP local peut être en retard sur `origin/main` et annoncer comme « à faire » un sprint déjà livré. Comparer `git log --oneline main..origin/main` avant d'annoncer le prochain sprint. *(Le 16/07/2026, S8 et S9 étaient faits sur le distant et ont été annoncés comme disponibles ; découvert seulement au push de S-PLAN-A, qui a dû être fusionné après coup.)*
 - **1 session = 1 sprint = 1 scope fermé**, défini dans `ROADMAP.md`. Lire ROADMAP.md en début de session ; en fin de sprint : vérifier dans le navigateur, cocher la case, committer.
 - Mode Plan avant tout sprint non trivial.
 - Cache-buster `?v=` sur les JS modifiés (`http.server` n'envoie pas de headers de cache).
