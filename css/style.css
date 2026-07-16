@@ -988,6 +988,60 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 #mini-map { height: 224px; border-radius: var(--radius); z-index: 1; background: var(--surface-2); border: 1px solid var(--border); }
 
+/* La mini-carte est un bouton : clic → carte plein écran. L'icône ⤢ le dit sans mot. */
+.mini-map-wrap { position: relative; cursor: pointer; }
+.mini-map-wrap .mini-map-expand {
+  position: absolute; right: 8px; bottom: 8px; z-index: 2;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  font-size: 14px; line-height: 1; color: var(--text); pointer-events: none;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+.mini-map-wrap:hover .mini-map-expand { border-color: var(--red); color: var(--red); }
+
+/* ============ Carte plein écran de la fiche ============ */
+.fullmap-overlay { position: fixed; inset: 0; z-index: 1400; background: var(--bg); }
+.fullmap-overlay.hidden { display: none; }
+#fullmap { position: absolute; inset: 0; z-index: 0; background: var(--surface-2); }
+
+.fullmap-close {
+  position: absolute; top: 14px; right: 14px; z-index: 10;
+  width: 38px; height: 38px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  color: var(--text); cursor: pointer; font-size: 16px; line-height: 1;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+.fullmap-close:hover { border-color: var(--red); color: var(--red); }
+
+.fullmap-panel {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-strong);
+  padding: 10px 16px 12px;
+}
+.fullmap-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.fullmap-title {
+  font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  border-left: 2px solid var(--red); padding-left: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
+}
+.fullmap-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.fullmap-stat b { color: var(--text); font-weight: 800; }
+
+@media (max-width: 700px) {
+  .fullmap-panel { padding: 8px 10px 10px; }
+  .fullmap-title { max-width: 100%; }
+  .fullmap-stats { gap: 12px; font-size: 11px; }
+}
+
 .side-profile {
   flex: 1;
   background: var(--surface);

@@ -48,6 +48,107 @@ function showOnMiniMap(p) {
   }
 }
 
+// ---------- Carte plein écran (clic sur la mini-carte) ----------
+// La mini-carte est volontairement inerte (aperçu) ; l'explorer se fait ici : carte
+// entière et interactive + le même profil en bandeau bas, synchronisés dans les deux
+// sens. Même contrat d'historique que la fiche : Échap, ✕ et le bouton retour ferment.
+let fullMap = null;
+let fullProfile = null;
+let fullCursor = null;
+
+const fullmapEl = document.getElementById("fullmap-overlay");
+
+export function isFullMapOpen() {
+  return !fullmapEl.classList.contains("hidden");
+}
+
+// Fermer par Échap ou ✕ appelle history.back() pour dépiler l'entrée d'historique —
+// ce qui déclenche un popstate que ui.js relirait comme « l'utilisateur recule » et
+// qui fermerait la fiche EN PLUS de la carte. Ce compteur absorbe exactement les
+// popstate que nous provoquons nous-mêmes.
+let selfBacks = 0;
+
+function selfBack() {
+  selfBacks++;
+  history.back();
+}
+
+export function consumeSelfBack() {
+  if (selfBacks <= 0) return false;
+  selfBacks--;
+  return true;
+}
+
+function showOnFullMap(p) {
+  if (!fullMap) return;
+  if (!p) { fullCursor?.remove(); fullCursor = null; return; }
+  if (!fullCursor) {
+    fullCursor = L.circleMarker([p.lat, p.lon], {
+      radius: 6, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
+      interactive: false,
+    }).addTo(fullMap);
+  } else {
+    fullCursor.setLatLng([p.lat, p.lon]);
+  }
+}
+
+function openFullMap(t) {
+  if (isFullMapOpen()) return;
+  fullmapEl.classList.remove("hidden");
+  history.pushState({ srDetail: true, srFullmap: true }, "");
+
+  document.getElementById("fullmap-title").textContent = t.name;
+  const gain = t.elevationGain ?? state.elev[t.id]?.gain;
+  const amax = t.altMax ?? state.elev[t.id]?.max;
+  const fr = (v) => Math.round(v).toLocaleString("fr-FR");
+  document.getElementById("fullmap-stats").innerHTML =
+    `<span class="fullmap-stat"><b>${t.distance}</b> km</span>` +
+    (gain ? `<span class="fullmap-stat"><b>${fr(gain)}</b> m D+</span>` : "") +
+    (amax ? `<span class="fullmap-stat"><b>${fr(amax)}</b> m max</span>` : "") +
+    `<span class="fullmap-stat"><b>${t.duration}</b></span>`;
+
+  const panel = fullmapEl.querySelector(".fullmap-panel");
+  fullMap = L.map("fullmap");
+  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(fullMap);
+  const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(fullMap);
+  // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
+  // départ ou l'arrivée se retrouve caché dessous.
+  fullMap.fitBounds(line.getBounds(), {
+    paddingTopLeft: [40, 60],
+    paddingBottomRight: [40, (panel?.offsetHeight || 150) + 30],
+  });
+  line.on("mousemove", (e) => {
+    const km = fullProfile?.kmNear(e.latlng.lat, e.latlng.lng);
+    if (km != null) fullProfile.setCursorKm(km);
+  });
+  line.on("mouseout", () => fullProfile?.setCursorKm(null));
+
+  ensureElevation(t)
+    .then((eles) => {
+      if (!isFullMapOpen()) return; // fermé pendant la requête
+      fullProfile = createProfile(document.getElementById("fullmap-profile"), {
+        eles,
+        track: t.mainline || trackOf(t),
+        ways: t.ways,
+        totalKm: t.distance,
+        height: window.innerWidth < 700 ? 84 : 110,
+        onHover: showOnFullMap,
+      });
+    })
+    .catch(() => {}); // hors-ligne : la carte et les stats suffisent, pas de bandeau vide
+}
+
+export function closeFullMap(fromPopstate = false) {
+  if (!isFullMapOpen()) return;
+  fullmapEl.classList.add("hidden");
+  fullProfile?.destroy();
+  fullProfile = null;
+  fullCursor = null;
+  if (fullMap) { fullMap.remove(); fullMap = null; }
+  document.getElementById("fullmap-profile").innerHTML = "";
+  if (!fromPopstate && history.state?.srFullmap) selfBack();
+}
+
 export function renderDetail(id) {
   const t = getTrail(id);
   const faved = state.favorites.has(id);
@@ -87,7 +188,10 @@ export function renderDetail(id) {
     <div class="detail-media">
       <div class="detail-hero" style="${photoStyle(t)}"></div>
       <div class="detail-side">
-        <div id="mini-map"></div>
+        <div class="mini-map-wrap" id="mini-map-wrap" title="Agrandir la carte" role="button" tabindex="0" aria-label="Ouvrir la carte en plein écran">
+          <div id="mini-map"></div>
+          <span class="mini-map-expand" aria-hidden="true">⤢</span>
+        </div>
         <div class="side-profile" id="side-profile">
           <p class="muted">Profil d'altitude réel — chargement…</p>
         </div>
@@ -175,6 +279,13 @@ export function renderDetail(id) {
     if (km != null) profile.setCursorKm(km);
   });
   line.on("mouseout", () => profile?.setCursorKm(null));
+
+  // Clic (ou Entrée) sur la mini-carte → carte plein écran
+  const wrap = document.getElementById("mini-map-wrap");
+  wrap.addEventListener("click", () => openFullMap(t));
+  wrap.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFullMap(t); }
+  });
 
   // Profil réel
   ensureElevation(t)
@@ -360,6 +471,7 @@ async function downloadPack(t, id) {
 
 export function closeDetail(fromPopstate = false) {
   if (detailPanel.classList.contains("hidden")) return;
+  closeFullMap(fromPopstate); // une fiche fermée ne laisse pas sa carte plein écran orpheline
   detailPanel.classList.add("hidden");
   destroyMiniMap();
   window.SR3D?.dispose();
@@ -367,10 +479,11 @@ export function closeDetail(fromPopstate = false) {
   state.selectedId = null;
   clearActiveTrack();
   renderList();
-  if (!fromPopstate && history.state?.srDetail) history.back();
+  if (!fromPopstate && history.state?.srDetail) selfBack();
 }
 
 export function initDetail() {
   // closeDetail passé tel quel (l'event truthy évite le history.back), comme l'original
   document.getElementById("detail-close").addEventListener("click", closeDetail);
+  document.getElementById("fullmap-close").addEventListener("click", () => closeFullMap());
 }

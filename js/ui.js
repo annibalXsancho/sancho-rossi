@@ -2,7 +2,7 @@
 import { state } from "./state.js";
 import { map, layersConfig, applyLayer, addMarker } from "./map.js";
 import { renderAll, renderFavCount } from "./trails.js";
-import { isDetailOpen, closeDetail } from "./detail.js";
+import { isDetailOpen, closeDetail, isFullMapOpen, closeFullMap, consumeSelfBack } from "./detail.js";
 import { renderSafety, saveContacts } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { saveTraces, putMeta, clearAll } from "./storage.js";
@@ -85,16 +85,20 @@ export function initUi() {
   applyTheme(document.documentElement.dataset.theme || "light");
   themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
 
-  // Échap : referme fiche puis panneau de calques
+  // Échap : referme la carte plein écran, puis la fiche, puis le panneau de calques
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (isDetailOpen()) closeDetail();
+    if (isFullMapOpen()) closeFullMap();
+    else if (isDetailOpen()) closeDetail();
     else document.getElementById("layers-panel").classList.add("hidden");
   });
 
-  // Bouton retour du navigateur : referme la fiche au lieu de quitter l'app
+  // Bouton retour du navigateur : dépile carte plein écran puis fiche, jamais l'app.
+  // Un popstate que l'app s'est provoqué à elle-même (Échap, ✕) est déjà traité.
   window.addEventListener("popstate", () => {
-    if (isDetailOpen()) closeDetail(true);
+    if (consumeSelfBack()) return;
+    if (isFullMapOpen()) closeFullMap(true);
+    else if (isDetailOpen()) closeDetail(true);
   });
 
   document.querySelectorAll(".tab-nav-btn").forEach((b) =>

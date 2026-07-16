@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=522" />
+  <link rel="stylesheet" href="css/style.css?v=523" />
   <script type="importmap">
     {
       "imports": {
@@ -25,7 +25,7 @@
         "./js/map.js": "./js/map.js?v=520",
         "./js/filters.js": "./js/filters.js?v=503",
         "./js/trails.js": "./js/trails.js?v=518",
-        "./js/detail.js": "./js/detail.js?v=522",
+        "./js/detail.js": "./js/detail.js?v=524",
         "./js/catalog.js": "./js/catalog.js?v=518",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/brouter.js": "./js/brouter.js?v=520",
@@ -37,7 +37,7 @@
         "./js/geosearch.js": "./js/geosearch.js?v=520",
         "./js/nav.js": "./js/nav.js?v=506",
         "./js/security.js": "./js/security.js?v=515",
-        "./js/ui.js": "./js/ui.js?v=505",
+        "./js/ui.js": "./js/ui.js?v=524",
         "./js/offline.js": "./js/offline.js?v=505",
         "./js/recommend.js": "./js/recommend.js?v=501",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
@@ -662,6 +662,19 @@
         <nav id="detail-breadcrumb" class="breadcrumb"></nav>
       </div>
       <div id="detail-content"></div>
+    </div>
+  </section>
+
+  <!-- Carte plein écran de la fiche (clic sur la mini-carte) : tracé + profil synchronisé -->
+  <section id="fullmap-overlay" class="fullmap-overlay hidden" aria-label="Carte plein écran">
+    <div id="fullmap"></div>
+    <button id="fullmap-close" class="fullmap-close" title="Fermer (Échap)" aria-label="Fermer">✕</button>
+    <div class="fullmap-panel">
+      <div class="fullmap-head">
+        <span id="fullmap-title" class="fullmap-title"></span>
+        <div id="fullmap-stats" class="fullmap-stats"></div>
+      </div>
+      <div id="fullmap-profile"></div>
     </div>
   </section>
 
