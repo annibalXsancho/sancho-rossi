@@ -1738,4 +1738,83 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .filters-modal { align-items: flex-end; padding: 0; }
   .filters-sheet { width: 100%; max-height: 82vh; border-radius: 0; }
   .weather-row { grid-template-columns: repeat(4, 1fr); }
+  .home-reco-head { flex-wrap: wrap; gap: 8px; }
 }
+
+/* ============ Recommandations accueil (S9) ============ */
+.home-reco-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1100px;
+  margin: 0 auto 14px;
+}
+.home-reco-head .home-section-title { margin: 0; }
+.reco-shuffle { flex-shrink: 0; }
+.home-reco-foot {
+  max-width: 1100px;
+  margin: 16px auto 0;
+  display: flex;
+  justify-content: center;
+}
+
+.reco-card { position: relative; }
+.reco-wx {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f2f2f2;
+  background: rgba(10, 10, 12, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  backdrop-filter: blur(3px);
+}
+
+/* ============ Critères de filtre (S8) ============ */
+.filters-hint {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-soft);
+  margin: 8px 0 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.drive-filter {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.drive-filter .btn { flex-shrink: 0; }
+.drive-max {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-soft);
+}
+.drive-max input {
+  width: 68px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 9px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+#filter-drive-status:empty { display: none; }

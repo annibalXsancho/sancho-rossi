@@ -1,9 +1,10 @@
 // Sancho Rossi — recherche par lieu (S7) + fabrique d'autocomplétion réutilisable
 // Le champ de recherche de la carte est un géocodeur : en tapant un lieu
 // (« Chamonix », « Dolomites », « Massif des Écrins »…), une liste de suggestions
-// apparaît ; la sélection recentre la carte, ce qui déclenche le chargement à la
-// demande des tracés de la zone (catalog.js sur `moveend`). Le filtre texte local de
-// la liste reste actif en parallèle (géré dans filters.js).
+// apparaît ; la sélection recentre et cadre la carte sur le lieu. Le chargement des
+// tracés de la zone est ensuite déclenché par le bouton « charger les sentiers »
+// (catalog.js) — il était automatique sur `moveend` jusqu'à la refonte du chargement.
+// Le filtre texte local de la liste reste actif en parallèle (géré dans filters.js).
 //
 // Géocodeur : Nominatim (OpenStreetMap). Open-Meteo (spec initiale) trie par
 // population → il égarait les massifs (« Mont Blanc » → Maurice, « Dolomites » → un
@@ -180,10 +181,9 @@ export function createGeoSuggest({ input, box, onPick, container = input?.parent
   };
 }
 
-// Recentre la carte sur le lieu choisi : le `moveend` déclenche le chargement des
-// tracés de la zone. On cadre sur la bbox du lieu (bornée pour rester dans la plage
-// de zoom qui charge le catalogue), et on vide le filtre texte pour ne pas masquer
-// la nouvelle liste.
+// Recentre la carte sur le lieu choisi. On cadre sur la bbox du lieu (bornée pour
+// rester dans la plage de zoom où le catalogue accepte de charger), et on vide le
+// filtre texte pour ne pas masquer la nouvelle liste.
 export function initGeoSearch() {
   const input = document.getElementById("search-input");
   const box = document.getElementById("search-suggest");

@@ -1,9 +1,10 @@
 // Sancho Rossi — point d'entrée : orchestration de l'initialisation des modules.
 // L'ordre reproduit celui des sections de l'ex-app.js monolithique.
 import { state, BASE_TRAILS } from "./state.js";
-import { initUi, refreshTilesCount } from "./ui.js";
+import { initUi, refreshTilesCount, switchTab } from "./ui.js";
 import { initMap, addMarker } from "./map.js";
-import { initFilters } from "./filters.js";
+import { initFilters, openFilters } from "./filters.js";
+import { initRecommend, renderRecommendations } from "./recommend.js";
 import { initGeoSearch } from "./geosearch.js";
 import { initTrails, renderAll, renderFavCount } from "./trails.js";
 import { initDetail } from "./detail.js";
@@ -29,6 +30,13 @@ initPlanner();
 initLoops();
 initNav();
 initSecurity();
+initRecommend();
+
+// Pont accueil → recherche par critères : ouvre la modale de filtres sur la grille.
+document.getElementById("reco-criteria")?.addEventListener("click", () => {
+  switchTab("itineraires");
+  openFilters();
+});
 
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
@@ -67,6 +75,7 @@ loadPersisted().then(async (persisted) => {
 
   renderAll();
   renderFavCount();
+  renderRecommendations(); // idées datées de l'accueil (saison/météo/favoris), après boot data
   refreshTilesCount();
   checkWatch();
   loadWikiPhotos();

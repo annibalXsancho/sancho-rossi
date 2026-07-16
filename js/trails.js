@@ -1,5 +1,5 @@
 // Sancho Rossi — rendu des cartes d'itinéraires, favoris, sélection, GPX import/export
-import { state, BASE_TRAILS as TRAILS, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js";
+import { state, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js";
 import { ensureElevation } from "./api.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
@@ -80,11 +80,12 @@ function renderGrid() {
     : `<div class="empty-state"><div class="empty-icon">🥾</div><p>Aucun itinéraire ne correspond aux filtres.</p></div>`;
 }
 
+// Le bloc d'idées de l'accueil (#home-suggestions) est rendu par recommend.js (S9,
+// météo/saison/favoris, re-mélangeable) : renderHome ne touche qu'au sous-titre pour
+// ne pas l'écraser à chaque re-rendu de liste.
 function renderHome() {
   document.getElementById("home-tagline").textContent =
     `Toute l'Europe · ${allTrails().length} itinéraires chargés · sentiers balisés à la demande · sans compte, hors-ligne.`;
-  document.getElementById("home-suggestions").innerHTML =
-    TRAILS.filter((t) => t.bivouac).slice(0, 3).map(cardHTML).join("");
 }
 
 // Rafraîchit listes / grille / accueil SANS re-rendre la fiche ouverte. À utiliser pour
@@ -153,6 +154,17 @@ export async function ensureSavedCopy(t) {
   return copy;
 }
 
+// Met à jour le cœur d'un id sur TOUTES les cartes affichées, y compris celles que les
+// rendus de liste ne réécrivent pas (idées de l'accueil #home-suggestions, sortie agent).
+function syncFavButtons(id) {
+  const faved = state.favorites.has(id);
+  document.querySelectorAll(`[data-fav="${CSS.escape(id)}"]`).forEach((btn) => {
+    btn.classList.toggle("faved", faved);
+    btn.textContent = faved ? "♥" : "♡";
+    btn.title = faved ? "Retirer" : "Enregistrer";
+  });
+}
+
 export function toggleFavorite(id) {
   if (state.favorites.has(id)) {
     state.favorites.delete(id);
@@ -160,12 +172,14 @@ export function toggleFavorite(id) {
     const local = state.imported.find((t) => t.id === id);
     if (local?.saved) removeSavedCopy(id);
     renderAll();
+    syncFavButtons(id);
     renderFavCount();
     return;
   }
   state.favorites.add(id);
   persistFavorites();
   renderAll(); // retour immédiat : le cœur s'allume
+  syncFavButtons(id);
   renderFavCount();
   const t = getTrail(id);
   if (t) ensureSavedCopy(t).catch(() => {}); // copie + profil en tâche de fond

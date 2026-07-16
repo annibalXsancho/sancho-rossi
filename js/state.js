@@ -14,7 +14,13 @@ export const state = {
   source: "",
   distMin: null,
   distMax: null,
+  gainMin: null,
   gainMax: null,
+  durMax: null,
+  needsWater: false,
+  needsShelter: false,
+  driveMax: null,
+  userPos: null,
   sortBy: "reco",
   favoritesOnly: false,
   selectedId: null,
@@ -54,6 +60,18 @@ export function getTrail(id) {
 
 export function trackOf(t) {
   return t.track || t.segments.flat();
+}
+
+// Dénivelé positif connu d'un tracé (méta embarquée ou cache d'élévation), sinon null.
+export function gainOf(t) {
+  return t.elevationGain ?? state.elev[t.id]?.gain ?? null;
+}
+
+// Durée de marche estimée en heures — Naismith/Tobler simplifié, cohérent avec loops.js
+// (dist/4,5 + D+/600). Sert au filtre « durée max » et au tri par durée.
+export function estDurationH(t) {
+  const g = gainOf(t) ?? 0;
+  return t.distance / 4.5 + g / 600;
 }
 
 // Les membres d'une relation OSM arrivent dans un ordre arbitraire :
