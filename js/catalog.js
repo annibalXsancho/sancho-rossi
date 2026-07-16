@@ -1,7 +1,11 @@
-// Sancho Rossi — catalogue de tracés balisés chargé à la demande (S3)
-// Les relations "route=hiking" de la zone visible sont interrogées via Overpass au
-// déplacement de la carte, mises en cache dans IndexedDB par cellule de zone (0,25°) et
-// dédupliquées par id de relation OSM. Une zone déjà visitée ne rappelle jamais le réseau.
+// Sancho Rossi — randos balisées chargées À LA DEMANDE (refonte : bouton + filtre qualité)
+// Refonte du S3 : le chargement AUTOMATIQUE au déplacement de carte est supprimé — il
+// noyait la carte sous des centaines de marqueurs OSM, dont la plupart n'étaient que des
+// tronçons/fragments de sentiers, pas des itinéraires exploitables. Désormais la carte est
+// propre par défaut et un bouton « Charger les randos » interroge Overpass sur la zone
+// VISIBLE, en ne gardant que les VRAIES randos : nommées, rattachées à un balisage officiel,
+// de longueur plausible (3–80 km) et à géométrie CONTINUE (pas des bouts disjoints).
+// Le cache IndexedDB par cellule est conservé (revisiter une zone = zéro appel réseau).
 import { state, catalogTrails, normalizeOsmTrail, trackDistanceKm } from "./state.js";
 import { overpassFetch } from "./api.js";
 import { map, addMarker } from "./map.js";
@@ -11,19 +15,52 @@ import { loadCatalog, loadZoneKeys, markZone, putCatalogTrails } from "./storage
 const CELL = 0.25;               // ~25 km : taille de la cellule de cache
 const MIN_ZOOM = 10;             // en dessous, la zone est trop large pour charger
 const MAX_CELLS = 12;            // garde-fou anti-batch géant
-const DEBOUNCE_MS = 800;
 
-const fetchedZones = new Set();  // cellules déjà interrogées (clé "i_j")
+const fetchedZones = new Set();  // cellules déjà interrogées (clé "i_j"), depuis le cache
 const inFlight = new Set();      // cellules en cours de requête
+const cached = new Map();        // randos persistées (id → trail) — réaffichables sans réseau
+
+let busy = false;
 
 const cellKey = (lat, lon) => `${Math.floor(lat / CELL)}_${Math.floor(lon / CELL)}`;
 
+function btnEl() {
+  return document.getElementById("btn-load-trails");
+}
 function statusEl() {
   return document.getElementById("osm-results");
 }
 function setStatus(html) {
   const el = statusEl();
   if (el) el.innerHTML = html ? `<div class="osm-head">${html}</div>` : "";
+}
+
+// ---------- Filtre « vraie rando complète et vérifiée » ----------
+// Réseaux de marche curatés (waymarked) : international / national / régional / local.
+const WALK_NETWORKS = new Set(["iwn", "nwn", "rwn", "lwn"]);
+
+function isQualityRoute(rel, trail) {
+  const tags = rel.tags || {};
+  // 1. Nommée : les relations anonymes sont des tronçons techniques / non vérifiés.
+  if (!tags.name) return false;
+  // 2. Rattachée à un balisage officiel : réseau de marche, n° d'itinéraire, symbole de
+  //    balisage ou cotation SAC — au moins un signal de curation communautaire.
+  const curated =
+    WALK_NETWORKS.has(tags.network) ||
+    tags.ref ||
+    tags["osmc:symbol"] ||
+    tags.sac_scale;
+  if (!curated) return false;
+  // 3. Longueur plausible d'une rando : ni fragment (< 3 km), ni méga-GR (> 80 km) qui
+  //    déborde largement la zone affichée et n'est pas une « rando du jour ».
+  if (trail.distance < 3 || trail.distance > 80) return false;
+  // 4. Géométrie CONTINUE : une relation faite de variantes disjointes ou tronquée chaîne
+  //    en plusieurs morceaux → sa ligne principale ne couvre qu'une fraction des points.
+  //    C'est exactement le « ce ne sont que des parties de sentiers » à écarter.
+  const total = trail.track.length;
+  const main = (trail.mainline || trail.track).length;
+  if (total > 0 && main / total < 0.75) return false;
+  return true;
 }
 
 // Relation OSM Overpass → objet tracé de l'app (géométrie chaînée).
@@ -78,23 +115,24 @@ function cellBbox({ i, j }) {
   return `${south},${west},${south + CELL},${west + CELL}`;
 }
 
-// Nombre de tracés du catalogue dont le centre est visible (compteur d'état).
+// Nombre de randos actuellement affichées dont le centre est visible (compteur d'état).
 function countInView() {
   const b = map.getBounds();
   return catalogTrails().filter((t) => b.contains(t.center)).length;
 }
 
-// Interroge une cellule, persiste et fusionne les nouveaux tracés.
+// Interroge une cellule, filtre les vraies randos, persiste et affiche les nouvelles.
 async function loadCell(cell) {
   inFlight.add(cell.key);
   try {
-    const query = `[out:json][timeout:25];relation["route"="hiking"](${cellBbox(cell)});out geom 60;`;
+    const query = `[out:json][timeout:25];relation["route"="hiking"](${cellBbox(cell)});out geom 120;`;
     const data = await overpassFetch(query);
     const fresh = [];
     for (const rel of data.elements || []) {
       const t = parseRelation(rel);
-      if (!t || state.catalog.has(t.id)) continue;
+      if (!t || state.catalog.has(t.id) || !isQualityRoute(rel, t)) continue;
       state.catalog.set(t.id, t);
+      cached.set(t.id, t);
       addMarker(t);
       fresh.push(t);
     }
@@ -103,57 +141,82 @@ async function loadCell(cell) {
     markZone(cell.key);
     return true;
   } catch {
-    return false; // cellule non marquée : re-tentée au prochain passage
+    return false; // cellule non marquée : re-tentée au prochain clic
   } finally {
     inFlight.delete(cell.key);
   }
 }
 
-let moveTimer;
-async function loadVisibleZones() {
+// Réaffiche sans réseau les randos déjà chargées (filtrées, en cache) visibles dans la vue.
+function showCachedInView() {
+  const b = map.getBounds();
+  let n = 0;
+  for (const [id, t] of cached) {
+    if (state.catalog.has(id) || !b.contains(t.center)) continue;
+    state.catalog.set(id, t);
+    addMarker(t);
+    n++;
+  }
+  return n;
+}
+
+// ---------- Action du bouton « Charger les randos » ----------
+async function loadZoneOnDemand() {
+  if (busy) return;
   if (map.getZoom() < MIN_ZOOM) {
-    setStatus("Zoomez sur un massif pour charger les sentiers balisés de la zone.");
+    setStatus("Zoomez sur un massif pour charger ses randos balisées.");
     return;
   }
   const cells = visibleCells();
-  if (cells.length > MAX_CELLS) return;
-  const missing = cells.filter((c) => !fetchedZones.has(c.key) && !inFlight.has(c.key));
-  if (!missing.length) {
-    const n = countInView();
-    setStatus(n ? `${n} sentier${n > 1 ? "s" : ""} balisé${n > 1 ? "s" : ""} dans la zone.` : "");
+  if (cells.length > MAX_CELLS) {
+    setStatus("Zone trop large — zoomez pour charger les randos.");
     return;
   }
-  setStatus("⏳ Chargement des sentiers de la zone…");
-  let ok = false;
-  for (const cell of missing) ok = (await loadCell(cell)) || ok;
-  renderLists(); // listes seules : ne pas détruire une fiche ouverte (onglet actif / vue 3D)
-  if (ok) {
-    const n = countInView();
-    setStatus(n ? `${n} sentier${n > 1 ? "s" : ""} balisé${n > 1 ? "s" : ""} dans la zone.` : "Aucun sentier balisé dans cette zone.");
-  } else {
-    setStatus("Chargement impossible — réessayez dans quelques secondes.");
+
+  busy = true;
+  const btn = btnEl();
+  if (btn) { btn.classList.add("active"); btn.disabled = true; }
+
+  // 1. Cache : réaffiche instantanément les randos déjà chargées, sans réseau.
+  showCachedInView();
+  renderLists();
+
+  // 2. Réseau : cellules jamais interrogées.
+  const missing = cells.filter((c) => !fetchedZones.has(c.key) && !inFlight.has(c.key));
+  let netOk = true;
+  if (missing.length) {
+    setStatus("⏳ Chargement des randos de la zone…");
+    for (const cell of missing) netOk = (await loadCell(cell)) && netOk;
+    renderLists();
   }
+
+  const n = countInView();
+  if (!netOk) {
+    setStatus(n
+      ? `${n} rando${n > 1 ? "s" : ""} — chargement partiel, réessayez.`
+      : "Chargement impossible — réessayez dans quelques secondes.");
+  } else {
+    setStatus(n
+      ? `${n} rando${n > 1 ? "s" : ""} balisée${n > 1 ? "s" : ""} vérifiée${n > 1 ? "s" : ""} dans la zone.`
+      : "Aucune rando balisée vérifiée dans cette zone.");
+  }
+
+  busy = false;
+  if (btn) { btn.classList.remove("active"); btn.disabled = false; }
 }
 
-// Ré-hydrate le catalogue persisté (zones visitées + tracés) au boot, sans réseau.
+// Ré-hydrate le cache persisté au boot SANS rien poser sur la carte : la carte reste propre
+// et les randos ne réapparaissent qu'au clic du bouton (depuis ce cache, sans réseau).
 export async function hydrateCatalog() {
   try {
     const [keys, trails] = await Promise.all([loadZoneKeys(), loadCatalog()]);
     keys.forEach((k) => fetchedZones.add(k));
-    trails.forEach((t) => {
-      state.catalog.set(t.id, t);
-      addMarker(t);
-    });
+    trails.forEach((t) => cached.set(t.id, t));
   } catch {
-    /* IndexedDB indisponible : le catalogue restera vide jusqu'au prochain chargement */
+    /* IndexedDB indisponible : le cache restera vide jusqu'au prochain chargement */
   }
 }
 
 export function initCatalog() {
-  map.on("moveend", () => {
-    clearTimeout(moveTimer);
-    moveTimer = setTimeout(loadVisibleZones, DEBOUNCE_MS);
-  });
-  // Cas où l'app démarre déjà zoomée sur une zone.
-  loadVisibleZones();
+  btnEl()?.addEventListener("click", loadZoneOnDemand);
 }

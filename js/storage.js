@@ -4,14 +4,14 @@
 // et à terme les tuiles offline. Feuille sans dépendance interne.
 
 const DB_NAME = "sancho-rossi";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise = null;
 function openDb() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (e) => {
       const db = req.result;
       // v1 — objets utilisateur volumineux
       // Un enregistrement par tracé importé/sauvegardé.
@@ -28,6 +28,13 @@ function openDb() {
       if (!db.objectStoreNames.contains("catalog")) db.createObjectStore("catalog", { keyPath: "id" });
       // Clé = cellule de zone déjà interrogée (valeur { fetchedAt }), même vide.
       if (!db.objectStoreNames.contains("zones")) db.createObjectStore("zones");
+      // v3 — refonte du chargement à la demande : le catalogue OSM historique était
+      // chargé automatiquement et non filtré (fragments/tronçons). On le purge pour
+      // repartir sur des randos filtrées uniquement (nommées, balisées, continues).
+      if (e.oldVersion >= 2 && e.oldVersion < 3) {
+        req.transaction.objectStore("catalog").clear();
+        req.transaction.objectStore("zones").clear();
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
