@@ -7,6 +7,7 @@ import { map, markers, addMarker, drawActiveTrack } from "./map.js";
 import { renderDetail, closeDetail } from "./detail.js";
 import { switchTab } from "./ui.js";
 import { saveTraces } from "./storage.js";
+import { toast } from "./toast.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -337,7 +338,7 @@ export function initTrails() {
       switchTab("carte");
       selectTrail(lastId);
     }
-    if (errors.length) alert("Import impossible —\n" + errors.join("\n"));
+    if (errors.length) toast("Import impossible — " + errors.join(" · "), { type: "error" });
   });
 
   // Liste repliable. Le bouton « Liste » de la barre reste le point de ré-ouverture

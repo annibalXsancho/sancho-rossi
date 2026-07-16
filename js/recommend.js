@@ -3,6 +3,7 @@
 // l'historique de favoris. Hors-ligne : repli saison + favoris, sans badge météo.
 import { state, allTrails } from "./state.js";
 import { cardHTML } from "./trails.js";
+import { fetchRetry } from "./net.js";
 
 const MONTHS = {
   janvier: 1, février: 2, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6,
@@ -90,7 +91,7 @@ async function weekendWeather(trails, wk) {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&daily=weather_code,temperature_2m_max,precipitation_sum&timezone=auto&forecast_days=${days}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  const res = await fetchRetry(url, { timeout: 15000 });
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   let data = await res.json();
   if (!Array.isArray(data)) data = [data];
@@ -142,6 +143,14 @@ export async function renderRecommendations() {
 
   // Enrichissement météo sur le meilleur lot, puis re-classement.
   const pool = scored.slice(0, 8);
+  // Squelettes pendant l'appel météo — uniquement au premier chargement (bloc vide) : sur
+  // « Autre sélection » on garde les cartes en place pour ne pas faire clignoter l'accueil.
+  if (!el.children.length) {
+    el.innerHTML = Array.from({ length: Math.min(5, pool.length) }, () =>
+      `<div class="reco-card sk-card"><div class="sk sk-photo"></div>` +
+      `<div class="sk-body"><div class="sk sk-line"></div><div class="sk sk-line short"></div></div></div>`
+    ).join("");
+  }
   let wx;
   try {
     wx = await weekendWeather(pool.map((x) => x.t), wk);

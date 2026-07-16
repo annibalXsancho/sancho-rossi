@@ -1,6 +1,8 @@
 // Sancho Rossi — carte Leaflet : fonds, calques, POI Overpass, marqueurs, prévisualisation
 import { state, trackOf } from "./state.js";
 import { overpassFetch } from "./api.js";
+import { fetchRetry } from "./net.js";
+import { toast } from "./toast.js";
 import { photoOf, photoStyle } from "./photos.js";
 import { planner, plannerAddPoint } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
@@ -70,7 +72,7 @@ const overlayLayers = {
 // Radar de précipitations : récupère l'horodatage de la dernière image
 async function refreshRainLayer() {
   try {
-    const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const res = await fetchRetry("https://api.rainviewer.com/public/weather-maps.json", { timeout: 10000, retries: 1 });
     const data = await res.json();
     const frame = data.radar?.nowcast?.[0] || data.radar?.past?.at(-1);
     if (frame) overlayLayers.rain.setUrl(`${data.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`);
@@ -323,9 +325,10 @@ async function fetchAccess(trail, el) {
     el.innerHTML = `<span class="muted">🏍 calcul de l'accès…</span>`;
     try {
       const dest = trackOf(trail)[0];
-      const res = await fetch(
+      const res = await fetchRetry(
         `https://router.project-osrm.org/route/v1/driving/` +
-        `${state.lastPos.lon},${state.lastPos.lat};${dest[1]},${dest[0]}?overview=false`
+        `${state.lastPos.lon},${state.lastPos.lat};${dest[1]},${dest[0]}?overview=false`,
+        { timeout: 15000 }
       );
       const route = (await res.json()).routes?.[0];
       if (!route) throw new Error();
@@ -467,7 +470,7 @@ export function initMap() {
     if (loops.active) setLoopStart(e.latlng); // « ma position » = départ de la boucle
   });
 
-  map.on("locationerror", (e) => alert(`Position introuvable : ${e.message}`));
+  map.on("locationerror", (e) => toast(`Position introuvable : ${e.message}`, { type: "error" }));
 
   // Clic sur la carte : point de passage si le planificateur est ouvert, départ de
   // boucle si le générateur l'est, sinon referme les calques

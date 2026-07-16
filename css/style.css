@@ -1932,3 +1932,103 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   background: var(--bg);
 }
 #filter-drive-status:empty { display: none; }
+
+/* ============ S10 — Toasts (remplacent les alert() natifs) ============ */
+.toast-host {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: max-content;
+  max-width: min(92vw, 440px);
+  pointer-events: none;   /* le host laisse passer les clics ; chaque toast les reprend */
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-strong);
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.leaving { opacity: 0; transform: translateY(10px); }
+.toast--error { border-left-color: var(--red); }        /* rouge = erreur */
+.toast--success { border-left-color: var(--text-soft); } /* pas de vert (banni) : accent neutre */
+.toast__msg { flex: 1; white-space: pre-line; }
+.toast__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius);
+  transition: color 0.15s ease-out;
+}
+.toast__close:hover { color: var(--text); }
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 0.2s ease-out; transform: none; }
+  .toast.show, .toast.leaving { transform: none; }
+}
+
+/* ============ S10 — Squelettes de chargement (pas de spinner brut) ============ */
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 9%, transparent), transparent);
+  animation: sk-shimmer 1.15s ease-in-out infinite;
+}
+@keyframes sk-shimmer { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+
+.sk-line { height: 12px; }
+.sk-line.short { width: 55%; }
+
+/* Squelette de l'onglet météo (avant réponse Open-Meteo) */
+.wx-skeleton .weather-row { margin-bottom: 12px; }
+.wx-skeleton .sk-day { height: 92px; }
+.wx-skeleton .sk-title { height: 15px; width: 42%; margin: 14px 0 10px; }
+.wx-skeleton .sk-hour { height: 30px; margin-bottom: 6px; }
+
+/* Squelettes de cartes « idées du week-end » (pendant l'enrichissement météo) */
+.sk-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.sk-card .sk-photo { height: 150px; border-radius: 0; }
+.sk-card .sk-body { padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+.sk-card .sk-line { height: 13px; }
+
+/* Mobile : toasts au-dessus de la tab-nav du bas (54px), jamais collés au bord bas. */
+@media (max-width: 700px) {
+  .toast-host { bottom: calc(54px + 12px + env(safe-area-inset-bottom, 0px)); max-width: 92vw; }
+}

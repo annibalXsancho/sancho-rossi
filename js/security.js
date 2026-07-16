@@ -1,6 +1,8 @@
 // Sancho Rossi — sécurité : veille automatique ntfy, contacts, position, plan de marche
 // Indissociables : planMessage/showPrealert lisent watchTopic + state.contacts.
 import { state, BASE_TRAILS as TRAILS, catalogTrails, getTrail, trackOf } from "./state.js";
+import { fetchRetry } from "./net.js";
+import { toast } from "./toast.js";
 
 // ---------- Veille automatique : alerte si aucune activité après l'heure prévue ----------
 let watchTopic = localStorage.getItem("sr-topic");
@@ -23,10 +25,13 @@ function markActivity() {
 }
 
 function ntfyPush(title, body, priority = "default") {
-  return fetch(`https://ntfy.sh/${watchTopic}`, {
+  // Alerte sécurité : un 5xx/timeout transitoire ne doit pas perdre un SOS → retries généreux.
+  return fetchRetry(`https://ntfy.sh/${watchTopic}`, {
     method: "POST",
     body,
     headers: { Title: title, Priority: priority, Tags: "sos,mountain" },
+    timeout: 12000,
+    retries: 4,
   }).catch(() => {});
 }
 
@@ -39,7 +44,7 @@ function armWatch() {
   const t = getTrail(document.getElementById("plan-trail").value);
   const date = document.getElementById("plan-date").value;
   const retour = document.getElementById("plan-retour").value;
-  if (!t || !date || !retour) { alert("Complétez le plan de marche (itinéraire, date, heure de retour)."); return; }
+  if (!t || !date || !retour) { toast("Complétez le plan de marche (itinéraire, date, heure de retour).", { type: "error" }); return; }
   const retourMs = new Date(`${date}T${retour}`).getTime();
   watch = {
     armed: true,
@@ -276,7 +281,7 @@ export function initSecurity() {
     const name = document.getElementById("contact-name").value.trim();
     const channel = document.getElementById("contact-channel").value;
     const addr = document.getElementById("contact-addr").value.trim();
-    if (!name || !addr) { alert("Nom et coordonnée (numéro ou e-mail) requis."); return; }
+    if (!name || !addr) { toast("Nom et coordonnée (numéro ou e-mail) requis.", { type: "error" }); return; }
     state.contacts.push({ id: Math.random().toString(36).slice(2, 9), name, channel, addr });
     saveContacts();
     document.getElementById("contact-name").value = "";

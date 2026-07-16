@@ -21,6 +21,7 @@ import { state } from "./state.js";
 import { map } from "./map.js";
 import { switchTab } from "./ui.js";
 import { renderList } from "./trails.js";
+import { fetchRetry } from "./net.js";
 
 const GEO_URL = "https://nominatim.openstreetmap.org/search";
 const DEBOUNCE_MS = 500;
@@ -72,18 +73,20 @@ export function createGeoSuggest({ input, box, onPick, container = input?.parent
   async function fetchSuggest(q) {
     controller?.abort();
     controller = new AbortController();
+    const ctrl = controller;   // capturé localement : distingue un abort-frappe d'un timeout
     loadingRow();
     try {
       const url =
         `${GEO_URL}?q=${encodeURIComponent(q)}&format=jsonv2` +
         `&limit=6&addressdetails=1&accept-language=fr`;
-      const res = await fetch(url, { signal: controller.signal });
+      // Pas de retry : politique Nominatim ≤ 1 req/s + recherche live (chaque frappe annule).
+      const res = await fetchRetry(url, { signal: ctrl.signal, retries: 0, timeout: 12000 });
       if (!res.ok) throw new Error();
       results = (await res.json()).map(shape);
       activeIdx = -1;
       render(q);
-    } catch (err) {
-      if (err.name === "AbortError") return; // remplacée par une frappe plus récente
+    } catch {
+      if (ctrl.signal.aborted) return; // remplacée par une frappe plus récente (pas un timeout)
       results = [];
       box.innerHTML = `<div class="geo-empty">Recherche indisponible — réessayez.</div>`;
       box.classList.remove("hidden");

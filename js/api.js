@@ -1,8 +1,10 @@
 // Sancho Rossi — appels API partagés (Overpass, Open-Meteo Elevation)
 import { state, trackOf, sampleTrack } from "./state.js";
 import { putMeta } from "./storage.js";
+import { fetchRetry } from "./net.js";
 
-// Interrogation Overpass avec miroir de secours en cas de saturation (429)
+// Interrogation Overpass avec miroir de secours en cas de saturation (429).
+// Chaque miroir est retenté une fois (backoff sur 429/5xx) avant de basculer sur le suivant.
 export async function overpassFetch(query) {
   const endpoints = [
     "https://overpass-api.de/api/interpreter",
@@ -11,10 +13,11 @@ export async function overpassFetch(query) {
   let lastErr;
   for (const url of endpoints) {
     try {
-      const res = await fetch(url, {
+      const res = await fetchRetry(url, {
         method: "POST",
         body: "data=" + encodeURIComponent(query),
-        signal: AbortSignal.timeout(25000),
+        timeout: 25000,
+        retries: 1,
       });
       if (!res.ok) throw new Error(res.status);
       return await res.json();
@@ -35,7 +38,7 @@ export async function ensureElevation(trail) {
     `https://api.open-meteo.com/v1/elevation` +
     `?latitude=${pts.map((p) => p[0].toFixed(5)).join(",")}` +
     `&longitude=${pts.map((p) => p[1].toFixed(5)).join(",")}`;
-  const res = await fetch(url);
+  const res = await fetchRetry(url);
   if (!res.ok) throw new Error(`Elevation ${res.status}`);
   const eles = (await res.json()).elevation;
 

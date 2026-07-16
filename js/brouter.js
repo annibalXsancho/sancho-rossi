@@ -12,6 +12,7 @@
 //     terrain que nous ayons (couverture mesurée : highway 100 %, surface 27–100 %,
 //     sac_scale 0–84 % selon les massifs → toujours prévoir l'absence).
 import { haversineKm } from "./state.js";
+import { fetchRetry } from "./net.js";
 
 const BROUTER_URL = "https://brouter.de/brouter";
 const MIN_SEP_KM = 0.03; // BRouter refuse deux points de passage confondus
@@ -45,24 +46,18 @@ function parseWays(messages) {
   }));
 }
 
-function withTimeout(timeout, signal) {
-  const t = AbortSignal.timeout(timeout);
-  if (!signal) return t;
-  return AbortSignal.any ? AbortSignal.any([t, signal]) : signal;
-}
-
 // waypoints : [[lat, lon], …] (≥ 2, dans l'ordre de passage).
 // → { track: [[lat,lon]…], eles: number[]|null, distance: km, ascend: m|null, ways }
 // `eles` est null dès qu'une altitude manque ou que la longueur diffère de `track` :
 // l'invariant `eles.length === track.length` est tenu partout dans l'app (profil,
 // 3D, export GPX) — mieux vaut pas d'altitude qu'une altitude décalée.
-export async function brouterRoute(waypoints, { profile = "hiking-mountain", timeout = 20000, signal } = {}) {
+export async function brouterRoute(waypoints, { profile = "hiking-mountain", timeout = 20000, signal, retries = 1 } = {}) {
   const pts = waypoints.filter((p, i) => i === 0 || haversineKm(p, waypoints[i - 1]) > MIN_SEP_KM);
   if (pts.length < 2) throw new Error("Deux points de passage distincts au minimum.");
   const lonlats = pts.map(([lat, lon]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join("|");
-  const res = await fetch(
+  const res = await fetchRetry(
     `${BROUTER_URL}?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`,
-    { signal: withTimeout(timeout, signal) }
+    { timeout, signal, retries }
   );
   if (!res.ok) throw new Error(`BRouter ${res.status}`);
   const text = await res.text();
