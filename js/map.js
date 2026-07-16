@@ -373,6 +373,33 @@ export function showPreview(trail) {
   positionPreview(trail);
 }
 
+// ---------- Coordonnées d'un point (clic droit / appui long) ----------
+function toDMS(deg, [pos, neg]) {
+  const a = Math.abs(deg);
+  const d = Math.floor(a);
+  const m = Math.floor((a - d) * 60);
+  const s = ((a - d - m / 60) * 3600).toFixed(1);
+  return `${d}°${String(m).padStart(2, "0")}′${s.padStart(4, "0")}″${deg >= 0 ? pos : neg}`;
+}
+
+function showCoordPopup(latlng) {
+  const dec = `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`;
+  const html =
+    `<div class="coord-popup">` +
+    `<div class="coord-label">Coordonnées</div>` +
+    `<div class="coord-dec">${dec}</div>` +
+    `<div class="coord-dms">${toDMS(latlng.lat, ["N", "S"])} · ${toDMS(latlng.lng, ["E", "O"])}</div>` +
+    `<button class="coord-copy" data-coord="${dec}">Copier</button>` +
+    `</div>`;
+  // `minWidth` doit être passé à Leaflet (et non en CSS sur .coord-popup) : Leaflet
+  // dimensionne le wrapper à l'ouverture d'après le contenu et ignore un min-width
+  // interne — le texte débordait alors hors du fond. 190 px tient la ligne DMS.
+  L.popup({ className: "map-popup coord", autoPan: true, closeButton: true, minWidth: 190 })
+    .setLatLng(latlng)
+    .setContent(html)
+    .openOn(map);
+}
+
 export function initMap() {
   L.control.zoom({ position: "bottomright" }).addTo(map);
 
@@ -451,6 +478,24 @@ export function initMap() {
     }
     if (loops.active) { setLoopStart(e.latlng); return; }
     layersPanel.classList.add("hidden");
+  });
+
+  // Clic droit (desktop) / appui long (mobile) : bulle des coordonnées du point pointé
+  map.on("contextmenu", (e) => showCoordPopup(e.latlng));
+
+  // Copie des coordonnées depuis la bulle (délégué à l'ouverture de n'importe quel popup)
+  map.on("popupopen", (e) => {
+    const btn = e.popup.getElement()?.querySelector(".coord-copy");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.coord);
+        btn.textContent = "✓ Copié";
+      } catch {
+        btn.textContent = "⚠ copie impossible";
+      }
+      setTimeout(() => (btn.textContent = "Copier"), 1500);
+    });
   });
 
   document.getElementById("preview-close").addEventListener("click", () => {
