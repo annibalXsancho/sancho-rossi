@@ -668,8 +668,167 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .loops-active .results-panel { display: none; }
 .builder-stats { flex: 1; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* ---------- Planificateur d'itinéraire (S-PLAN-A) ---------- */
-.plan-bar { border-top-color: var(--red); left: 12px; transform: none; width: min(380px, calc(100vw - 24px)); }
+/* ---------- Planificateur d'itinéraire (S-PLAN-A → S-PLAN-C) ---------- */
+/* Vue plein écran : panneau latéral gauche pleine hauteur + dock bas (profil/stats).
+   ATTENTION : ni transform ni backdrop-filter sur .plan-panel — le dock est en
+   position:fixed à l'intérieur, l'un ou l'autre en ferait son bloc conteneur. */
+.plan-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  width: min(380px, calc(100vw - 24px));
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+}
+.plan-panel.hidden { display: none; }
+
+/* Poignée de bottom-sheet — invisible sur desktop (panneau latéral fixe), elle ne
+   sert qu'en mobile où le panneau se tire vers le bas pour dégager la carte. */
+.plan-sheet-grip { display: none; }
+
+.plan-panel-head { flex: none; }
+.plan-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-1); }
+.plan-close {
+  background: none; border: none; padding: 2px 6px;
+  color: var(--text-soft); font-size: 14px; line-height: 1; cursor: pointer;
+  border-radius: var(--radius);
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+.plan-close:hover { color: var(--text); background: var(--surface-2); }
+.plan-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 4px; }
+.plan-lead { font-size: 12px; line-height: 1.45; margin: 0 0 var(--sp-3); }
+
+/* Zone défilante du panneau : étapes, outils, repères, météo. La recherche et le
+   titre restent fixes en haut, le dock est hors flux (fixed). */
+.plan-panel-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--sp-2); }
+
+.plan-sec-head { display: flex; align-items: center; justify-content: space-between; margin: var(--sp-3) 0 var(--sp-2); }
+.plan-annot-btn { font-size: 12px; padding: 6px 12px; }
+.plan-annot-btn.active { background: var(--surface-3); color: var(--red); }
+.plan-annot-hint { font-size: 11.5px; line-height: 1.45; margin: 0 0 var(--sp-2); }
+.plan-annot-hint.hidden { display: none; }
+
+/* Le mode annotation change le curseur : la carte « attend » le point */
+.plan-annotating #map .leaflet-container,
+.plan-annotating #map,
+.plan-annotating #map .leaflet-interactive { cursor: crosshair !important; }
+
+/* Liste des repères dans le panneau */
+.plan-annots { display: flex; flex-direction: column; gap: 4px; }
+.annot-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 150ms ease-out;
+}
+.annot-row:hover { background: var(--surface-3); }
+.annot-row.static { cursor: default; }
+.annot-ic { flex: none; font-size: 15px; }
+.annot-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.annot-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.annot-meta { font-size: 10.5px; font-weight: 600; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.annot-rm {
+  background: none; border: none; padding: 0 2px;
+  color: var(--text-soft); font-size: 12px; cursor: pointer;
+  transition: color 150ms ease-out;
+}
+.annot-rm:hover { color: var(--red); }
+
+/* Marqueur de repère sur la carte : pastille sombre + émoji, déplaçable */
+.plan-annot { background: none; border: none; }
+.plan-annot-i {
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), 0 0 0 2px color-mix(in srgb, #fff 65%, transparent);
+  cursor: grab;
+  transition: transform 150ms ease-out;
+}
+.plan-annot-i:hover { transform: scale(1.08); }
+
+/* Variante fiche : plus petit, non déplaçable */
+.plan-annot-sm .plan-annot-i { width: 24px; height: 24px; font-size: 12px; cursor: default; }
+.plan-annot-sm .plan-annot-i:hover { transform: none; }
+.annot-list-detail { max-width: 560px; margin-bottom: var(--sp-4); }
+
+/* Bulle de création / d'édition d'un repère */
+.annot-popup .leaflet-popup-content { margin: 12px 14px; min-width: 208px; }
+.annot-pop-title { margin-bottom: 8px; }
+.annot-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.annot-kind {
+  display: flex; align-items: center; gap: 7px;
+  font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: none; border-radius: var(--radius);
+  padding: 7px 9px;
+  cursor: pointer;
+  transition: background 150ms ease-out, transform 150ms ease-out;
+}
+.annot-kind:hover { background: var(--surface-3); transform: translateY(-1px); }
+.annot-kind span { font-size: 15px; }
+.annot-kinds-row { display: flex; gap: 4px; margin-bottom: 8px; }
+.annot-kind-sm { padding: 6px 8px; font-size: 14px; }
+.annot-kind-sm.sel { background: var(--surface-3); box-shadow: 0 0 0 2px var(--red) inset; }
+.annot-note {
+  width: 100%;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: none; outline: none;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.annot-note:focus-visible { box-shadow: var(--focus-ring); }
+.annot-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.annot-pop-foot .btn { padding: 6px 14px; font-size: 12px; }
+.annot-pop-foot .btn-ghost-danger { font-size: 11.5px; }
+
+/* Dock bas : profil altimétrique large + stats + Enregistrer, au-dessus de la carte */
+.plan-dock {
+  position: fixed;
+  left: calc(12px + min(380px, calc(100vw - 24px)) + 12px);
+  right: 12px;
+  bottom: 12px;
+  z-index: 1002;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: var(--sp-3) var(--sp-4);
+}
+.plan-dock.hidden { display: none; }
+.plan-dock-bar { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-2); flex-wrap: wrap; }
+.plan-dock-stats { display: flex; align-items: center; gap: var(--sp-4) var(--sp-5); flex: 1; min-width: 0; flex-wrap: wrap; }
+.dock-stat { flex: none; }
+.dock-stat span { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; }
+.dock-stat.big span { font-size: 21px; }
+.dock-stat small { font-size: 11px; font-weight: 700; color: var(--text-soft); }
+.dock-stat label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-soft); white-space: nowrap; }
+.plan-dock-bar .btn-primary { margin-left: auto; padding: 10px 22px; flex: none; }
+
+/* Cotation SAC en pastille posée sur le coin du profil (façon badge de difficulté) —
+   hors du flux des stats, elle ne peut plus les chevaucher quel que soit l'espace. */
+.plan-dock #plan-sac.plan-sac {
+  position: absolute;
+  top: var(--sp-3); right: var(--sp-4);
+  z-index: 2;
+  gap: 5px;
+  padding: 4px 9px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(6px);
+  border-radius: var(--radius-full);
+}
 
 .plan-search-wrap {
   position: relative; /* ancre .search-suggest, comme .map-search */
@@ -691,22 +850,20 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 .plan-search-wrap input::placeholder { color: var(--text-soft); }
 
-/* La liste est de longueur libre (≠ boucles) : elle défile au lieu d'étirer le
-   panneau jusqu'à sortir de l'écran. */
-.plan-steps { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; max-height: 172px; overflow-y: auto; }
+/* La liste vit dans la zone défilante du panneau : pas de double ascenseur. */
+.plan-steps { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .plan-hint { font-size: 12px; line-height: 1.45; margin: 2px 0 0; }
 
 .plan-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 7px 9px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  transition: border-color 150ms ease-out, background 150ms ease-out;
+  border-radius: var(--radius);
+  transition: background 150ms ease-out;
 }
-.plan-row:hover { border-color: var(--border-strong); }
+.plan-row:hover { background: var(--surface-3); }
 
 .plan-grip {
   background: none; border: none; padding: 0;
@@ -722,7 +879,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   display: grid; place-items: center;
   background: var(--red); color: #fff;
   font-size: 10px; font-weight: 800;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 .plan-name {
   flex: 1; min-width: 0;
@@ -739,8 +896,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .plan-profile { margin-top: 4px; }
 
+/* Boucler : action nommée (pas une icône cryptique) — referme le parcours sur A */
+.plan-loop { width: 100%; margin-bottom: 10px; font-size: 12.5px; }
+
+/* Rangée d'outils : icônes seules, l'intitulé vit dans le title/aria-label */
 .plan-tools { display: flex; gap: 6px; margin-bottom: 10px; }
-.plan-tools .btn { flex: 1; font-size: 11px; padding: 6px 4px; }
+.plan-tools .btn { flex: 1; font-size: 15px; padding: 7px 0; }
 
 /* Marqueur de point de passage : lettre A, B, C… posée sur la carte */
 .plan-wp {
@@ -748,7 +909,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   width: 26px; height: 26px;
   background: var(--red); color: #fff;
   border: 2px solid #fff;
-  border-radius: 2px;
+  border-radius: 8px;
   font-size: 12px; font-weight: 800;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   cursor: grab;
@@ -1251,6 +1412,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .prof-cursor.hidden, .prof-sel.hidden, .prof-tip.hidden, .prof-unzoom.hidden { display: none; }
 .prof-cursor-line { stroke: var(--text); stroke-width: 1; opacity: 0.5; stroke-dasharray: 3 3; }
+
+/* Repères personnels sur le profil (S-PLAN-C) : émoji au km + fil vers le sol */
+.prof-mark { font-size: 12px; cursor: default; }
+.prof-compact .prof-mark { font-size: 10px; }
+.prof-mark-line { stroke: var(--text-soft); stroke-width: 1; opacity: 0.35; stroke-dasharray: 2 3; }
 .prof-cursor-dot { fill: var(--red); stroke: #fff; stroke-width: 1.5; }
 .prof-sel { fill: rgba(255, 45, 32, 0.14); stroke: var(--red); stroke-width: 1; stroke-dasharray: 3 2; }
 
@@ -1990,8 +2156,52 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .map-stack .layers-panel { right: 50px; max-width: calc(100vw - 74px); }
   .results-panel { top: 64px; bottom: 76px; }
   .builder-bar { top: auto; bottom: 0; left: 0; transform: none; width: 100%; border-left: none; border-right: none; }
-  .plan-bar { max-height: 76vh; overflow-y: auto; }
-  .plan-steps { max-height: 132px; }
+  /* Planificateur mobile : bottom-sheet GLISSABLE. On la tire vers le bas pour
+     dégager la carte en grand (réduit = seuls la poignée et l'en-tête restent),
+     vers le haut pour revenir. Le dock (profil + stats + Enregistrer) est dans le
+     flux et suit le glissement. `--sheet-y` est piloté par le geste (planner.js). */
+  .plan-panel {
+    top: auto; bottom: 0; left: 0;
+    width: 100%;
+    max-height: 84vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 0 var(--sp-4) var(--sp-3);
+    transform: translateY(var(--sheet-y, 0px));
+    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+    touch-action: pan-y; /* le scroll interne reste possible ; le drag est capté sur poignée + en-tête */
+  }
+  .plan-panel.sheet-dragging { transition: none; } /* le doigt colle au panneau pendant le geste */
+
+  .plan-sheet-grip {
+    display: block; flex: none;
+    position: relative;
+    height: 22px; margin: 4px 0 2px;
+    cursor: grab; touch-action: none;
+  }
+  .plan-sheet-grip::before {
+    content: "";
+    position: absolute; left: 50%; top: 9px;
+    width: 42px; height: 4px;
+    transform: translateX(-50%);
+    border-radius: var(--radius-full);
+    background: var(--surface-3);
+    transition: background 150ms ease-out;
+  }
+  .plan-panel.sheet-collapsed .plan-sheet-grip::before,
+  .plan-sheet-grip:active::before { background: var(--text-soft); }
+
+  /* Zones de préhension du glissement (l'en-tête aussi, pour un geste naturel) ;
+     le contenu défilant garde son scroll propre. */
+  .plan-panel-head { touch-action: none; }
+
+  .plan-title { font-size: 16px; }
+  .plan-lead { display: none; }
+  .plan-panel-scroll { flex: 1; min-height: 0; }
+  .plan-dock { position: static; padding: 0; border-radius: 0; box-shadow: none; margin-top: var(--sp-2); }
+  .plan-dock-stats { gap: var(--sp-3); }
+  .dock-stat.big span { font-size: 18px; }
+  .dock-stat span { font-size: 15px; }
   .trail-preview { left: 0; right: 0; bottom: 0; width: 100%; border-left: none; border-right: none; }
   .preview-photo { height: 84px; }
 
@@ -2143,6 +2353,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: opacity 0.2s ease-out; transform: none; }
   .toast.show, .toast.leaving { transform: none; }
+  .plan-panel { transition: none; } /* le snap de la bottom-sheet devient instantané */
 }
 
 /* ============ S10 — Squelettes de chargement (pas de spinner brut) ============ */

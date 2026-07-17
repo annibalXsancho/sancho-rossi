@@ -11,6 +11,7 @@ import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { annotKind } from "./annotations.js";
 import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
@@ -27,6 +28,60 @@ let renderSeq = 0;
 
 export function isDetailOpen() {
   return !detailPanel.classList.contains("hidden");
+}
+
+// ---------- Repères personnels d'un tracé planifié (S-PLAN-C) ----------
+// Les notes sont de la saisie utilisateur : échappées avant toute injection HTML.
+const escAnnot = (s) =>
+  String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
+// Repères → marques du profil (uniquement ceux qui sont SUR l'itinéraire : un point
+// hors tracé n'a pas de km honnête à afficher sur une courbe).
+const poiProfileMarkers = (t) =>
+  (t.pois || [])
+    .filter((p) => p.km != null)
+    .map((p) => ({ km: p.km, icon: annotKind(p.kind).icon, label: p.note || annotKind(p.kind).label }));
+
+// Pose les repères sur une carte Leaflet de la fiche (mini-carte inerte ou plein
+// écran). Même pastille que le planificateur, en plus petit.
+function addPoiMarkers(leafletMap, t, { tooltips = false } = {}) {
+  (t.pois || []).forEach((p) => {
+    const mk = L.marker([p.lat, p.lon], {
+      interactive: tooltips,
+      keyboard: false,
+      icon: L.divIcon({
+        className: "plan-annot plan-annot-sm",
+        html: `<span class="plan-annot-i">${annotKind(p.kind).icon}</span>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      }),
+    }).addTo(leafletMap);
+    if (tooltips) mk.bindTooltip(escAnnot(p.note || annotKind(p.kind).label), { direction: "top", offset: [0, -10] });
+  });
+}
+
+function poisSectionHtml(t) {
+  if (!t.pois?.length) return "";
+  const rows = [...t.pois]
+    .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity))
+    .map((p) => {
+      const d = annotKind(p.kind);
+      const meta = [
+        p.note ? d.label : null,
+        p.km != null ? `km ${p.km.toLocaleString("fr-FR")}` : "hors itinéraire",
+      ].filter(Boolean).join(" · ");
+      return `<div class="annot-row static">
+        <span class="annot-ic">${d.icon}</span>
+        <div class="annot-body">
+          <span class="annot-name">${escAnnot(p.note || d.label)}</span>
+          <span class="annot-meta">${escAnnot(meta)}</span>
+        </div>
+      </div>`;
+    })
+    .join("");
+  return `<h3 class="section-title">Mes repères</h3><div class="plan-annots annot-list-detail">${rows}</div>`;
 }
 
 function destroyMiniMap() {
@@ -116,6 +171,7 @@ function openFullMap(t) {
   fullMap = L.map("fullmap");
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(fullMap);
   const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(fullMap);
+  addPoiMarkers(fullMap, t, { tooltips: true });
   // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
   // départ ou l'arrivée se retrouve caché dessous.
   fullMap.fitBounds(line.getBounds(), {
@@ -138,6 +194,7 @@ function openFullMap(t) {
         totalKm: t.distance,
         height: window.innerWidth < 700 ? 84 : 110,
         onHover: showOnFullMap,
+        markers: poiProfileMarkers(t),
       });
     })
     .catch(() => {}); // hors-ligne : la carte et les stats suffisent, pas de bandeau vide
@@ -239,6 +296,7 @@ export function renderDetail(id) {
         <div class="terrain-item"><span class="terrain-icon">⛺</span><div><strong>Bivouac</strong><br>${t.bivouacSpot}</div></div>
         <div class="terrain-item"><span class="terrain-icon">🗓</span><div><strong>Période conseillée</strong><br>${t.periode}</div></div>
       </div>` : ""}
+      ${poisSectionHtml(t)}
       <h3 class="section-title">Description</h3>
       <p class="detail-description">${t.description}</p>
       ${!t.osm && !t.imported ? `
@@ -280,6 +338,7 @@ export function renderDetail(id) {
   });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(miniMap);
   const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(miniMap);
+  addPoiMarkers(miniMap, t);
   miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
   // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du
   // profil (l'autre sens passe par showOnMiniMap). Le profil arrive après (async) :
@@ -313,6 +372,7 @@ export function renderDetail(id) {
         // La météo à l'heure de passage complète la bulle du profil ; `routeWx` est
         // affecté juste après, la closure le lit au moment du survol.
         annotate: (km) => routeWx?.annotate(km) || "",
+        markers: poiProfileMarkers(t),
       });
       routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
         eles, track: t.mainline || trackOf(t), totalKm: t.distance,

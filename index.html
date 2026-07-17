@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=528" />
+  <link rel="stylesheet" href="css/style.css?v=532" />
   <script type="importmap">
     {
       "imports": {
@@ -25,17 +25,18 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=521",
+        "./js/map.js": "./js/map.js?v=522",
         "./js/filters.js": "./js/filters.js?v=504",
         "./js/trails.js": "./js/trails.js?v=519",
-        "./js/detail.js": "./js/detail.js?v=527",
+        "./js/detail.js": "./js/detail.js?v=528",
         "./js/catalog.js": "./js/catalog.js?v=518",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/brouter.js": "./js/brouter.js?v=521",
         "./js/metrics.js": "./js/metrics.js?v=520",
         "./js/surface.js": "./js/surface.js?v=522",
-        "./js/profile.js": "./js/profile.js?v=525",
-        "./js/planner.js": "./js/planner.js?v=525",
+        "./js/profile.js": "./js/profile.js?v=526",
+        "./js/planner.js": "./js/planner.js?v=528",
+        "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=521",
         "./js/geosearch.js": "./js/geosearch.js?v=521",
         "./js/nav.js": "./js/nav.js?v=507",
@@ -280,11 +281,17 @@
         </div>
       </div>
 
-      <!-- Planificateur d'itinéraire (S-PLAN-A) -->
-      <div id="plan-bar" class="builder-bar plan-bar hidden">
-        <div class="builder-head">
-          <span>Planificateur d'itinéraire</span>
-          <span id="plan-sac" class="plan-sac hidden"></span>
+      <!-- Planificateur d'itinéraire (S-PLAN-A → S-PLAN-C : vue plein écran,
+           panneau latéral gauche + dock bas profil/stats, à la Outdooractive) -->
+      <div id="plan-bar" class="plan-panel hidden">
+        <div class="plan-sheet-grip" id="plan-sheet-grip" role="button" tabindex="0" aria-label="Réduire ou agrandir le planificateur"></div>
+        <div class="plan-panel-head">
+          <div class="plan-head-row">
+            <span class="eyebrow">Planificateur</span>
+            <button class="plan-close" id="plan-cancel" title="Fermer le planificateur" aria-label="Fermer">✕</button>
+          </div>
+          <h2 class="plan-title">Planifier votre itinéraire</h2>
+          <p class="plan-lead muted">Cliquez sur la carte pour ajouter des points de passage.</p>
         </div>
         <div class="plan-search-wrap" id="plan-search-wrap">
           <span class="search-icon">
@@ -293,25 +300,32 @@
           <input id="plan-search" type="text" placeholder="Choisir un point de passage…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
           <div id="plan-suggest" class="search-suggest plan-suggest hidden" role="listbox"></div>
         </div>
-        <div id="plan-steps" class="plan-steps"></div>
-        <p id="plan-status" class="loops-status muted hidden"></p>
-        <div id="plan-result" class="loops-result hidden">
-          <div id="plan-metrics" class="loops-metrics"></div>
-          <div id="plan-profile" class="plan-profile"></div>
+        <div class="plan-panel-scroll">
+          <div id="plan-steps" class="plan-steps"></div>
+          <button class="btn plan-loop" id="plan-loop" title="Revenir au point de départ par les sentiers" disabled>⟳ Boucler l'itinéraire</button>
+          <div class="plan-tools">
+            <button class="btn" id="plan-undo" title="Annuler (⌘Z)" aria-label="Annuler" disabled>↶</button>
+            <button class="btn" id="plan-redo" title="Refaire (⇧⌘Z)" aria-label="Refaire" disabled>↷</button>
+            <button class="btn" id="plan-reverse" title="Inverser le sens de parcours" aria-label="Inverser">⇅</button>
+            <button class="btn" id="plan-fit" title="Cadrer l'itinéraire" aria-label="Cadrer">⤢</button>
+            <button class="btn" id="plan-reset" title="Tout effacer, repères compris" aria-label="Réinitialiser">↺</button>
+          </div>
+          <p id="plan-status" class="loops-status muted hidden"></p>
+          <div class="plan-sec-head">
+            <span class="eyebrow">Mes repères</span>
+            <button class="btn plan-annot-btn" id="plan-annot" title="Poser un repère sur la carte : nuit, eau, danger…">📍 Annoter</button>
+          </div>
+          <p class="plan-annot-hint muted hidden" id="plan-annot-hint">Cliquez sur la carte ou sur le tracé pour poser le repère — Échap pour annuler.</p>
+          <div id="plan-annots" class="plan-annots"></div>
           <div id="plan-wx"></div>
         </div>
-        <div class="plan-tools">
-          <button class="btn" id="plan-undo" title="Annuler (⌘Z)" disabled>↶ Annuler</button>
-          <button class="btn" id="plan-redo" title="Refaire (⇧⌘Z)" disabled>↷ Refaire</button>
-        </div>
-        <div class="plan-tools">
-          <button class="btn" id="plan-reverse" title="Inverser le sens de parcours">⇅ Inverser</button>
-          <button class="btn" id="plan-fit" title="Cadrer l'itinéraire">⤢ Cadrer</button>
-          <button class="btn" id="plan-reset" title="Effacer tous les points">↺ Réinitialiser</button>
-        </div>
-        <div class="builder-foot">
-          <button class="btn" id="plan-cancel">Fermer</button>
-          <button class="btn btn-primary" id="plan-save">⏎ Enregistrer</button>
+        <div id="plan-result" class="plan-dock hidden">
+          <span id="plan-sac" class="plan-sac hidden"></span>
+          <div id="plan-profile" class="plan-profile"></div>
+          <div class="plan-dock-bar">
+            <div id="plan-metrics" class="plan-dock-stats"></div>
+            <button class="btn btn-primary" id="plan-save">Enregistrer</button>
+          </div>
         </div>
       </div>
 

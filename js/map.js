@@ -4,7 +4,7 @@ import { overpassFetch } from "./api.js";
 import { fetchRetry } from "./net.js";
 import { toast } from "./toast.js";
 import { photoOf, photoStyle } from "./photos.js";
-import { planner, plannerAddPoint } from "./planner.js";
+import { planner, plannerMapClick } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
@@ -182,10 +182,11 @@ async function refreshPoi(kind) {
         icon: L.divIcon({ className: "poi-marker", html: def.icon, iconSize: [22, 22] }),
       });
       // Planificateur ouvert : un point d'intérêt cliqué devient un point de passage
+      // (ou un repère nommé d'après le POI, si le mode annotation est armé)
       marker.on("click", () => {
         if (planner.active) {
           marker.closePopup();
-          plannerAddPoint(L.latLng(lat, lon), def.label(tags));
+          plannerMapClick(L.latLng(lat, lon), def.label(tags));
         }
       });
       marker.bindPopup(
@@ -274,7 +275,7 @@ export function addMarker(trail) {
     hoverTrack = null;
     marker.closeTooltip();
     if (planner.active) {
-      plannerAddPoint(L.latLng(trail.center[0], trail.center[1]), trail.name);
+      plannerMapClick(L.latLng(trail.center[0], trail.center[1]), trail.name);
       return;
     }
     showPreview(trail);
@@ -475,7 +476,7 @@ export function initMap() {
   // Clic sur la carte : point de passage si le planificateur est ouvert, départ de
   // boucle si le générateur l'est, sinon referme les calques
   map.on("click", (e) => {
-    if (planner.active) { plannerAddPoint(e.latlng); return; }
+    if (planner.active) { plannerMapClick(e.latlng); return; }
     if (loops.active) { setLoopStart(e.latlng); return; }
     layersPanel.classList.add("hidden");
   });

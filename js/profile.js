@@ -61,16 +61,20 @@ function indexAtKm(cum, km) {
  * @param {Function} [opts.onHover] ({lat, lon, km, alt, index}) | null
  * @param {Function} [opts.annotate] (km) => texte ajouté à la bulle de survol (météo
  *                                   à l'heure de passage, S-METEO) ; "" si rien
- * @returns {{destroy, setCursorKm, resetZoom}}
+ * @param {Array}    [opts.markers]  repères personnels [{km, icon, label}] posés sur la
+ *                                   courbe (S-PLAN-C) ; setMarkers() les met à jour
+ * @returns {{destroy, setCursorKm, resetZoom, setMarkers}}
  */
 export function createProfile(container, {
   eles, track, ways = null, totalKm = null, height = 150, compact = false, onHover = null,
-  annotate = null,
+  annotate = null, markers = null,
 } = {}) {
   if (!Array.isArray(eles) || eles.length < 2) {
     container.innerHTML = `<p class="muted">Profil indisponible.</p>`;
-    return { destroy() {}, setCursorKm() {}, resetZoom() {} };
+    return { destroy() {}, setCursorKm() {}, resetZoom() {}, setMarkers() {} };
   }
+
+  let marks = Array.isArray(markers) ? markers : [];
 
   // `ensureElevation` relève l'altitude sur sampleTrack(mainline, 100), pas sur le
   // tracé entier : rejouer le même échantillonnage réaligne exactement les deux
@@ -189,11 +193,25 @@ export function createProfile(container, {
       })
       .join("");
 
+    // Repères personnels : icône posée sur la courbe à son km + fil discret vers le
+    // sol du cadre — le survol donne le libellé (title SVG natif, pas de tooltip DOM).
+    const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const marksSvg = marks
+      .filter((m) => m.km != null && m.km >= view[0] && m.km <= view[1])
+      .map((m) => {
+        const mi = indexAtKm(km, m.km);
+        const mx = xOf(km[mi]).toFixed(1), my = yOf(eles[mi]);
+        return `<line class="prof-mark-line" x1="${mx}" y1="${my.toFixed(1)}" x2="${mx}" y2="${plotBot}" vector-effect="non-scaling-stroke" />` +
+          `<text class="prof-mark" x="${mx}" y="${(my - 7).toFixed(1)}" text-anchor="middle">${m.icon}<title>${esc(m.label || "")}</title></text>`;
+      })
+      .join("");
+
     gStatic.innerHTML =
       ticks +
       `<polygon class="prof-area" points="${x0},${plotBot} ${pt.join(" ")} ${x1},${plotBot}" />` +
       `<polyline class="prof-line" points="${pt.join(" ")}" vector-effect="non-scaling-stroke" />` +
       bandsSvg +
+      marksSvg +
       `<text class="prof-alt" x="${PAD_L + 3}" y="${plotTop + 11}">${fr(Math.round(hi))} m</text>` +
       (compact ? "" : `<text class="prof-alt prof-alt-min" x="${PAD_L + 3}" y="${plotBot - 4}">${fr(Math.round(lo))} m</text>`);
 
@@ -306,6 +324,9 @@ export function createProfile(container, {
   return {
     destroy() { ro.disconnect(); container.innerHTML = ""; },
     resetZoom,
+    // Les repères bougent sans que le tracé change (ajout, glisser, suppression) :
+    // repeindre suffit, pas besoin de recréer le profil.
+    setMarkers(list) { marks = Array.isArray(list) ? list : []; paint(); },
     // Pilotage depuis la carte : `notify: false` coupe le retour vers onHover, sinon
     // carte → profil → carte boucle sur lui-même.
     setCursorKm(k) { k == null ? hideCursor({ notify: false }) : showCursor(k, { notify: false }); },
