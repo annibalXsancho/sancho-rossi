@@ -5,11 +5,15 @@ import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { savePos } from "./security.js";
 import { hasPack, packPoiLayer } from "./offline.js";
+import { sunEvents } from "./astronomy.js";
 import { toast } from "./toast.js";
 
 const OFF_BASE_M = 120;      // seuil de base « hors tracé » (m)
 const STALE_MS = 30000;      // au-delà : le fix GPS est considéré perdu
 const GPS_TIMEOUT_MS = 30000;
+// Allure de marche prudente (montagne, terrain, fatigue) pour estimer le temps restant
+// et le comparer au jour restant. Volontairement basse : mieux vaut alerter trop tôt.
+const NAV_PACE_KMH = 4;
 
 const nav = {
   active: false,
@@ -27,6 +31,7 @@ const nav = {
   offAlerted: false, // vrai tant qu'on est signalé hors tracé (vibration one-shot)
   lastFixTs: 0,      // horodatage du dernier fix reçu (détection de perte de signal)
   staleTimer: null,
+  nightAlerted: false, // vrai tant que « la nuit tombera avant l'arrivée » (toast one-shot)
 };
 
 // Le verrou d'écran est relâché AUTOMATIQUEMENT par le navigateur dès que la page
@@ -91,6 +96,51 @@ function showGpsFix(acc) {
   setGps(`◉ signal GPS ±${acc} m`, stateName);
 }
 
+const fmtDur = (ms) => {
+  const min = Math.round(ms / 60000);
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}`;
+};
+
+// Jour restant (calcul astronomique LOCAL, donc valable hors-ligne) + alerte quand le
+// temps de marche estimé du reste dépasse le jour disponible. Alimente les deux HUD.
+function updateDaylight(lat, lon, remainingKm) {
+  const sun = sunEvents(lat, lon, new Date());
+  let text, alert;
+  if (sun.polar === "down") {
+    text = "☀ Jour permanent"; alert = false;
+  } else if (sun.polar === "up" || !sun.sunset) {
+    text = "🌙 Nuit polaire — pas de jour aujourd'hui"; alert = true;
+  } else {
+    const remMs = sun.sunset - Date.now();
+    const hm = sun.sunset.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    if (remMs <= 0) {
+      text = `🌙 Nuit tombée — coucher ${hm}`; alert = true;
+    } else {
+      const needMs = (remainingKm / NAV_PACE_KMH) * 3600000;
+      alert = needMs > remMs; // le reste ne tiendra pas dans le jour
+      text = `${alert ? "⚠" : "☀"} ${fmtDur(remMs)} de jour${alert ? " — nuit avant l'arrivée" : ` (coucher ${hm})`}`;
+    }
+  }
+
+  for (const id of ["nav-daylight", "surv-daylight"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.textContent = text;
+    el.dataset.state = alert ? "alert" : "ok";
+    el.classList.remove("hidden");
+  }
+
+  // Toast one-shot au basculement en alerte (comme la vibration hors-tracé) : on ne
+  // matraque pas, mais le franchissement mérite d'être signalé une fois.
+  if (alert && !nav.nightAlerted) {
+    toast("⚠ La nuit tombera avant la fin du tracé au rythme actuel.", { type: "error" });
+    navigator.vibrate?.([220, 90, 220]);
+    nav.nightAlerted = true;
+  } else if (!alert) {
+    nav.nightAlerted = false;
+  }
+}
+
 export function startNavigation(id) {
   if (!navigator.geolocation) { toast("Géolocalisation non supportée sur cet appareil.", { type: "error" }); return; }
   stopNavigation();
@@ -98,6 +148,7 @@ export function startNavigation(id) {
   nav.trail = t;
   nav.active = true;
   nav.offAlerted = false;
+  nav.nightAlerted = false;
   nav.lastFixTs = 0;
 
   const line = t.mainline || trackOf(t);
@@ -155,6 +206,7 @@ function onNavFix(pos) {
   const altText = altitude != null ? `${Math.round(altitude)} m` : "—";
   const acc = accuracy != null ? Math.round(accuracy) : null;
   showGpsFix(acc);
+  updateDaylight(lat, lon, m.remaining); // jour restant + alerte nuit (offline)
 
   // Seuil adaptatif : un fix imprécis (couvert, gorge) ne doit pas crier « hors tracé ».
   const off = m.offM > Math.max(OFF_BASE_M, acc || 0);
@@ -222,6 +274,8 @@ function stopNavigation() {
   nav.poiLayer = null;
   releaseWakeLock();
   setSurvivor(false);
+  document.getElementById("nav-daylight")?.classList.add("hidden");
+  document.getElementById("surv-daylight")?.classList.add("hidden");
   document.body.classList.remove("nav-active");
   document.getElementById("nav-hud").classList.add("hidden");
 }

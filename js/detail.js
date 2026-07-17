@@ -12,6 +12,7 @@ import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { createConditions } from "./conditions.js";
+import { createDaylight } from "./daylight.js";
 import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
@@ -22,6 +23,7 @@ let miniCursor = null;
 let profile = null;
 let routeWx = null; // bandeau météo à l'heure de passage (S-METEO)
 let routeCond = null; // bandeau conditions du sentier + orages (S-CONDITIONS)
+let routeNight = null; // bandeau « avant la nuit » (S-NUIT)
 let viewer3dActive = false;
 // Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
@@ -40,6 +42,8 @@ function destroyMiniMap() {
   routeWx = null;
   routeCond?.destroy();
   routeCond = null;
+  routeNight?.destroy();
+  routeNight = null;
 }
 
 // Survol du profil → point sur la mini-carte. C'est ce qui rend le profil lisible :
@@ -206,6 +210,7 @@ export function renderDetail(id) {
         </div>
         <div id="route-wx"></div>
         <div id="route-conditions"></div>
+        <div id="route-daylight"></div>
       </div>
     </div>
 
@@ -325,6 +330,9 @@ export function renderDetail(id) {
       routeCond = createConditions(document.getElementById("route-conditions"), t, {
         eles, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
+      routeNight = createDaylight(document.getElementById("route-daylight"), t, {
+        eles, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
       const e = state.elev[id];
       if (e) {
         document.getElementById("stat-gain").innerHTML = `${e.gain.toLocaleString("fr-FR")}<small> m</small>`;
@@ -344,6 +352,10 @@ export function renderDetail(id) {
       // Sans altitude, les conditions perdent neige/gel mais gardent orages, boue,
       // chaleur, UV, air : le bandeau se garde chaque badge indépendamment.
       routeCond = createConditions(document.getElementById("route-conditions"), t, {
+        eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
+      // « Avant la nuit » est 100 % local (astronomie) : marche sans altitude ni réseau.
+      routeNight = createDaylight(document.getElementById("route-daylight"), t, {
         eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
       document.getElementById("stat-gain").textContent = gain ? Math.round(gain) : "—";

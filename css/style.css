@@ -1386,6 +1386,29 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 #plan-conditions .info-block { margin-top: var(--sp-2); }
 #plan-conditions .cond-txt { font-size: 11.5px; }
 
+/* ============ Avant la nuit (S-NUIT) ============ */
+/* Coucher du soleil / crépuscule / lune vs arrivée estimée, calculés en local (offline).
+   Bâti sur `.info-block`. Lignes d'info neutres + un verdict d'arrivée coloré par
+   sévérité (accent gauche, jamais d'encadré — charte v2). */
+.night-day { color: var(--text-soft); }
+.night-rows { display: flex; flex-direction: column; gap: var(--sp-1); }
+.night-line {
+  display: flex; align-items: baseline; gap: var(--sp-2);
+  font-size: 12px; line-height: 1.3; color: var(--text);
+}
+.night-ico { font-size: 14px; flex: 0 0 auto; }
+.night-verdict {
+  padding: var(--sp-2); padding-left: 10px;
+  background: var(--surface-2); border-radius: var(--radius);
+  border-left: 3px solid var(--text-soft);
+  font-size: 12px; line-height: 1.3; color: var(--text);
+}
+.night-verdict.night-alert { border-left-color: var(--red); font-weight: 600; }
+.night-verdict.night-warn { border-left-color: #d99a3d; }
+.night-verdict.night-info { border-left-color: var(--text-soft); }
+#plan-daylight .info-block { margin-top: var(--sp-2); }
+#plan-daylight .night-line, #plan-daylight .night-verdict { font-size: 11.5px; }
+
 .terrain-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
 
 .terrain-item {
@@ -1535,6 +1558,22 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .nav-gps[data-state="warn"] { color: #d9a441; }
 .nav-gps[data-state="poor"] { color: var(--red); }
 .nav-gps[data-state="lost"] { color: #fff; background: var(--red); border-bottom-color: var(--red); }
+
+/* Jour restant dans le HUD (S-NUIT) : ligne de statut, rouge quand la nuit tombera
+   avant l'arrivée au rythme actuel. Calcul astronomique local → visible hors-ligne. */
+.nav-daylight {
+  padding: 6px 10px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--border);
+  transition: color 150ms ease-out, background 150ms ease-out;
+}
+.nav-daylight[data-state="alert"] { color: #fff; background: var(--red); border-bottom-color: var(--red); }
+.surv-daylight { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; color: #cfcfcf; margin-top: 4px; }
+.surv-daylight[data-state="alert"] { color: var(--red); }
 
 .nav-stat { padding: 12px 8px 14px; text-align: center; border-left: 1px solid var(--border); }
 .nav-stat:first-child { border-left: none; }

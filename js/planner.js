@@ -23,6 +23,7 @@ import { createGeoSuggest } from "./geosearch.js";
 import { createProfile } from "./profile.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { createConditions } from "./conditions.js";
+import { createDaylight } from "./daylight.js";
 import {
   computeGain, computeLoss, naismithHours, fmtDuration, sacRating, SAC_LABEL,
 } from "./metrics.js";
@@ -44,6 +45,7 @@ export const planner = {
   profile: null,   // instance de profile.js (vignette du panneau)
   wx: null,        // bandeau météo à l'heure de passage (S-METEO)
   cond: null,      // bandeau conditions du sentier + orages (S-CONDITIONS)
+  night: null,     // bandeau « avant la nuit » (S-NUIT)
   wxTimer: null,   // débounce : pas d'appel Open-Meteo à chaque retouche de tracé
   cursor: null,    // marqueur de position, piloté par le survol du profil
   history: [[]],   // instantanés de `waypoints` — l'état vide est le fond de pile
@@ -303,6 +305,8 @@ function renderMetrics() {
     planner.wx = null;
     planner.cond?.destroy();
     planner.cond = null;
+    planner.night?.destroy();
+    planner.night = null;
     planner.cursor?.remove();
     planner.cursor = null;
     return;
@@ -342,6 +346,8 @@ function renderMetrics() {
   planner.wx = null;
   planner.cond?.destroy();
   planner.cond = null;
+  planner.night?.destroy();
+  planner.night = null;
   if (r.eles) {
     planner.wxTimer = setTimeout(() => {
       planner.wx = createRouteWeather(el("plan-wx"), { id: "plan-en-cours" }, {
@@ -350,10 +356,14 @@ function renderMetrics() {
       planner.cond = createConditions(el("plan-conditions"), { id: "plan-en-cours" }, {
         eles: r.eles, track: r.track, totalKm: r.distance,
       });
+      planner.night = createDaylight(el("plan-daylight"), { id: "plan-en-cours", center: r.track[Math.floor(r.track.length / 2)] }, {
+        eles: r.eles, track: r.track, totalKm: r.distance,
+      });
     }, 800);
   } else {
     el("plan-wx").innerHTML = "";
     el("plan-conditions").innerHTML = "";
+    el("plan-daylight").innerHTML = "";
   }
 
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });
@@ -524,6 +534,8 @@ function exitPlanner() {
   planner.wx = null;
   planner.cond?.destroy();
   planner.cond = null;
+  planner.night?.destroy();
+  planner.night = null;
   planner.cursor?.remove();
   planner.cursor = null;
   planner.history = [[]];
