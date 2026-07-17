@@ -121,12 +121,12 @@ export function applyLayer(name) {
   } else {
     layer.remove();
   }
-  const row = document.querySelector(`.layer-row[data-layer="${name}"]`);
-  if (row) {
+  // Toutes les rangées de ce calque (panneau carte + onglet Navigation) restent en phase
+  document.querySelectorAll(`.layer-row[data-layer="${name}"]`).forEach((row) => {
     row.querySelector("input[type=checkbox]").checked = cfg.on;
     row.querySelector(".layer-op").value = cfg.op;
     row.querySelector(".op-val").textContent = `${cfg.op}%`;
-  }
+  });
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
 }
 

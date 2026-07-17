@@ -8,6 +8,7 @@ import { loadWikiPhotos } from "./photos.js";
 import { saveTraces, putMeta, clearAll } from "./storage.js";
 import { listPacks, deletePack, deleteAllPacks, storageEstimate } from "./offline.js";
 import { toast } from "./toast.js";
+import { renderNavView } from "./navview.js";
 
 // ---------- Thème ----------
 function applyTheme(theme) {
@@ -21,12 +22,14 @@ export function switchTab(name) {
   // Un clic d'onglet doit toujours répondre : on referme la fiche qui recouvre tout
   if (isDetailOpen()) closeDetail();
   state.view = name;
+  localStorage.setItem("sr-view", name); // dernier onglet restauré au prochain boot
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
   document.getElementById(`view-${name}`).classList.remove("hidden");
   document.querySelectorAll(".tab-nav-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
   );
   if (name === "carte") setTimeout(() => map.invalidateSize(), 60);
+  if (name === "navigation") renderNavView();
   if (name === "securite") renderSafety();
   if (name === "reglages") renderOffline();
 }

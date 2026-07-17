@@ -27,7 +27,18 @@ const nav = {
   offAlerted: false, // vrai tant qu'on est signalé hors tracé (vibration one-shot)
   lastFixTs: 0,      // horodatage du dernier fix reçu (détection de perte de signal)
   staleTimer: null,
+  startedAt: 0,      // départ de la session (survit au rechargement via sr-nav)
+  lastM: null,       // dernières métriques calculées (carte de session, onglet Navigation)
 };
+
+// La session en cours est persistée dans sr-nav pour qu'un rechargement de la page
+// (volontaire ou non) ne coupe jamais une navigation : main.js la relance au boot.
+function persistNav() {
+  if (!nav.active) return;
+  localStorage.setItem("sr-nav", JSON.stringify({
+    id: nav.trail.id, startedAt: nav.startedAt, survivor: nav.survivor,
+  }));
+}
 
 // Le verrou d'écran est relâché AUTOMATIQUEMENT par le navigateur dès que la page
 // passe en arrière-plan (écran éteint, changement d'app). Sans ré-acquisition, il
@@ -91,14 +102,21 @@ function showGpsFix(acc) {
   setGps(`◉ signal GPS ±${acc} m`, stateName);
 }
 
-export function startNavigation(id) {
+export function startNavigation(id, { resume = null } = {}) {
   if (!navigator.geolocation) { toast("Géolocalisation non supportée sur cet appareil.", { type: "error" }); return; }
   stopNavigation();
   const t = getTrail(id);
+  if (!t) {
+    toast("Itinéraire introuvable — navigation annulée.", { type: "error" });
+    localStorage.removeItem("sr-nav");
+    return;
+  }
   nav.trail = t;
   nav.active = true;
   nav.offAlerted = false;
   nav.lastFixTs = 0;
+  nav.lastM = null;
+  nav.startedAt = resume?.startedAt || Date.now();
 
   const line = t.mainline || trackOf(t);
   nav.samples = sampleTrack(line, 400);
@@ -136,6 +154,8 @@ export function startNavigation(id) {
   }, 10000);
 
   requestWakeLock();
+  if (resume?.survivor) setSurvivor(true);
+  persistNav(); // après le stopNavigation() d'entrée, qui purge sr-nav
 }
 
 function onNavError(err) {
@@ -152,6 +172,7 @@ function onNavFix(pos) {
 
   const { latitude: lat, longitude: lon, altitude, speed, accuracy } = pos.coords;
   const m = navMetrics(lat, lon);
+  nav.lastM = m;
   const altText = altitude != null ? `${Math.round(altitude)} m` : "—";
   const acc = accuracy != null ? Math.round(accuracy) : null;
   showGpsFix(acc);
@@ -197,7 +218,7 @@ function onNavFix(pos) {
   }
 }
 
-function setSurvivor(on) {
+export function setSurvivor(on) {
   nav.survivor = on;
   document.getElementById("nav-survivor").classList.toggle("hidden", !on);
   document.body.classList.toggle("survivor-active", on);
@@ -207,9 +228,11 @@ function setSurvivor(on) {
     if (nav.active) requestWakeLock(); // ne pas ré-armer le verrou en quittant la nav
     setTimeout(() => map.invalidateSize(), 60);
   }
+  persistNav();
 }
 
-function stopNavigation() {
+export function stopNavigation() {
+  localStorage.removeItem("sr-nav");
   if (nav.watchId !== null) navigator.geolocation.clearWatch(nav.watchId);
   nav.watchId = null;
   if (nav.staleTimer !== null) clearInterval(nav.staleTimer);
@@ -224,6 +247,15 @@ function stopNavigation() {
   setSurvivor(false);
   document.body.classList.remove("nav-active");
   document.getElementById("nav-hud").classList.add("hidden");
+}
+
+// Instantané de la session pour l'onglet Navigation (null si aucune nav en cours).
+export function navSession() {
+  if (!nav.active) return null;
+  return {
+    id: nav.trail.id, name: nav.trail.name, startedAt: nav.startedAt,
+    total: nav.total, survivor: nav.survivor, lastM: nav.lastM,
+  };
 }
 
 export function initNav() {

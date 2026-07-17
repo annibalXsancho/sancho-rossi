@@ -1,6 +1,6 @@
 // Sancho Rossi — point d'entrée : orchestration de l'initialisation des modules.
 // L'ordre reproduit celui des sections de l'ex-app.js monolithique.
-import { state, BASE_TRAILS } from "./state.js";
+import { state, BASE_TRAILS, getTrail } from "./state.js";
 import { initUi, refreshTilesCount, switchTab } from "./ui.js";
 import { initMap, addMarker } from "./map.js";
 import { initFilters, openFilters } from "./filters.js";
@@ -12,12 +12,12 @@ import { initCatalog, hydrateCatalog } from "./catalog.js";
 import { initAgent } from "./agent.js";
 import { initPlanner } from "./planner.js";
 import { initLoops } from "./loops.js";
-import { initNav } from "./nav.js";
+import { initNav, startNavigation } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 import { initOffline } from "./offline.js";
-import { initToast } from "./toast.js";
+import { initToast, toast } from "./toast.js";
 
 initToast();
 initUi();
@@ -80,5 +80,22 @@ loadPersisted().then(async (persisted) => {
   renderRecommendations(); // idées datées de l'accueil (saison/météo/favoris), après boot data
   refreshTilesCount();
   checkWatch();
+
+  // Reprise après rechargement : une session de navigation interrompue (sr-nav)
+  // redémarre d'elle-même — le tracé, le HUD et le GPS reviennent sans un geste.
+  // Sinon, on restaure simplement le dernier onglet visité (sr-view).
+  const NAV_MAX_AGE = 48 * 3600 * 1000; // au-delà du bivouac 2 jours : session caduque
+  let savedNav = null;
+  try { savedNav = JSON.parse(localStorage.getItem("sr-nav") || "null"); } catch {}
+  if (savedNav?.id && Date.now() - savedNav.startedAt < NAV_MAX_AGE && getTrail(savedNav.id)) {
+    startNavigation(savedNav.id, { resume: savedNav });
+    toast("Navigation reprise — votre session a été restaurée.", { type: "success" });
+  } else {
+    if (savedNav) localStorage.removeItem("sr-nav");
+    const saved = localStorage.getItem("sr-view");
+    const name = saved === "itineraires" ? "navigation" : saved;
+    if (name && name !== "accueil" && document.getElementById(`view-${name}`)) switchTab(name);
+  }
+
   loadWikiPhotos();
 });

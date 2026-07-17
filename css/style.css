@@ -1917,6 +1917,66 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   margin-bottom: 12px;
 }
 
+/* ---- Onglet Navigation (S-NAV) ---- */
+.nav-session {
+  max-width: 640px;
+  margin: 0 auto 18px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
+  box-shadow: var(--shadow-soft);
+}
+.nav-session .info-block-head { margin-bottom: 2px; }
+.nav-session-elapsed {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.nav-session-name {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 2px 0 12px;
+}
+.nav-session-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.nav-session-stats span {
+  display: block;
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.nav-session-stats label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.nav-session-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.nav-session-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+.navview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.navview-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.navview-info strong { font-size: 13.5px; }
+.navview-info .muted { font-size: 12px; }
+.navview-go { flex-shrink: 0; }
+#navview-layers .layer-row { padding: 6px 0; }
+#view-navigation .settings-group > .muted { font-size: 12px; margin-top: 10px; }
+
 /* ============ Panneau de filtres partagé ============ */
 .btn-filters {
   display: inline-flex;

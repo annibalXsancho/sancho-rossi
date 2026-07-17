@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=533" />
+  <link rel="stylesheet" href="css/style.css?v=534" />
   <script type="importmap">
     {
       "imports": {
@@ -25,7 +25,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=522",
+        "./js/map.js": "./js/map.js?v=523",
         "./js/filters.js": "./js/filters.js?v=504",
         "./js/trails.js": "./js/trails.js?v=529",
         "./js/detail.js": "./js/detail.js?v=530",
@@ -39,9 +39,10 @@
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=521",
         "./js/geosearch.js": "./js/geosearch.js?v=521",
-        "./js/nav.js": "./js/nav.js?v=507",
+        "./js/nav.js": "./js/nav.js?v=508",
+        "./js/navview.js": "./js/navview.js?v=501",
         "./js/security.js": "./js/security.js?v=516",
-        "./js/ui.js": "./js/ui.js?v=525",
+        "./js/ui.js": "./js/ui.js?v=526",
         "./js/offline.js": "./js/offline.js?v=525",
         "./js/recommend.js": "./js/recommend.js?v=502",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
@@ -82,9 +83,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></svg>
         <span class="tab-label">Carte</span>
       </button>
-      <button class="tab-nav-btn" data-view="itineraires" title="Itinéraires">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H14a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h5.8"/></svg>
-        <span class="tab-label">Itinéraires</span>
+      <button class="tab-nav-btn" data-view="navigation" title="Navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.7 8.3-2.1 5.3-5.3 2.1 2.1-5.3z"/></svg>
+        <span class="tab-label">Navigation</span>
       </button>
       <button class="tab-nav-btn" data-view="securite" title="Sécurité">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.2 3 7.4 7 8.5 4-1.1 7-4.3 7-8.5V6l-7-3Z"/></svg>
@@ -170,8 +171,7 @@
         <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
         </button>
-        <!-- Points de passage reliés. Ne PAS reprendre la S-courbe à deux cercles :
-             c'est l'icône de l'onglet « Itinéraires » de la tab-nav. -->
+        <!-- Points de passage reliés (icône propre au planificateur). -->
         <button class="map-ctl" id="btn-planner" title="Planifier un itinéraire" aria-label="Planifier un itinéraire">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18.5 9.5 11l5 3.5L19.5 5.5"/><circle cx="4.5" cy="18.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="9.5" cy="11" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19.5" cy="5.5" r="1.9" fill="currentColor" stroke="none"/></svg>
         </button>
@@ -378,7 +378,22 @@
       </div>
     </section>
 
-    <!-- ============ ITINÉRAIRES ============ -->
+    <!-- ============ NAVIGATION ============ -->
+    <section id="view-navigation" class="view hidden">
+      <h2 class="view-title">Navigation</h2>
+      <div id="nav-session"></div>
+      <div class="settings-group">
+        <h3>Mes itinéraires</h3>
+        <div id="navview-trails"></div>
+      </div>
+      <div class="settings-group">
+        <h3>Calques de carte</h3>
+        <div id="navview-layers"></div>
+        <p class="muted">Appliqués aussitôt à la carte, conservés pour la prochaine sortie.</p>
+      </div>
+    </section>
+
+    <!-- ============ ITINÉRAIRES (grille de découverte, accessible depuis l'Accueil) ============ -->
     <section id="view-itineraires" class="view hidden">
       <div class="view-title-row">
         <h2 class="view-title">Itinéraires <span id="grid-count" class="muted"></span></h2>
@@ -698,6 +713,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/data.js"></script>
-  <script type="module" src="js/main.js?v=522"></script>
+  <script type="module" src="js/main.js?v=523"></script>
 </body>
 </html>
