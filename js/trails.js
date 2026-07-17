@@ -289,6 +289,19 @@ function parseGPX(xmlText, fileName) {
   };
 }
 
+// Renomme un tracé importé/personnel. On mute l'objet en place : le tooltip du
+// marqueur (généré à la volée depuis `trail`) et toute vue qui tient la référence
+// reflètent le nouveau nom sans reconstruction. Persistance + re-rendu des listes.
+export function renameImported(id, name) {
+  const clean = name.trim();
+  const t = state.imported.find((x) => x.id === id);
+  if (!t || !clean || clean === t.name) return false;
+  t.name = clean;
+  saveTraces(state.imported);
+  renderAll();
+  return true;
+}
+
 export function deleteImported(id) {
   state.imported = state.imported.filter((t) => t.id !== id);
   saveTraces(state.imported);

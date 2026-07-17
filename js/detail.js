@@ -6,7 +6,7 @@ import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
 import { hidePreview, clearActiveTrack } from "./map.js";
-import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported } from "./trails.js";
+import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
@@ -26,16 +26,20 @@ let viewer3dActive = false;
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
 let renderSeq = 0;
 
+// Les noms de tracés sont désormais éditables par l'utilisateur : on échappe
+// avant toute injection en innerHTML.
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+
 export function isDetailOpen() {
   return !detailPanel.classList.contains("hidden");
 }
 
 // ---------- Repères personnels d'un tracé planifié (S-PLAN-C) ----------
-// Les notes sont de la saisie utilisateur : échappées avant toute injection HTML.
-const escAnnot = (s) =>
-  String(s).replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-  );
+// Les notes sont de la saisie utilisateur : échappées (escapeHtml ci-dessus) avant
+// toute injection HTML.
 
 // Repères → marques du profil (uniquement ceux qui sont SUR l'itinéraire : un point
 // hors tracé n'a pas de km honnête à afficher sur une courbe).
@@ -58,7 +62,7 @@ function addPoiMarkers(leafletMap, t, { tooltips = false } = {}) {
         iconAnchor: [12, 12],
       }),
     }).addTo(leafletMap);
-    if (tooltips) mk.bindTooltip(escAnnot(p.note || annotKind(p.kind).label), { direction: "top", offset: [0, -10] });
+    if (tooltips) mk.bindTooltip(escapeHtml(p.note || annotKind(p.kind).label), { direction: "top", offset: [0, -10] });
   });
 }
 
@@ -75,13 +79,57 @@ function poisSectionHtml(t) {
       return `<div class="annot-row static">
         <span class="annot-ic">${d.icon}</span>
         <div class="annot-body">
-          <span class="annot-name">${escAnnot(p.note || d.label)}</span>
-          <span class="annot-meta">${escAnnot(meta)}</span>
+          <span class="annot-name">${escapeHtml(p.note || d.label)}</span>
+          <span class="annot-meta">${escapeHtml(meta)}</span>
         </div>
       </div>`;
     })
     .join("");
   return `<h3 class="section-title">Mes repères</h3><div class="plan-annots annot-list-detail">${rows}</div>`;
+}
+
+// Renommage en place : le titre devient éditable, Entrée/clic-ailleurs valide,
+// Échap annule. Un seul geste, sans boîte de dialogue.
+function startRename(id, t) {
+  const h = document.getElementById("detail-title");
+  if (!h || h.isContentEditable) return;
+  const original = t.name;
+  h.setAttribute("contenteditable", "plaintext-only");
+  h.classList.add("editing");
+  h.focus();
+  const range = document.createRange();
+  range.selectNodeContents(h);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    h.removeEventListener("keydown", onKey);
+    h.removeEventListener("blur", onBlur);
+    h.removeAttribute("contenteditable");
+    h.classList.remove("editing");
+    const next = h.textContent.trim();
+    if (commit && next && next !== original && renameImported(id, next)) {
+      t.name = next;
+      h.textContent = next;
+      breadcrumbEl.querySelector("strong").textContent = next;
+      const fmTitle = document.getElementById("fullmap-title");
+      if (fmTitle) fmTitle.textContent = next;
+      toast("Itinéraire renommé.", { type: "success" });
+    } else {
+      h.textContent = original; // annulation ou nom vide/inchangé
+    }
+  };
+  const onKey = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+  const onBlur = () => finish(true);
+  h.addEventListener("keydown", onKey);
+  h.addEventListener("blur", onBlur);
 }
 
 function destroyMiniMap() {
@@ -225,7 +273,7 @@ export function renderDetail(id) {
 
   breadcrumbEl.innerHTML =
     `<button class="bc-link" data-bc="all">Europe</button> / ` +
-    `<button class="bc-link" data-bc="region">${t.region}</button> / <strong>${t.name}</strong>`;
+    `<button class="bc-link" data-bc="region">${escapeHtml(t.region)}</button> / <strong>${escapeHtml(t.name)}</strong>`;
   breadcrumbEl.querySelectorAll(".bc-link").forEach((b) =>
     b.addEventListener("click", () => {
       const region = b.dataset.bc === "region" ? t.region : "";
@@ -237,7 +285,10 @@ export function renderDetail(id) {
   );
 
   detailContent.innerHTML = `
-    <h1 class="detail-title">${t.name}</h1>
+    <div class="detail-title-row">
+      <h1 class="detail-title" id="detail-title">${escapeHtml(t.name)}</h1>
+      ${t.imported ? `<button class="detail-rename" id="btn-rename" title="Renommer" aria-label="Renommer l'itinéraire">✎</button>` : ""}
+    </div>
     <div class="detail-subline">
       ${t.imported ? `<span class="pill pill-gpx">${t.custom ? "Circuit personnel" : "GPX importé"}</span>`
         : t.osm ? `<span class="pill pill-gpx">Tracé balisé officiel · OSM</span>`
@@ -455,6 +506,7 @@ export function renderDetail(id) {
   document.getElementById("btn-delete-gpx")?.addEventListener("click", () => {
     if (confirm(`Supprimer « ${t.name} » ?`)) deleteImported(id);
   });
+  document.getElementById("btn-rename")?.addEventListener("click", () => startRename(id, t));
 
   const tabs = detailContent.querySelectorAll(".tab");
   tabs.forEach((tab) => {
