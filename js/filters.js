@@ -1,6 +1,7 @@
 // Sancho Rossi — filtres et tri des itinéraires + panneau de filtres partagé
 import { state, allTrails, gainOf, estDurationH } from "./state.js";
 import { renderAll, renderList } from "./trails.js";
+import { fetchRetry } from "./net.js";
 
 // ---------- Prédicats de critères terrain ----------
 // L'info eau/refuge n'est fiable que pour la graine curée : les tracés OSM chargés à la
@@ -89,7 +90,7 @@ async function osrmTableMinutes(origin, dests) {
   const url =
     `https://router.project-osrm.org/table/v1/driving/${coords}` +
     `?sources=0&annotations=duration`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+  const res = await fetchRetry(url, { timeout: 20000 });
   if (!res.ok) throw new Error(`OSRM ${res.status}`);
   const data = await res.json();
   const secs = data.durations?.[0] ? data.durations[0].slice(1) : [];

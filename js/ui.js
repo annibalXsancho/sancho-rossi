@@ -7,6 +7,7 @@ import { renderSafety, saveContacts } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { saveTraces, putMeta, clearAll } from "./storage.js";
 import { listPacks, deletePack, deleteAllPacks, storageEstimate } from "./offline.js";
+import { toast } from "./toast.js";
 
 // ---------- Thème ----------
 function applyTheme(theme) {
@@ -162,9 +163,9 @@ export function initUi() {
       saveContacts();
       renderAll();
       renderFavCount();
-      alert("Données restaurées.");
+      toast("Données restaurées.", { type: "success" });
     } catch (err) {
-      alert(`Fichier invalide : ${err.message}`);
+      toast(`Fichier invalide : ${err.message}`, { type: "error" });
     }
     dataInput.value = "";
   });

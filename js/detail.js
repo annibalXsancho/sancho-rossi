@@ -11,6 +11,7 @@ import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
 const detailContent = document.getElementById("detail-content");
@@ -446,7 +447,7 @@ async function load3D(trail) {
     update();
   } catch (err) {
     intro.querySelector("#btn-load-3d").textContent = "▶ Réessayer";
-    alert(`Vue 3D indisponible : ${err.message}`);
+    toast(`Vue 3D indisponible : ${err.message}`, { type: "error" });
   }
 }
 
@@ -457,7 +458,7 @@ async function downloadPack(t, id) {
   if (hasPack(id)) { closeDetail(); switchTab("reglages"); return; }
   const est = estimatePack(t);
   if (est.tiles > 8000) {
-    alert(`« ${t.name} » est trop long pour un pack unique (~${est.tiles} tuiles).`);
+    toast(`« ${t.name} » est trop long pour un pack unique (~${est.tiles} tuiles).`, { type: "error" });
     return;
   }
   if (!confirm(
@@ -482,7 +483,7 @@ async function downloadPack(t, id) {
   } catch (err) {
     const b = document.getElementById("btn-offline");
     if (b) { b.disabled = false; b.textContent = "⤓ Terrain"; }
-    alert(`Téléchargement incomplet : ${err.message}`);
+    toast(`Téléchargement incomplet : ${err.message}`, { type: "error" });
   }
 }
 

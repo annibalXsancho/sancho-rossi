@@ -17,7 +17,9 @@ import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 import { initOffline } from "./offline.js";
+import { initToast } from "./toast.js";
 
+initToast();
 initUi();
 initMap();
 initFilters();

@@ -12,6 +12,8 @@ import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
 import { brouterRoute } from "./brouter.js";
 import { computeGain, naismithHours, fmtDuration } from "./metrics.js";
+import { fetchRetry } from "./net.js";
+import { toast } from "./toast.js";
 
 const loops = {
   active: false,
@@ -59,10 +61,11 @@ function loopWaypoints(start, rKm, n, heading) {
 // série faisait « pendre » la génération ~40 s (cause du ressenti « ça bug »).
 function raceOverpass(q) {
   const hit = async (url) => {
-    const res = await fetch(url, {
+    const res = await fetchRetry(url, {
       method: "POST",
       body: "data=" + encodeURIComponent(q),
-      signal: AbortSignal.timeout(12000),
+      timeout: 12000,
+      retries: 1,
     });
     if (!res.ok) throw new Error(String(res.status));
     const data = await res.json();
@@ -277,9 +280,9 @@ function setBusy(on, msg) {
 
 async function runGeneration() {
   if (loops.busy) return;
-  if (!loops.start) { alert("Choisissez d'abord un point de départ (clic sur la carte ou ⌖ ma position)."); return; }
+  if (!loops.start) { toast("Choisissez d'abord un point de départ (clic sur la carte ou ⌖ ma position).", { type: "error" }); return; }
   const target = Number(el("loops-target").value);
-  if (!(target >= 2)) { alert("Indiquez une distance de marche (au moins 2 km)."); return; }
+  if (!(target >= 2)) { toast("Indiquez une distance de marche (au moins 2 km).", { type: "error" }); return; }
   loops.targetKm = target;
   setBusy(true, "Lecture des sentiers puis tracé de la boucle…");
   drawGhost(true);

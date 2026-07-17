@@ -19,6 +19,7 @@
 import { state, trackOf, sampleTrack } from "./state.js";
 import { cumulativeKm } from "./metrics.js";
 import { wmoInfo } from "./weather.js";
+import { fetchRetry } from "./net.js";
 import { putPackMeta, getPackMeta } from "./storage.js";
 
 const HYST_M = 4;          // hystérésis du D+ — DOIT rester alignée sur metrics.js
@@ -134,7 +135,7 @@ async function fetchHourly(samples, days) {
     `&hourly=temperature_2m,precipitation,precipitation_probability,weather_code,wind_speed_10m` +
     `&timezone=auto&forecast_days=${days}`;
   const p = (async () => {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetchRetry(url, { timeout: 15000 });
     if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
     let data = await res.json();
     if (!Array.isArray(data)) data = [data];

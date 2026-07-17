@@ -4,6 +4,7 @@
 import { state, BASE_TRAILS as TRAILS } from "./state.js";
 import { renderAll } from "./trails.js";
 import { putMeta } from "./storage.js";
+import { fetchRetry } from "./net.js";
 
 const WIKI = {
   "tre-cime-bivouac": "Tre_Cime_di_Lavaredo",
@@ -41,8 +42,9 @@ export async function loadWikiPhotos() {
   if (!missing.length) return;
   await Promise.allSettled(
     missing.map(async (t) => {
-      const res = await fetch(
-        `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(WIKI[t.id])}`
+      const res = await fetchRetry(
+        `https://it.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(WIKI[t.id])}`,
+        { timeout: 10000, retries: 1 }
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -64,7 +66,7 @@ export async function geoPhoto(trail) {
     `https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*` +
     `&generator=geosearch&ggsnamespace=6&ggscoord=${lat}%7C${lon}&ggsradius=9000&ggslimit=1` +
     `&prop=imageinfo&iiprop=url&iiurlwidth=480`;
-  const res = await fetch(url);
+  const res = await fetchRetry(url, { timeout: 10000, retries: 1 });
   if (!res.ok) throw new Error(res.status);
   const pages = (await res.json()).query?.pages || {};
   return Object.values(pages)[0]?.imageinfo?.[0]?.thumburl || null;

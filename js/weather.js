@@ -1,6 +1,7 @@
 // Sancho Rossi — météo Open-Meteo : 7 jours + heure par heure + météo sur la route
 import { trackOf } from "./state.js";
 import { putPackMeta, getPackMeta } from "./storage.js";
+import { fetchRetry } from "./net.js";
 
 const weatherCache = new Map();
 
@@ -30,7 +31,7 @@ async function fetchWeather(trail) {
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max` +
     `&hourly=temperature_2m,precipitation,cloud_cover,wind_speed_10m,weather_code` +
     `&timezone=auto&forecast_days=7`;
-  const res = await fetch(url);
+  const res = await fetchRetry(url, { timeout: 15000 });
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   const data = await res.json();
   weatherCache.set(trail.id, data);
@@ -92,8 +93,9 @@ function renderWeatherInto(el, data) {
 
 // ---------- Météo sur la route (trajet en voiture vers le départ) ----------
 async function geocodeCity(name) {
-  const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=fr`
+  const res = await fetchRetry(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=fr`,
+    { timeout: 12000 }
   );
   if (!res.ok) throw new Error("géocodage indisponible");
   const r = (await res.json()).results?.[0];
@@ -106,7 +108,7 @@ async function routeWeather(trail, origin, departISO) {
   const url =
     `https://router.project-osrm.org/route/v1/driving/` +
     `${origin.lon},${origin.lat};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
-  const res = await fetch(url);
+  const res = await fetchRetry(url, { timeout: 15000 });
   if (!res.ok) throw new Error("calcul d'itinéraire indisponible");
   const route = (await res.json()).routes?.[0];
   if (!route) throw new Error("aucun itinéraire routier trouvé");
@@ -120,11 +122,12 @@ async function routeWeather(trail, origin, departISO) {
   }
 
   const depart = new Date(departISO);
-  const wres = await fetch(
+  const wres = await fetchRetry(
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${pts.map((p) => p.lat.toFixed(3)).join(",")}` +
     `&longitude=${pts.map((p) => p.lon.toFixed(3)).join(",")}` +
-    `&hourly=temperature_2m,precipitation,weather_code&timezone=auto&forecast_days=7`
+    `&hourly=temperature_2m,precipitation,weather_code&timezone=auto&forecast_days=7`,
+    { timeout: 15000 }
   );
   if (!wres.ok) throw new Error("météo indisponible");
   let wdata = await wres.json();
@@ -229,7 +232,19 @@ export async function saveWeatherSnapshot(trail) {
   return data;
 }
 
+// Squelette affiché tout de suite (onglet météo) le temps de la réponse Open-Meteo :
+// comble le vide, pas de spinner brut, aucun saut de layout à l'arrivée des données.
+function weatherSkeleton(el) {
+  const days = Array.from({ length: 7 }, () => `<div class="sk sk-day"></div>`).join("");
+  const hours = Array.from({ length: 6 }, () => `<div class="sk sk-hour"></div>`).join("");
+  el.innerHTML =
+    `<div class="wx-skeleton">` +
+    `<div class="weather-row">${days}</div>` +
+    `<div class="sk sk-title"></div>${hours}</div>`;
+}
+
 export async function loadWeatherTab(trail, el) {
+  if (!weatherCache.has(trail.id)) weatherSkeleton(el); // pas de flash si déjà en cache
   try {
     const data = await fetchWeather(trail);
     renderWeatherInto(el, data);

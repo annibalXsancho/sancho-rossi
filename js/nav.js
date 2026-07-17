@@ -5,6 +5,7 @@ import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { savePos } from "./security.js";
 import { hasPack, packPoiLayer } from "./offline.js";
+import { toast } from "./toast.js";
 
 const OFF_BASE_M = 120;      // seuil de base « hors tracé » (m)
 const STALE_MS = 30000;      // au-delà : le fix GPS est considéré perdu
@@ -91,7 +92,7 @@ function showGpsFix(acc) {
 }
 
 export function startNavigation(id) {
-  if (!navigator.geolocation) { alert("Géolocalisation non supportée sur cet appareil."); return; }
+  if (!navigator.geolocation) { toast("Géolocalisation non supportée sur cet appareil.", { type: "error" }); return; }
   stopNavigation();
   const t = getTrail(id);
   nav.trail = t;
