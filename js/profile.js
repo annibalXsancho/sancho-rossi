@@ -59,10 +59,13 @@ function indexAtKm(cum, km) {
  * @param {number}   [opts.height]  hauteur en px
  * @param {boolean}  [opts.compact] vignette (planificateur)
  * @param {Function} [opts.onHover] ({lat, lon, km, alt, index}) | null
+ * @param {Function} [opts.annotate] (km) => texte ajouté à la bulle de survol (météo
+ *                                   à l'heure de passage, S-METEO) ; "" si rien
  * @returns {{destroy, setCursorKm, resetZoom}}
  */
 export function createProfile(container, {
   eles, track, ways = null, totalKm = null, height = 150, compact = false, onHover = null,
+  annotate = null,
 } = {}) {
   if (!Array.isArray(eles) || eles.length < 2) {
     container.innerHTML = `<p class="muted">Profil indisponible.</p>`;
@@ -216,7 +219,10 @@ export function createProfile(container, {
     const cls = classAtKm(km[i]);
     tip.innerHTML =
       `<b>${fmtKm(km[i])} km</b> · ${fr(Math.round(eles[i]))} m` +
-      (cls && cls !== "autre" ? ` · <span class="prof-tip-surf" data-cls="${cls}">${SURFACE_LABEL[cls]}</span>` : "");
+      (cls && cls !== "autre" ? ` · <span class="prof-tip-surf" data-cls="${cls}">${SURFACE_LABEL[cls]}</span>` : "") +
+      // L'annotation arrive de façon asynchrone (fetch météo) : évaluée à chaque
+      // survol, elle est simplement vide tant que les données ne sont pas là.
+      (annotate ? annotate(km[i]) || "" : "");
     tip.classList.remove("hidden");
     // Recentré sur le curseur mais maintenu dans le cadre : une bulle qui déborde
     // provoquerait un débordement horizontal du panneau.

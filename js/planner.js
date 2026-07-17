@@ -21,6 +21,7 @@ import { saveTraces } from "./storage.js";
 import { brouterRoute } from "./brouter.js";
 import { createGeoSuggest } from "./geosearch.js";
 import { createProfile } from "./profile.js";
+import { createRouteWeather } from "./hikeweather.js";
 import {
   computeGain, computeLoss, naismithHours, fmtDuration, sacRating, SAC_LABEL,
 } from "./metrics.js";
@@ -40,6 +41,8 @@ export const planner = {
   timer: null,
   suggest: null,
   profile: null,   // instance de profile.js (vignette du panneau)
+  wx: null,        // bandeau météo à l'heure de passage (S-METEO)
+  wxTimer: null,   // débounce : pas d'appel Open-Meteo à chaque retouche de tracé
   cursor: null,    // marqueur de position, piloté par le survol du profil
   history: [[]],   // instantanés de `waypoints` — l'état vide est le fond de pile
   hIndex: 0,
@@ -293,6 +296,9 @@ function renderMetrics() {
     el("plan-sac").classList.add("hidden");
     planner.profile?.destroy();
     planner.profile = null;
+    clearTimeout(planner.wxTimer);
+    planner.wx?.destroy();
+    planner.wx = null;
     planner.cursor?.remove();
     planner.cursor = null;
     return;
@@ -317,9 +323,27 @@ function renderMetrics() {
     planner.profile = createProfile(el("plan-profile"), {
       eles: r.eles, track: r.track, ways: r.ways, totalKm: r.distance,
       height: 84, compact: true, onHover: showCursorOnMap,
+      annotate: (km) => planner.wx?.annotate(km) || "",
     });
   } else {
     el("plan-profile").innerHTML = "";
+  }
+
+  // Météo à l'heure de passage, débouncée : pendant l'édition (glisser d'un marqueur,
+  // enchaînement de points) chaque route aboutie ne déclenche pas son appel météo —
+  // seul l'itinéraire resté stable 800 ms est interrogé. hikeweather cache par
+  // (points, horizon) : rouvrir le même tracé ne refait pas de réseau.
+  clearTimeout(planner.wxTimer);
+  planner.wx?.destroy();
+  planner.wx = null;
+  if (r.eles) {
+    planner.wxTimer = setTimeout(() => {
+      planner.wx = createRouteWeather(el("plan-wx"), { id: "plan-en-cours" }, {
+        eles: r.eles, track: r.track, totalKm: r.distance, cells: 5,
+      });
+    }, 800);
+  } else {
+    el("plan-wx").innerHTML = "";
   }
 
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });
@@ -485,6 +509,9 @@ function exitPlanner() {
   planner.suggest?.clear();
   planner.profile?.destroy();
   planner.profile = null;
+  clearTimeout(planner.wxTimer);
+  planner.wx?.destroy();
+  planner.wx = null;
   planner.cursor?.remove();
   planner.cursor = null;
   planner.history = [[]];

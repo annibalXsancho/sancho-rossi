@@ -10,6 +10,7 @@ import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported } 
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
+import { createRouteWeather } from "./hikeweather.js";
 
 const detailPanel = document.getElementById("detail-panel");
 const detailContent = document.getElementById("detail-content");
@@ -17,6 +18,7 @@ const breadcrumbEl = document.getElementById("detail-breadcrumb");
 let miniMap = null;
 let miniCursor = null;
 let profile = null;
+let routeWx = null; // bandeau météo à l'heure de passage (S-METEO)
 let viewer3dActive = false;
 // Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
@@ -31,6 +33,8 @@ function destroyMiniMap() {
   miniCursor = null;
   profile?.destroy();
   profile = null;
+  routeWx?.destroy();
+  routeWx = null;
 }
 
 // Survol du profil → point sur la mini-carte. C'est ce qui rend le profil lisible :
@@ -195,6 +199,7 @@ export function renderDetail(id) {
         <div class="side-profile" id="side-profile">
           <p class="muted">Profil d'altitude réel — chargement…</p>
         </div>
+        <div id="route-wx"></div>
       </div>
     </div>
 
@@ -300,6 +305,12 @@ export function renderDetail(id) {
         totalKm: t.distance,
         height: 130,
         onHover: showOnMiniMap,
+        // La météo à l'heure de passage complète la bulle du profil ; `routeWx` est
+        // affecté juste après, la closure le lit au moment du survol.
+        annotate: (km) => routeWx?.annotate(km) || "",
+      });
+      routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
+        eles, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
       const e = state.elev[id];
       if (e) {
@@ -311,6 +322,12 @@ export function renderDetail(id) {
       if (seq !== renderSeq) return;
       document.getElementById("side-profile").innerHTML =
         `<p class="muted">Profil indisponible hors connexion.</p>`;
+      // Sans altitude on peut encore servir la météo de passage : en ligne le bandeau
+      // se calcule sur la distance seule ; hors-ligne il retombe sur le snapshot du
+      // pack (qui embarque ses propres heures de marche).
+      routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
+        eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
       document.getElementById("stat-gain").textContent = gain ? Math.round(gain) : "—";
       document.getElementById("stat-amax").textContent = amax ? Math.round(amax) : "—";
     });

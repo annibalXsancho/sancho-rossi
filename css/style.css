@@ -1211,6 +1211,83 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .prof-compact .prof-legend { margin-top: 6px; gap: 3px 9px; }
 .prof-compact .prof-leg { font-size: 10px; gap: 4px; }
 
+/* ============ Météo à l'heure de passage (S-METEO) ============ */
+/* Bandeau sous le profil : N tranches d'égale distance = N cellules, chaque cellule
+   montre la météo prévue à l'heure où on y sera (pas celle de maintenant). */
+.rwx { margin-top: 10px; }
+.rwx-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.rwx-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.rwx-depart-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.rwx-dep-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.rwx-depart {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 3px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.rwx-depart:focus { outline: none; border-color: var(--red); }
+.rwx-strip {
+  display: flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.rwx-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 2px 6px;
+  border-left: 1px solid var(--border);
+}
+.rwx-cell:first-child { border-left: none; }
+.rwx-out { opacity: 0.4; }
+.rwx-time {
+  font-size: 10px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rwx-time em { font-style: normal; font-size: 8.5px; vertical-align: super; }
+.rwx-ico { font-size: 15px; line-height: 1.15; }
+.rwx-temp { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rwx-rain {
+  font-size: 9.5px;
+  color: var(--text-soft);
+  min-height: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rwx-rain.warn { color: var(--red); font-weight: 700; }
+.rwx-foot { font-size: 10.5px; margin-top: 5px; }
+#plan-wx .rwx { margin-top: 8px; }
+#plan-wx .rwx-cell { padding: 5px 2px 4px; }
+#plan-wx .rwx-ico { font-size: 13px; }
+
 .terrain-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
 
 .terrain-item {

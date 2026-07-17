@@ -16,7 +16,8 @@ const WMO = [
   [[95, 96, 99], "⛈", "Orage"],
 ];
 
-function wmoInfo(code) {
+// Exporté : hikeweather.js (S-METEO) réutilise la même table WMO → icônes.
+export function wmoInfo(code) {
   const found = WMO.find(([codes]) => codes.includes(code));
   return found ? { icon: found[1], label: found[2] } : { icon: "❓", label: "—" };
 }
