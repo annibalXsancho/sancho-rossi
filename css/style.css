@@ -17,6 +17,14 @@
   --header-h: 56px;
   --panel-w: 400px;
   --shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+  /* Échelle d'espacement (S-UX-SYSTÈME) : un rythme unique pour toute l'app, pour ne
+     plus disperser des 6/10/16/18/20 px au jugé. Les composants et les sprints
+     suivants s'y calent. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
 }
 
 [data-theme="light"] {
@@ -49,6 +57,34 @@ button { color: inherit; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* ============ Grammaire partagée (S-UX-SYSTÈME) ============ */
+/* Étiquette de section « eyebrow » : le libellé discret capitales-espacées qui
+   coiffe chaque bandeau. Un seul style, réutilisé partout (météo, conditions à
+   venir…), pour que tous les bandeaux se ressemblent. */
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+/* Bloc d'information : la primitive que réutilisent tous les bandeaux de la fiche et
+   du planificateur (météo à l'heure de passage aujourd'hui ; conditions du sentier,
+   « avant la nuit », montées à venir). Structure = en-tête (eyebrow + contrôle
+   optionnel à droite) + corps + pied optionnel. Poser un nouveau bandeau = remplir
+   ce moule, jamais réinventer sa présentation. */
+.info-block { margin-top: var(--sp-3); }
+.info-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+.info-block-foot { font-size: 10.5px; margin-top: var(--sp-2); }
 
 /* ============ Header ============ */
 .header {
@@ -1070,7 +1106,31 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .bigstat-v small { font-size: 14px; font-weight: 700; color: var(--text-soft); }
 .bigstat-l { font-size: 10.5px; font-weight: 700; color: var(--text-soft); margin-top: 2px; }
 
-.detail-actions { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+/* Barre d'actions hiérarchisée (S-UX-SYSTÈME) : au lieu de 6 boutons à plat de même
+   poids, une pyramide — une action primaire dominante (Suivre), une rangée d'actions
+   secondaires (Sauvegarder / Voir / Terrain), une rangée tertiaire discrète en boutons
+   fantômes (GPX / Partager / Supprimer). L'œil sait tout de suite quoi faire. */
+.detail-actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-5); }
+.detail-actions > .btn-primary { width: 100%; justify-content: center; }
+.action-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.action-row .btn { flex: 1 1 auto; justify-content: center; }
+.action-row-minor { gap: var(--sp-1); }
+.action-row-minor .btn { flex: 0 0 auto; }
+
+.btn-lg { padding: 13px 18px; font-size: 13px; }
+
+/* Bouton fantôme : sans bordure au repos, révélé au survol — pour les actions rares
+   qui ne doivent pas peser autant que les principales. */
+.btn-ghost {
+  font: inherit; font-weight: 700; font-size: 11.5px;
+  padding: 8px 12px; border-radius: var(--radius); cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--text-soft);
+  display: inline-flex; align-items: center; gap: 6px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  transition: color 0.12s, border-color 0.12s;
+}
+.btn-ghost:hover { color: var(--red); border-color: var(--border-strong); }
+.btn-ghost-danger:hover { color: var(--red); border-color: var(--red); }
 
 .btn {
   font: inherit;
@@ -1213,30 +1273,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 /* ============ Météo à l'heure de passage (S-METEO) ============ */
 /* Bandeau sous le profil : N tranches d'égale distance = N cellules, chaque cellule
-   montre la météo prévue à l'heure où on y sera (pas celle de maintenant). */
-.rwx { margin-top: 10px; }
-.rwx-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 6px;
-}
-.rwx-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-soft);
-}
-.rwx-depart-wrap { display: inline-flex; align-items: center; gap: 6px; }
-.rwx-dep-label {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-soft);
-}
+   montre la météo prévue à l'heure où on y sera (pas celle de maintenant). Bâti sur
+   la primitive `.info-block` (en-tête/eyebrow/pied partagés) : seules les spécificités
+   météo restent ici — c'est le bandeau de référence que copient les sprints suivants. */
+.rwx-depart-wrap { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .rwx-depart {
   font: inherit;
   font-size: 11.5px;
@@ -1283,8 +1323,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font-variant-numeric: tabular-nums;
 }
 .rwx-rain.warn { color: var(--red); font-weight: 700; }
-.rwx-foot { font-size: 10.5px; margin-top: 5px; }
-#plan-wx .rwx { margin-top: 8px; }
+#plan-wx .info-block { margin-top: var(--sp-2); }
 #plan-wx .rwx-cell { padding: 5px 2px 4px; }
 #plan-wx .rwx-ico { font-size: 13px; }
 
@@ -1923,7 +1962,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .preview-photo { height: 84px; }
 
   .btn, .chip { min-height: 40px; }
-  .detail-actions .btn { flex: 1; justify-content: center; }
+  /* La rangée secondaire garde des cibles pleines ; la tertiaire (fantôme) reste
+     compacte et s'aligne à gauche sans s'étirer. */
+  .action-row .btn { flex: 1 1 auto; justify-content: center; }
+  .action-row-minor { flex-wrap: wrap; }
+  .btn-ghost { min-height: 40px; }
   .nav-bottom { bottom: 0; }
   .nav-top { flex-wrap: wrap; }
   .filters-modal { align-items: flex-end; padding: 0; }

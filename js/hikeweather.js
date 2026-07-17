@@ -182,18 +182,21 @@ export function createRouteWeather(container, trail, { eles = null, track = null
   if (!departShared) departShared = defaultDepart();
   const minDay = new Date().toISOString().slice(0, 10);
 
+  // Structure `.info-block` (grammaire partagée S-UX-SYSTÈME) : en-tête eyebrow +
+  // contrôle, corps, pied. Les bandeaux suivants (conditions, nuit, montées) copient
+  // ce moule ; seules les classes `rwx-*` portent les spécificités météo.
   container.innerHTML = `
-    <div class="rwx">
-      <div class="rwx-head">
-        <span class="rwx-label">Météo à l'heure de passage</span>
+    <div class="info-block rwx">
+      <div class="info-block-head">
+        <span class="eyebrow">Météo à l'heure de passage</span>
         <span class="rwx-depart-wrap">
-          <label class="rwx-dep-label" for="rwx-depart-${trail.id}">départ</label>
+          <label class="eyebrow" for="rwx-depart-${trail.id}">départ</label>
           <input type="datetime-local" class="rwx-depart" id="rwx-depart-${trail.id}"
             min="${minDay}T00:00" value="${departShared}" />
         </span>
       </div>
       <div class="rwx-strip"></div>
-      <p class="rwx-foot muted hidden"></p>
+      <p class="info-block-foot rwx-foot muted hidden"></p>
     </div>`;
 
   const stripEl = container.querySelector(".rwx-strip");

@@ -212,13 +212,17 @@ export function renderDetail(id) {
     </div>
 
     <div class="detail-actions">
-      <button class="btn btn-primary" id="btn-follow">▶ Suivre ce tracé</button>
-      <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
-      <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
-      <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
-      <button class="btn" id="btn-gpx">⤓ GPX</button>
-      <button class="btn" id="btn-safety">🛟 Partager</button>
-      ${t.imported ? `<button class="btn btn-danger" id="btn-delete-gpx">🗑</button>` : ""}
+      <button class="btn btn-primary btn-lg" id="btn-follow">▶ Suivre ce tracé</button>
+      <div class="action-row">
+        <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
+        <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
+        <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
+      </div>
+      <div class="action-row action-row-minor">
+        <button class="btn-ghost" id="btn-gpx">⤓ GPX</button>
+        <button class="btn-ghost" id="btn-safety">🛟 Partager</button>
+        ${t.imported ? `<button class="btn-ghost btn-ghost-danger" id="btn-delete-gpx">🗑 Supprimer</button>` : ""}
+      </div>
     </div>
 
     <div class="tab-bar">
