@@ -25,10 +25,13 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 - **Wikipédia geosearch** : photos de lieux — utiliser `thumbnail.source` tel quel, **jamais d'upscale 640px** (ERR_BLOCKED_BY_ORB). File d'attente 350 ms.
 - **RainViewer** : radar pluie (URL horodatée via weather-maps.json).
 
-## Identité graphique & UX (choix utilisateur, ne pas dévier)
-L'exigence esthétique fait partie du produit : interface **belle, fluide, moderne, épurée** — rien d'archaïque, rien qui « sente le prototype ». Ambiance **athlète** : nuances de noir, discrétion avec goût.
-- Thème **noir** par défaut (#0b0b0c) travaillé en **nuances de noir** (surfaces étagées par la valeur, pas par des bordures lourdes) ; accent **rouge vif #ff2d20** en touches fines (bordures, soulignés — jamais de gros aplats). Le vert AllTrails est banni.
-- Angles vifs (radius 2px), lignes 1px, libellés en capitales espacées. Surfaces translucides `color-mix` + `backdrop-blur`.
+## Identité graphique & UX — v2 (choix utilisateur, révisée le 17/07/2026, ne pas dévier)
+L'exigence esthétique fait partie du produit : interface **belle, fluide, moderne, épurée** — rien d'archaïque, rien qui « sente le prototype », un niveau de finition **au-dessus d'AllTrails**. *(La v1 « athlète » — angles 2px, encadrés 1px, capitales espacées partout — a été abandonnée sur demande utilisateur : trop de boîtes, pas assez travaillée.)*
+- Thème **noir** par défaut (#0b0b0c) en **nuances de noir** : la hiérarchie passe par la **valeur des surfaces et les ombres douces** (`--shadow-soft`), **jamais par des bordures** — plus aucun encadré 1px autour des contrôles. Accent **rouge vif #ff2d20** unique ; le **plein rouge est réservé à l'action primaire** (un seul par écran). Le vert AllTrails est banni.
+- **Angles adoucis** : tokens `--radius` 10px (contrôles) / `--radius-lg` 16px (cartes, panneaux) / `--radius-full` (chips, pills, recherche). Espacement sur l'échelle `--sp-1..5`.
+- **Boutons en 3 poids** : plein (primaire), **tonal** `--surface-2/3` (secondaire), texte `.btn-ghost` (tertiaire). Micro-interactions tactiles : soulèvement au survol, tassement au clic (`prefers-reduced-motion` respecté).
+- **Capitales espacées réservées aux micro-étiquettes** (eyebrows, légendes de stats, titres de section, menu header) — boutons, chips et onglets en casse normale. Surfaces translucides `color-mix` + `backdrop-blur` conservées.
+- Bandeaux d'info de fiche/planificateur : toujours via la primitive **`.info-block`** (+ `.eyebrow`), jamais de présentation ad hoc.
 - **Intuitif d'abord** : toute action courante en 1–2 gestes, sans mode d'emploi. Si une fonction a besoin d'être expliquée, c'est le design qui est faux.
 - **Fluide** : transitions/micro-animations discrètes (150–250 ms, ease-out), jamais de saut de layout, états de chargement élégants (squelettes, pas de spinners bruts).
 - Épuré : chaque écran montre peu ; le secondaire est accessible, pas affiché. En cas de doute, retirer.
