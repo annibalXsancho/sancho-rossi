@@ -1033,7 +1033,33 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .breadcrumb { font-size: 12px; color: var(--text-soft); font-weight: 600; }
 .breadcrumb strong { color: var(--text); }
 
-.detail-title { font-size: clamp(24px, 4vw, 36px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; }
+.detail-title-row { display: flex; align-items: flex-start; gap: var(--sp-2); margin-bottom: 10px; }
+.detail-title { font-size: clamp(24px, 4vw, 36px); font-weight: 800; letter-spacing: -0.02em; flex: 1; min-width: 0; }
+.detail-title.editing {
+  outline: none;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 2px var(--sp-2);
+  margin: -2px calc(var(--sp-2) * -1);
+  box-shadow: var(--focus-ring);
+}
+/* Crayon de renommage : bouton texte tertiaire, discret, révélé au survol du titre. */
+.detail-rename {
+  flex: none;
+  margin-top: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 16px;
+  line-height: 1;
+  padding: 8px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 150ms ease-out, background 150ms ease-out, color 150ms ease-out;
+}
+.detail-title-row:hover .detail-rename { opacity: 1; }
+.detail-rename:hover { background: var(--surface-2); color: var(--text); }
+.detail-rename:active { transform: translateY(1px); }
 .detail-subline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .detail-location { font-size: 13px; color: var(--text-soft); font-weight: 600; }
 
