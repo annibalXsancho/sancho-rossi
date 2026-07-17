@@ -11,6 +11,7 @@ import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
 import { hasPack, estimatePack, buildPack } from "./offline.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { createConditions } from "./conditions.js";
 import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
@@ -20,6 +21,7 @@ let miniMap = null;
 let miniCursor = null;
 let profile = null;
 let routeWx = null; // bandeau météo à l'heure de passage (S-METEO)
+let routeCond = null; // bandeau conditions du sentier + orages (S-CONDITIONS)
 let viewer3dActive = false;
 // Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
@@ -36,6 +38,8 @@ function destroyMiniMap() {
   profile = null;
   routeWx?.destroy();
   routeWx = null;
+  routeCond?.destroy();
+  routeCond = null;
 }
 
 // Survol du profil → point sur la mini-carte. C'est ce qui rend le profil lisible :
@@ -201,6 +205,7 @@ export function renderDetail(id) {
           <p class="muted">Profil d'altitude réel — chargement…</p>
         </div>
         <div id="route-wx"></div>
+        <div id="route-conditions"></div>
       </div>
     </div>
 
@@ -317,6 +322,9 @@ export function renderDetail(id) {
       routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
         eles, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
+      routeCond = createConditions(document.getElementById("route-conditions"), t, {
+        eles, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
       const e = state.elev[id];
       if (e) {
         document.getElementById("stat-gain").innerHTML = `${e.gain.toLocaleString("fr-FR")}<small> m</small>`;
@@ -331,6 +339,11 @@ export function renderDetail(id) {
       // se calcule sur la distance seule ; hors-ligne il retombe sur le snapshot du
       // pack (qui embarque ses propres heures de marche).
       routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
+        eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
+      // Sans altitude, les conditions perdent neige/gel mais gardent orages, boue,
+      // chaleur, UV, air : le bandeau se garde chaque badge indépendamment.
+      routeCond = createConditions(document.getElementById("route-conditions"), t, {
         eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
       document.getElementById("stat-gain").textContent = gain ? Math.round(gain) : "—";

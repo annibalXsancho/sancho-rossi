@@ -30,6 +30,23 @@ const SNAPSHOT_DAYS = 7;   // horizon embarqué dans un pack offline
 // retrouve dans le planificateur (et inversement) sans la re-saisir.
 let departShared = null;
 
+// Abonnés au départ partagé (S-CONDITIONS s'y branche : le bandeau conditions parle
+// du même jour que la météo, sans imposer un 2e sélecteur — principe épuré).
+const departSubs = new Set();
+
+/** Date de départ partagée (défaut : demain 8 h). */
+export function getSharedDepart() {
+  if (!departShared) departShared = defaultDepart();
+  const d = new Date(departShared);
+  return isNaN(d) ? new Date(defaultDepart()) : d;
+}
+
+/** S'abonner aux changements de départ. Renvoie une fonction de désabonnement. */
+export function subscribeDepart(cb) {
+  departSubs.add(cb);
+  return () => departSubs.delete(cb);
+}
+
 // Cache de session par (points arrondis, horizon) : rouvrir une fiche ou changer
 // l'heure de départ dans la même fenêtre de prévision ne refait pas d'appel réseau.
 const fetchCache = new Map();
@@ -260,6 +277,8 @@ export function createRouteWeather(container, trail, { eles = null, track = null
     // ré-indexe les mêmes données en local, zéro réseau.
     if (!st || (!st.snapshotAt && neededDays(departDate(), tl.totalH) > st.days)) load();
     else paint();
+    // Les autres bandeaux calés sur le départ partagé (conditions) se rafraîchissent.
+    departSubs.forEach((cb) => { try { cb(getSharedDepart()); } catch { /* abonné isolé */ } });
   });
 
   load();

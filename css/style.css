@@ -1358,6 +1358,34 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 #plan-wx .rwx-cell { padding: 5px 2px 4px; }
 #plan-wx .rwx-ico { font-size: 13px; }
 
+/* ============ Conditions du sentier + orages (S-CONDITIONS) ============ */
+/* Bandeau d'AVERTISSEMENTS : une ligne par condition active (neige, orages, chaleur,
+   gel, boue, UV, air, pollens). Bâti sur `.info-block` (grammaire S-UX-SYSTÈME) ;
+   n'apparaît QUE si au moins une condition est active — belle journée = rien. La
+   sévérité passe par la valeur (accent rouge/ambre à gauche + teinte de l'icône),
+   jamais par un encadré (charte v2 : zéro bordure). */
+.cond-day { color: var(--text-soft); }
+.cond-list { display: flex; flex-direction: column; gap: var(--sp-1); }
+.cond-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  padding-left: 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--text-soft);
+}
+.cond-row.cond-alert { border-left-color: var(--red); }
+.cond-row.cond-warn { border-left-color: #d99a3d; }
+.cond-row.cond-info { border-left-color: var(--text-soft); }
+.cond-ico { font-size: 15px; line-height: 1.25; flex: 0 0 auto; }
+.cond-txt { font-size: 12px; line-height: 1.3; color: var(--text); }
+.cond-alert .cond-txt { font-weight: 600; }
+.cond-foot { font-size: 10.5px; }
+#plan-conditions .info-block { margin-top: var(--sp-2); }
+#plan-conditions .cond-txt { font-size: 11.5px; }
+
 .terrain-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
 
 .terrain-item {

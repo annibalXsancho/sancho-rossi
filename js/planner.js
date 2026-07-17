@@ -22,6 +22,7 @@ import { brouterRoute } from "./brouter.js";
 import { createGeoSuggest } from "./geosearch.js";
 import { createProfile } from "./profile.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { createConditions } from "./conditions.js";
 import {
   computeGain, computeLoss, naismithHours, fmtDuration, sacRating, SAC_LABEL,
 } from "./metrics.js";
@@ -42,6 +43,7 @@ export const planner = {
   suggest: null,
   profile: null,   // instance de profile.js (vignette du panneau)
   wx: null,        // bandeau météo à l'heure de passage (S-METEO)
+  cond: null,      // bandeau conditions du sentier + orages (S-CONDITIONS)
   wxTimer: null,   // débounce : pas d'appel Open-Meteo à chaque retouche de tracé
   cursor: null,    // marqueur de position, piloté par le survol du profil
   history: [[]],   // instantanés de `waypoints` — l'état vide est le fond de pile
@@ -299,6 +301,8 @@ function renderMetrics() {
     clearTimeout(planner.wxTimer);
     planner.wx?.destroy();
     planner.wx = null;
+    planner.cond?.destroy();
+    planner.cond = null;
     planner.cursor?.remove();
     planner.cursor = null;
     return;
@@ -336,14 +340,20 @@ function renderMetrics() {
   clearTimeout(planner.wxTimer);
   planner.wx?.destroy();
   planner.wx = null;
+  planner.cond?.destroy();
+  planner.cond = null;
   if (r.eles) {
     planner.wxTimer = setTimeout(() => {
       planner.wx = createRouteWeather(el("plan-wx"), { id: "plan-en-cours" }, {
         eles: r.eles, track: r.track, totalKm: r.distance, cells: 5,
       });
+      planner.cond = createConditions(el("plan-conditions"), { id: "plan-en-cours" }, {
+        eles: r.eles, track: r.track, totalKm: r.distance,
+      });
     }, 800);
   } else {
     el("plan-wx").innerHTML = "";
+    el("plan-conditions").innerHTML = "";
   }
 
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });
@@ -512,6 +522,8 @@ function exitPlanner() {
   clearTimeout(planner.wxTimer);
   planner.wx?.destroy();
   planner.wx = null;
+  planner.cond?.destroy();
+  planner.cond = null;
   planner.cursor?.remove();
   planner.cursor = null;
   planner.history = [[]];

@@ -18,7 +18,8 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 
 ## APIs (toutes gratuites, sans clé, couverture Europe)
 - **Overpass** (tracés + POI) : `relation["route"="hiking"](bbox);out geom N;` — jamais `out tags geom` (syntaxe invalide). Miroir kumi.systems + `AbortSignal.timeout(25s)` ; 429 fréquents sur overpass-api.de.
-- **Open-Meteo** : météo (daily+hourly), géocodage **de villes** (météo sur la route, `weather.js`), Elevation (**max 100 pts/req**).
+- **Open-Meteo** : météo (daily+hourly), géocodage **de villes** (météo sur la route, `weather.js`), Elevation (**max 100 pts/req**). Champs conditions (`conditions.js`, S-CONDITIONS) : `freezing_level_height`, `snow_depth`, `cape`, `precipitation_sum` avec `past_days=3`, `uv_index_max` ; `elevation=` par point pour descendre la T° à l'altitude réelle du tracé.
+- **Air Quality API** (air-quality-api.open-meteo.com/v1/air-quality) : gratuite sans clé, `european_aqi` + `uv_index` + pollens CAMS (`grass_pollen`, `birch_pollen`, `alder_pollen`, `olive_pollen`, `ragweed_pollen`, `mugwort_pollen`). Pollens = **CAMS Europe uniquement** → `null` hors zone (le badge disparaît, jamais d'invention). Best-effort dans `conditions.js` : une panne masque seulement air/UV/pollens.
 - **Nominatim** (nominatim.openstreetmap.org, `format=jsonv2&addressdetails=1`) : géocodage **par lieu** de la recherche carte (`geosearch.js`, S7). Choisi contre Open-Meteo qui triait par population et égarait les massifs (« Mont Blanc » → Maurice, « Dolomites » → barrage du Montana). Couvre les reliefs européens + renvoie une `boundingbox` pour cadrer la vue. Politique ≤ 1 req/s → débounce 500 ms + requête annulée à chaque frappe (mono-utilisateur = OK).
 - **BRouter** (brouter.de, `profile=hiking-mountain`) : routage rando, altitudes en 3e coordonnée, CORS ouvert.
 - **OSRM** (router.project-osrm.org) : temps de route voiture.
