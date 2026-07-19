@@ -1,5 +1,5 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v38";
+const SHELL_CACHE = "sr-shell-v39";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
@@ -40,6 +40,8 @@ const SHELL_FILES = [
   "js/viewer3d.js",
   "manifest.json",
   "assets/icon.svg",
+  "assets/icon-512.png",
+  "assets/icon-maskable.png",
 ];
 
 const TILE_HOSTS = [
@@ -71,9 +73,14 @@ async function matchPackTile(urlStr) {
 }
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting())
-  );
+  // Pas de skipWaiting() ici : une nouvelle coquille ATTEND que la page propose la mise à
+  // jour (toast « Recharger »). L'activation immédiate se fait sur message SKIP_WAITING.
+  e.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL_FILES)));
+});
+
+// La page (main.js) demande l'activation de la coquille en attente au clic « Recharger ».
+self.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {

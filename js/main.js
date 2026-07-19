@@ -19,6 +19,20 @@ import { loadPersisted } from "./storage.js";
 import { initOffline } from "./offline.js";
 import { initToast, toast } from "./toast.js";
 
+// Écran de chargement : retiré une fois l'app prête, avec une durée minimale d'affichage
+// pour éviter un flash (boot rapide) — jamais de saut de layout, fondu doux.
+const bootT0 = performance.now();
+const SPLASH_MIN_MS = 500;
+function hideSplash() {
+  const el = document.getElementById("splash");
+  if (!el) return;
+  const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - bootT0));
+  setTimeout(() => {
+    el.classList.add("splash--gone");
+    setTimeout(() => el.remove(), 450);
+  }, wait);
+}
+
 initToast();
 initUi();
 initMap();
@@ -40,22 +54,56 @@ document.getElementById("reco-criteria")?.addEventListener("click", () => {
   openFilters();
 });
 
+// ---------- Version affichée (Réglages) ----------
+const versionEl = document.getElementById("setting-version");
+if (versionEl) versionEl.textContent = `Sancho Rossinante v${window.SR_VERSION || ""}`;
+
 // ---------- PWA ----------
 if ("serviceWorker" in navigator) {
-  // Mise à jour transparente : quand un nouveau service worker prend le contrôle
-  // (déploiement), on recharge une fois pour ne jamais rester coincé sur une version
-  // en cache. Le garde `controller` évite un rechargement au tout premier lancement.
-  if (navigator.serviceWorker.controller) {
-    let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      location.reload();
+  // Mise à jour NON silencieuse : quand une nouvelle coquille est prête (SW installé en
+  // attente), on PROPOSE un toast « Recharger » au lieu de recharger d'autorité — un
+  // rechargement forcé en pleine navigation serait brutal. Le tap active le SW en attente
+  // (message SKIP_WAITING) ; le `controllerchange` qui suit recharge une seule fois.
+  // Le garde `intentionalUpdate` évite le rechargement au tout premier install (clients.claim).
+  let reloading = false;
+  let intentionalUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading || !intentionalUpdate) return;
+    reloading = true;
+    location.reload();
+  });
+
+  let updateOffered = false;
+  const offerUpdate = (worker) => {
+    if (updateOffered || !worker) return;
+    updateOffered = true;
+    toast("Mise à jour disponible.", {
+      type: "info",
+      duration: 0,
+      action: {
+        label: "Recharger",
+        onClick: () => {
+          intentionalUpdate = true;
+          worker.postMessage({ type: "SKIP_WAITING" });
+        },
+      },
     });
-  }
+  };
+
   navigator.serviceWorker
     .register("sw.js")
-    .then((reg) => reg.update())
+    .then((reg) => {
+      // Une coquille déjà en attente (mise à jour arrivée pendant une session précédente).
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+      // Une mise à jour qui s'installe pendant la session courante.
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        nw?.addEventListener("statechange", () => {
+          if (nw.state === "installed" && navigator.serviceWorker.controller) offerUpdate(nw);
+        });
+      });
+      reg.update();
+    })
     .catch(() => {});
 }
 
@@ -98,4 +146,5 @@ loadPersisted().then(async (persisted) => {
   }
 
   loadWikiPhotos();
+  hideSplash();
 });

@@ -24,8 +24,11 @@ export function initToast() {
   host();
 }
 
-// toast(message, { type: "info" | "error" | "success", duration }) → fonction de fermeture.
-export function toast(message, { type = "info", duration = DEFAULT_MS } = {}) {
+// toast(message, { type, duration, action }) → fonction de fermeture.
+//   type: "info" | "error" | "success"
+//   duration: ms avant auto-fermeture ; 0 = persistant (ex. « Mise à jour disponible »)
+//   action: { label, onClick } → bouton tonal à gauche de la croix (le clic ferme puis exécute)
+export function toast(message, { type = "info", duration = DEFAULT_MS, action = null } = {}) {
   const root = host();
   const el = document.createElement("div");
   el.className = `toast toast--${type}`;
@@ -41,7 +44,19 @@ export function toast(message, { type = "info", duration = DEFAULT_MS } = {}) {
   close.setAttribute("aria-label", "Fermer");
   close.textContent = "✕";
 
-  el.append(msg, close);
+  el.append(msg);
+  if (action) {
+    const act = document.createElement("button");
+    act.className = "toast__action";
+    act.type = "button";
+    act.textContent = action.label;
+    act.addEventListener("click", () => {
+      dismiss();
+      action.onClick?.();
+    });
+    el.append(act);
+  }
+  el.append(close);
   root.appendChild(el);
 
   let timer;

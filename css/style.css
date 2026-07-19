@@ -98,6 +98,59 @@ button { color: inherit; }
 }
 .info-block-foot { font-size: 10.5px; margin-top: var(--sp-2); }
 
+/* ============ Écran de chargement (splash) ============ */
+/* Couvre tout l'écran au boot : fond noir plein, logo seul, nom + version en bas.
+   Aucune barre rouge. Retiré par main.js une fois l'app prête (fondu doux). */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  background: #0b0b0c;
+  color: #ececec;
+  transition: opacity 0.4s ease-out;
+}
+.splash-mark {
+  width: 172px;
+  height: auto;
+  /* logo-t.png est dessiné en noir sur transparent → inversé en blanc sur le fond noir,
+     même traitement que le logo du header. */
+  filter: invert(1) hue-rotate(180deg);
+  animation: splash-in 0.6s ease-out both;
+}
+.splash-mark-fb {
+  display: none;
+  width: 108px;
+  height: auto;
+  color: #ececec;
+  animation: splash-in 0.6s ease-out both;
+}
+.splash-wordmark { text-align: center; animation: splash-in 0.6s ease-out 0.08s both; }
+.splash-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.splash-ver {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8f938f;
+  letter-spacing: 0.06em;
+}
+.splash--gone { opacity: 0; pointer-events: none; }
+@keyframes splash-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-mark, .splash-wordmark { animation: none; }
+}
+
 /* ============ Header ============ */
 .header {
   position: fixed;
@@ -2436,6 +2489,21 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   transition: color 0.15s ease-out;
 }
 .toast__close:hover { color: var(--text); }
+.toast__action {
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  transition: background 0.15s ease-out, transform 0.1s ease-out;
+}
+.toast__action:hover { background: var(--surface-3); }
+.toast__action:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: opacity 0.2s ease-out; transform: none; }
   .toast.show, .toast.leaving { transform: none; }
