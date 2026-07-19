@@ -13,11 +13,40 @@ import { saveHikeWeatherSnapshot } from "./hikeweather.js";
 import { putPackMeta, getPackMeta, delPackMeta } from "./storage.js";
 
 // Calques embarqués (choix utilisateur : priorité terrain, hors mtb/ski/rain).
-const PACK_LAYERS = ["plan", "topo", "satellite", "sombre", "terrainhd", "hillshade", "trails"];
+export const PACK_LAYERS = ["plan", "topo", "satellite", "sombre", "terrainhd", "hillshade", "trails"];
 const ZMIN = 12, ZMAX = 15;
-const TILE_CAP = 8000;          // garde-fou : au-delà, tracé trop long pour un pack unique
-const AVG_TILE_KB = 25;         // estimation d'affichage (octets opaques inaccessibles)
+
+// Profondeur (S-V2-ZOOM). Les 7 calques restent embarqués jusqu'à z15 ; au-delà, le poids
+// explose (chaque niveau double le corridor) — c'est le NOMBRE DE CALQUES qui contient le
+// poids, pas le zoom. On approfondit donc 1 à 2 calques choisis jusqu'à z16 ou z17.
+export const DEEP_MAX_LAYERS = 2;
+export const DEEP_ZOOMS = [16, 17];
+// Calques éligibles à la profondeur : ceux dont le zoom natif atteint z16 (terrainhd
+// s'arrête à 13, hillshade à 16 mais n'est qu'un ombrage — sans micro-détail utile).
+export const DEEP_LAYERS = ["plan", "topo", "satellite", "sombre", "trails"];
+
+const TILE_CAP = 24000;         // garde-fou : au-delà, tracé trop long pour un pack unique
 const CONCURRENCY = 6;
+
+// Poids moyen d'une tuile. Les réponses sont opaques (octets illisibles par le script) :
+// impossible de mesurer tuile par tuile. On calibre donc a posteriori sur le delta de
+// `navigator.storage.estimate()` d'un vrai téléchargement, ce qui rend l'estimation
+// annoncée honnête au lieu de reposer sur une constante devinée.
+// 18 ko : moyenne mesurée (curl, 35 tuiles, z12–17, topo + satellite + plan) le
+// 19/07/2026. L'ancienne constante de 25 ko surestimait d'environ 45 %.
+const AVG_TILE_KB_DEFAULT = 18;
+const CALIB_KEY = "sr-tile-kb";
+const avgTileKb = () => {
+  const v = parseFloat(localStorage.getItem(CALIB_KEY) || "");
+  return Number.isFinite(v) ? v : AVG_TILE_KB_DEFAULT;
+};
+function calibrateTileKb(deltaBytes, tiles) {
+  if (!(deltaBytes > 0) || tiles < 200) return;           // échantillon trop maigre
+  const kb = deltaBytes / 1024 / tiles;
+  if (kb < 4 || kb > 150) return;                         // mesure aberrante (autre écriture concurrente)
+  // Lissage : une mesure ne balaie pas l'historique, la valeur converge sur quelques packs.
+  localStorage.setItem(CALIB_KEY, (avgTileKb() * 0.4 + kb * 0.6).toFixed(2));
+}
 
 const packCacheName = (id) => `sr-pack-${id}`;
 
@@ -47,14 +76,28 @@ function buildTileUrl(layer, z, x, y) {
     .replace("{y}", y);
 }
 
+// Options de profondeur normalisées : au plus DEEP_MAX_LAYERS calques éligibles, zoom
+// cible dans DEEP_ZOOMS. `deepMax: 0` (ou aucun calque) = pack standard z12–15.
+export function normalizeDepth(opts = {}) {
+  const layers = (opts.deepLayers || []).filter((l) => DEEP_LAYERS.includes(l)).slice(0, DEEP_MAX_LAYERS);
+  // Un zoom hors liste est ramené dans la plage plutôt que de dégrader silencieusement
+  // le pack en standard : demander « plus fin que 17 » veut dire 17, pas 15.
+  const asked = Number(opts.deepMax) || 0;
+  const deepMax = asked <= 0 ? 0 : Math.min(Math.max(asked, DEEP_ZOOMS[0]), DEEP_ZOOMS.at(-1));
+  return layers.length && deepMax ? { deepLayers: layers, deepMax } : { deepLayers: [], deepMax: 0 };
+}
+
 // Corridor : toutes les tuiles (calque × zoom) traversées par le tracé, + 1 tuile de
 // marge en x et y (largeur du couloir). Dédupliqué. Les points OSM (~15 m) garantissent
 // l'absence de trou le long de la ligne.
-function computeTiles(track) {
+function computeTiles(track, depth = {}) {
+  const { deepLayers, deepMax } = normalizeDepth(depth);
   const seen = new Set();
   const tiles = [];
   for (const layer of PACK_LAYERS) {
-    const maxZ = Math.min(ZMAX, TILE_TEMPLATES[layer].maxZoom);
+    // Plafond du calque : z15 partout, poussé à z16/z17 pour les calques approfondis.
+    const target = deepLayers.includes(layer) ? deepMax : ZMAX;
+    const maxZ = Math.min(target, TILE_TEMPLATES[layer].maxZoom);
     for (let z = ZMIN; z <= maxZ; z++) {
       const n = 2 ** z;
       for (const [lat, lon] of track) {
@@ -74,10 +117,12 @@ function computeTiles(track) {
   return tiles;
 }
 
-// Estimation avant confirmation (sans rien enregistrer).
-export function estimatePack(trail) {
-  const tiles = computeTiles(trackOf(trail)).length;
-  return { tiles, mb: Math.round((tiles * AVG_TILE_KB) / 1024) };
+// Estimation avant confirmation (sans rien enregistrer). `mb` est décimal : à 30 Mo près,
+// arrondir à l'entier suffit, mais un petit pack ne doit pas s'annoncer « 0 Mo ».
+export function estimatePack(trail, depth = {}) {
+  const tiles = computeTiles(trackOf(trail), depth).length;
+  const mb = (tiles * avgTileKb()) / 1024;
+  return { tiles, mb, mbLabel: mb < 10 ? mb.toFixed(1) : String(Math.round(mb)), overCap: tiles > TILE_CAP };
 }
 
 // ---------- Manifeste (cache mémoire + persistance légère) ----------
@@ -142,36 +187,81 @@ export async function packPoiLayer(id) {
 async function downloadTiles(id, tiles, onProgress) {
   const cache = await caches.open(packCacheName(id));
   const total = tiles.length;
-  let done = 0, i = 0;
+  let done = 0, i = 0, quotaHit = false;
   async function worker() {
-    while (i < tiles.length) {
+    while (i < tiles.length && !quotaHit) {
       const t = tiles[i++];
       const url = buildTileUrl(t.layer, t.z, t.x, t.y);
       try {
         const res = await fetch(url, { mode: "no-cors" });
         await cache.put(normTileKey(url), res);
-      } catch { /* tuile isolée en échec : sans gravité, le fond restera partiel ici */ }
+      } catch (err) {
+        // Quota dépassé : inutile de marteler, tout le reste échouera aussi. On arrête net
+        // et on remonte une erreur lisible (le pack partiel est supprimé par l'appelant).
+        if (err?.name === "QuotaExceededError") { quotaHit = true; break; }
+        /* tuile isolée en échec : sans gravité, le fond restera partiel ici */
+      }
       done++;
       if (done % 12 === 0 || done === total) onProgress?.(done, total);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  if (quotaHit) throw new Error("le stockage de l'appareil est plein. Supprimez un pack ou choisissez moins de calques détaillés.");
 }
 
-// Télécharge un pack complet. onProgress reçoit ({phase} | {phase:"tiles",done,total}).
-export async function buildPack(trail, onProgress) {
+// Place restante, en Mo — ou null si le navigateur ne donne pas de lecture exploitable.
+// Certains navigateurs plafonnent `usage` à `quota` (on lit alors 0 octet libre alors que
+// le disque est vide) : sur une lecture dégénérée on ne prétend rien, plutôt que de
+// bloquer à tort tous les téléchargements. Le garde-fou réel reste le QuotaExceededError
+// intercepté pendant l'écriture.
+export async function freeSpaceMB() {
+  const est = await storageEstimate();
+  if (!est?.quotaMB) return null;
+  const free = est.quotaMB - est.usedMB;
+  return free > 0 ? free : null;
+}
+
+// Vérifie qu'il reste la place annoncée. Refus propre (message clair) plutôt que
+// remplissage jusqu'au QuotaExceededError au milieu du téléchargement.
+async function assertRoomFor(tiles) {
+  const freeMB = await freeSpaceMB();
+  if (freeMB == null) return;                          // lecture inexploitable : on n'invente pas de refus
+  const needMB = (tiles * avgTileKb()) / 1024;
+  if (needMB > freeMB * 0.9) {
+    throw new Error(
+      `il faut ~${Math.round(needMB)} Mo et il ne reste que ~${Math.round(freeMB)} Mo. ` +
+      `Choisissez moins de calques détaillés ou supprimez un pack.`
+    );
+  }
+}
+
+// Télécharge un pack complet. `depth` = { deepLayers, deepMax } (voir normalizeDepth).
+// onProgress reçoit ({phase} | {phase:"tiles",done,total}).
+export async function buildPack(trail, depth = {}, onProgress) {
+  const { deepLayers, deepMax } = normalizeDepth(depth);
   onProgress?.({ phase: "prepare" });
   const local = await ensureSavedCopy(trail);   // copie locale complète (auto-save si OSM)
   await ensureElevation(local).catch(() => null); // profil garanti hors-ligne
 
   const track = trackOf(local);
-  const tiles = computeTiles(track);
+  const tiles = computeTiles(track, { deepLayers, deepMax });
   if (tiles.length > TILE_CAP) {
     throw new Error(`Corridor de ${tiles.length} tuiles : tracé trop long pour un pack unique.`);
   }
+  await assertRoomFor(tiles.length);
 
+  const before = (await storageEstimate())?.usedMB;
   onProgress?.({ phase: "tiles", done: 0, total: tiles.length });
-  await downloadTiles(local.id, tiles, (done, total) => onProgress?.({ phase: "tiles", done, total }));
+  try {
+    await downloadTiles(local.id, tiles, (done, total) => onProgress?.({ phase: "tiles", done, total }));
+  } catch (err) {
+    // Pack inutilisable : on ne laisse pas un demi-corridor occuper la place ni se faire
+    // passer pour un pack valide (il n'entre jamais au manifeste).
+    await caches.delete(packCacheName(local.id)).catch(() => {});
+    throw err;
+  }
+  const after = (await storageEstimate())?.usedMB;
+  if (before != null && after != null) calibrateTileKb((after - before) * 1048576, tiles.length);
 
   onProgress?.({ phase: "poi" });
   let poi = [];
@@ -189,6 +279,8 @@ export async function buildPack(trail, onProgress) {
     name: local.name,
     tileCount: tiles.length,
     layers: PACK_LAYERS.length,
+    deepLayers,
+    deepMax,
     poiCount: poi.length,
     weatherAt,
     createdAt: Date.now(),

@@ -5,11 +5,12 @@ import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
-import { hidePreview, clearActiveTrack } from "./map.js";
+import { hidePreview, clearActiveTrack, OVERZOOM } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
-import { hasPack, estimatePack, buildPack } from "./offline.js";
+import { hasPack, buildPack } from "./offline.js";
+import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
 import { toast } from "./toast.js";
@@ -216,8 +217,8 @@ function openFullMap(t) {
     `<span class="fullmap-stat"><b>${t.duration}</b></span>`;
 
   const panel = fullmapEl.querySelector(".fullmap-panel");
-  fullMap = L.map("fullmap");
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(fullMap);
+  fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM });
+  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(fullMap);
   const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(fullMap);
   addPoiMarkers(fullMap, t, { tooltips: true });
   // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
@@ -387,7 +388,7 @@ export function renderDetail(id) {
     zoomControl: false, dragging: false, scrollWheelZoom: false,
     doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false,
   });
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxZoom: 17 }).addTo(miniMap);
+  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(miniMap);
   const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(miniMap);
   addPoiMarkers(miniMap, t);
   miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
@@ -572,16 +573,8 @@ async function load3D(trail) {
 // toujours le bouton par son id pour refléter la progression sur l'élément visible.
 async function downloadPack(t, id) {
   if (hasPack(id)) { closeDetail(); switchTab("reglages"); return; }
-  const est = estimatePack(t);
-  if (est.tiles > 8000) {
-    toast(`« ${t.name} » est trop long pour un pack unique (~${est.tiles} tuiles).`, { type: "error" });
-    return;
-  }
-  if (!confirm(
-    `Télécharger « ${t.name} » pour le terrain ?\n\n` +
-    `~${est.tiles} tuiles (~${est.mb} Mo) + points d'eau/refuges + météo.\n` +
-    `À faire de préférence en Wi-Fi.`
-  )) return;
+  const depth = await askPackOptions(t);
+  if (!depth) return;
 
   const setBtn = (text) => {
     const b = document.getElementById("btn-offline");
@@ -589,7 +582,7 @@ async function downloadPack(t, id) {
   };
   setBtn("⏳ Préparation…");
   try {
-    await buildPack(t, (p) => {
+    await buildPack(t, depth, (p) => {
       if (p.phase === "tiles") setBtn(`⏳ Carte ${Math.round((p.done / p.total) * 100) || 0} %`);
       else if (p.phase === "poi") setBtn("⏳ Points d'intérêt…");
       else if (p.phase === "weather") setBtn("⏳ Météo…");

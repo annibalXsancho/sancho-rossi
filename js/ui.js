@@ -46,7 +46,7 @@ export async function renderOffline() {
       <div class="pack-row">
         <div class="pack-info">
           <strong>${p.name}</strong>
-          <span class="muted">${p.tileCount.toLocaleString("fr-FR")} tuiles · ${p.poiCount} POI${p.weatherAt ? " · météo" : ""} · ${new Date(p.createdAt).toLocaleDateString("fr-FR")}</span>
+          <span class="muted">${p.tileCount.toLocaleString("fr-FR")} tuiles · zoom ${p.deepMax || 15}${p.poiCount ? ` · ${p.poiCount} POI` : ""}${p.weatherAt ? " · météo" : ""} · ${new Date(p.createdAt).toLocaleDateString("fr-FR")}</span>
         </div>
         <button class="btn btn-danger" data-del-pack="${p.id}">Supprimer</button>
       </div>`

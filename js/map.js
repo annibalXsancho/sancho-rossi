@@ -12,9 +12,10 @@ import { startNavigation } from "./nav.js";
 import { savePos } from "./security.js";
 
 // ---------- Modèles de tuiles (source unique, réutilisée par le pack offline S5) ----------
-// name → { url (avec {s}{z}{x}{y}), maxZoom }. L'ordre {y}/{x} d'ArcGIS est déjà
-// encodé dans l'URL. Sert à construire les couches Leaflet ci-dessous ET à télécharger
-// les corridors de tuiles (js/offline.js). Exclus des packs : mtb, ski, rain.
+// name → { url (avec {s}{z}{x}{y}), maxZoom }. `maxZoom` est ici le zoom NATIF du
+// fournisseur (dernier niveau où de vraies tuiles existent) : il sert de `maxNativeZoom`
+// aux couches Leaflet et de plafond de téléchargement aux packs (js/offline.js).
+// L'ordre {y}/{x} d'ArcGIS est déjà encodé dans l'URL. Exclus des packs : mtb, ski, rain.
 export const TILE_TEMPLATES = {
   plan: { url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", maxZoom: 19 },
   topo: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", maxZoom: 17 },
@@ -25,48 +26,58 @@ export const TILE_TEMPLATES = {
   trails: { url: "https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", maxZoom: 18 },
 };
 
+// ---------- Sur-agrandissement (S-V2-ZOOM) ----------
+// Le zoom ne doit plus buter sur le plafond natif du fournisseur : au-delà, Leaflet
+// ré-échelonne les tuiles du dernier niveau natif (`maxNativeZoom`) au lieu d'afficher
+// du gris. Plafonné à +2 niveaux : à +3 le flou efface les micro-détails (intersections,
+// courbes de niveau) et donne une fausse confiance en navigation.
+export const OVERZOOM = 2;
+// Plafond dur des couches : jamais atteint (le plafond réel est celui de la carte,
+// recalculé par updateZoomCap). Une couche dont le maxZoom serait dépassé par la carte
+// disparaîtrait complètement — d'où cette valeur haute, volontairement inatteignable.
+const LAYER_MAX = 22;
+
+// natif → options Leaflet communes : tuiles réelles jusqu'à `native`, agrandies au-delà.
+const overzoomed = (native, extra = {}) => ({ maxNativeZoom: native, maxZoom: LAYER_MAX, ...extra });
+
 // ---------- Carte + calques ----------
 const baseLayers = {
-  plan: L.tileLayer("https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", {
-    maxZoom: 19,
+  plan: L.tileLayer("https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png", overzoomed(19, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }),
-  topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-    maxZoom: 17,
+  })),
+  topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", overzoomed(17, {
     attribution: '&copy; OSM, <a href="https://opentopomap.org">OpenTopoMap</a>',
-  }),
+  })),
   satellite: L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 19, attribution: "Tiles &copy; Esri — Maxar, Earthstar Geographics" }
+    overzoomed(19, { attribution: "Tiles &copy; Esri — Maxar, Earthstar Geographics" })
   ),
-  sombre: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19,
+  sombre: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", overzoomed(19, {
     attribution: '&copy; OSM, &copy; <a href="https://carto.com/">CARTO</a>',
-  }),
+  })),
   terrainhd: L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 13, attribution: "Esri World Terrain" }
+    overzoomed(13, { attribution: "Esri World Terrain" })
   ),
 };
 
 const overlayLayers = {
-  trails: L.tileLayer("https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", {
-    maxZoom: 18,
+  trails: L.tileLayer("https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png", overzoomed(18, {
     opacity: 0.85,
     attribution: '<a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a>',
-  }),
+  })),
   hillshade: L.tileLayer(
     "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
-    { maxZoom: 16, opacity: 0.45, attribution: "Esri World Hillshade" }
+    overzoomed(16, { opacity: 0.45, attribution: "Esri World Hillshade" })
   ),
-  mtb: L.tileLayer("https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png", {
-    maxZoom: 18, opacity: 0.85, attribution: '<a href="https://mtb.waymarkedtrails.org">Waymarked Trails</a>',
-  }),
-  ski: L.tileLayer("https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png", {
-    maxZoom: 18, opacity: 0.85, attribution: '<a href="https://slopes.waymarkedtrails.org">Waymarked Trails</a>',
-  }),
+  mtb: L.tileLayer("https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png", overzoomed(18, {
+    opacity: 0.85, attribution: '<a href="https://mtb.waymarkedtrails.org">Waymarked Trails</a>',
+  })),
+  ski: L.tileLayer("https://tile.waymarkedtrails.org/slopes/{z}/{x}/{y}.png", overzoomed(18, {
+    opacity: 0.85, attribution: '<a href="https://slopes.waymarkedtrails.org">Waymarked Trails</a>',
+  })),
   // URL fixée dynamiquement (dernière image radar RainViewer) à l'activation
-  rain: L.tileLayer("", { maxZoom: 18, opacity: 0.7, attribution: '<a href="https://rainviewer.com">RainViewer</a>' }),
+  rain: L.tileLayer("", overzoomed(18, { opacity: 0.7, attribution: '<a href="https://rainviewer.com">RainViewer</a>' })),
 };
 
 // Radar de précipitations : récupère l'horodatage de la dernière image
@@ -79,7 +90,7 @@ async function refreshRainLayer() {
   } catch { /* radar indisponible : la couche reste vide */ }
 }
 
-export const map = L.map("map", { zoomControl: false }).setView([45.9, 9.8], 7);
+export const map = L.map("map", { zoomControl: false, maxZoom: 19 + OVERZOOM }).setView([45.9, 9.8], 7);
 
 // ---- Calques empilables avec interrupteur + opacité (façon Maria) ----
 const LAYERS = {
@@ -111,6 +122,23 @@ export const layersConfig = Object.assign(
   JSON.parse(localStorage.getItem("sr-layers") || "{}")
 );
 
+// Zoom natif de chaque calque (mtb/ski/rain ne sont pas embarquables, donc absents de
+// TILE_TEMPLATES, mais comptent pour le plafond de zoom en ligne).
+export const NATIVE_MAX = {
+  ...Object.fromEntries(Object.entries(TILE_TEMPLATES).map(([k, v]) => [k, v.maxZoom])),
+  mtb: 18, ski: 18, rain: 18,
+};
+
+// Plafond de zoom de la carte = meilleur zoom natif parmi les calques allumés, + OVERZOOM.
+// Ainsi le sur-agrandissement reste borné à ce que la donnée la plus fine peut honnêtement
+// porter : topo seul (natif 17) monte à z19, plan ou satellite (natif 19) à z21.
+export function updateZoomCap() {
+  const natives = Object.keys(LAYERS).filter((n) => layersConfig[n]?.on).map((n) => NATIVE_MAX[n] ?? 17);
+  const cap = (natives.length ? Math.max(...natives) : 17) + OVERZOOM;
+  if (map.getMaxZoom() !== cap) map.setMaxZoom(cap); // Leaflet dézoome tout seul si on était au-dessus
+  return cap;
+}
+
 export function applyLayer(name) {
   const cfg = layersConfig[name];
   const layer = LAYERS[name];
@@ -128,6 +156,7 @@ export function applyLayer(name) {
     row.querySelector(".op-val").textContent = `${cfg.op}%`;
   });
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
+  updateZoomCap();
 }
 
 // ---- Couches de points d'intérêt (Overpass) : eau, refuges, secours ----
