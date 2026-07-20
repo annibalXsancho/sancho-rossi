@@ -1,9 +1,11 @@
 // Sancho Rossi — packs offline « pour le terrain » (S5)
 // Télécharge, autour d'une rando enregistrée, un corridor de tuiles carto (z12–15,
 // tous calques utiles), les POI eau/refuges/secours et un snapshot météo, pour une
-// navigation pleinement hors-ligne (mode avion). Les tuiles sont des réponses opaques
-// cross-origin : illisibles par le script → stockées dans le Cache Storage (bucket
-// "sr-pack-<id>", servi par sw.js). Seules les métadonnées légères vont en IndexedDB.
+// navigation pleinement hors-ligne (mode avion). Depuis S-V2-CARTE-C les tuiles sont
+// téléchargées en mode `cors` (les 7 calques embarqués répondent tous `*`) : lisibles par
+// le script ET décodables comme TEXTURES WebGL hors-ligne — ce que MapLibre exige et que
+// les réponses opaques de l'ère Leaflet interdisaient. Elles restent dans le Cache Storage
+// (bucket "sr-pack-<id>", servi par sw.js à l'URL) ; seules les métadonnées vont en IndexedDB.
 import { trackOf } from "./state.js";
 import { ensureElevation, overpassFetch } from "./api.js";
 import { TILE_TEMPLATES, POI_DEFS, domMarker, makeIcon, markerGroup } from "./map.js";
@@ -28,10 +30,10 @@ export const DEEP_LAYERS = ["plan", "topo", "satellite", "sombre", "trails"];
 const TILE_CAP = 24000;         // garde-fou : au-delà, tracé trop long pour un pack unique
 const CONCURRENCY = 6;
 
-// Poids moyen d'une tuile. Les réponses sont opaques (octets illisibles par le script) :
-// impossible de mesurer tuile par tuile. On calibre donc a posteriori sur le delta de
-// `navigator.storage.estimate()` d'un vrai téléchargement, ce qui rend l'estimation
-// annoncée honnête au lieu de reposer sur une constante devinée.
+// Poids moyen d'une tuile, pour l'estimation affichée AVANT téléchargement. Depuis le
+// passage en mode `cors` (S-V2-CARTE-C) les réponses sont lisibles : on calibre sur la
+// somme EXACTE des Content-Length du dernier pack (mesure directe), avec repli sur le
+// delta de `navigator.storage.estimate()` si l'échantillon manque.
 // 18 ko : moyenne mesurée (curl, 35 tuiles, z12–17, topo + satellite + plan) le
 // 19/07/2026. L'ancienne constante de 25 ko surestimait d'environ 45 %.
 const AVG_TILE_KB_DEFAULT = 18;
@@ -50,8 +52,9 @@ function calibrateTileKb(deltaBytes, tiles) {
 
 const packCacheName = (id) => `sr-pack-${id}`;
 
-// Clé de cache normalisée — DOIT rester identique à celle de sw.js : le sous-domaine
-// rotatif {s} (a/b/c/d) de Leaflet doit taper la même entrée que celle téléchargée.
+// Clé de cache normalisée — DOIT rester identique à celle de sw.js : MapLibre demande les
+// tuiles via les sous-domaines a/b/c énumérés dans `tiles`, tous doivent taper l'unique
+// entrée téléchargée sous le préfixe retiré.
 function normTileKey(u) {
   const x = new URL(u);
   x.hostname = x.hostname.replace(/^[a-d]\./, "");
@@ -189,14 +192,23 @@ export async function packPoiLayer(id) {
 async function downloadTiles(id, tiles, onProgress) {
   const cache = await caches.open(packCacheName(id));
   const total = tiles.length;
-  let done = 0, i = 0, quotaHit = false;
+  let done = 0, i = 0, quotaHit = false, bytes = 0, measured = 0;
   async function worker() {
     while (i < tiles.length && !quotaHit) {
       const t = tiles[i++];
       const url = buildTileUrl(t.layer, t.z, t.x, t.y);
       try {
-        const res = await fetch(url, { mode: "no-cors" });
-        await cache.put(normTileKey(url), res);
+        // Mode `cors` (et non plus `no-cors`) : sous MapLibre chaque tuile devient une
+        // texture WebGL, qui refuse une réponse opaque. Les 7 calques embarqués répondent
+        // tous `Access-Control-Allow-Origin: *` → réponse lisible, décodable hors-ligne.
+        const res = await fetch(url, { mode: "cors" });
+        if (res.ok) {
+          // Content-Length est un en-tête de réponse sûr (toujours lisible, même cross-
+          // origin) : on somme le poids réel plutôt que de le deviner (calibration exacte).
+          const len = Number(res.headers.get("content-length"));
+          if (Number.isFinite(len) && len > 0) { bytes += len; measured++; }
+          await cache.put(normTileKey(url), res);
+        }
       } catch (err) {
         // Quota dépassé : inutile de marteler, tout le reste échouera aussi. On arrête net
         // et on remonte une erreur lisible (le pack partiel est supprimé par l'appelant).
@@ -209,6 +221,7 @@ async function downloadTiles(id, tiles, onProgress) {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   if (quotaHit) throw new Error("le stockage de l'appareil est plein. Supprimez un pack ou choisissez moins de calques détaillés.");
+  return { bytes, measured };
 }
 
 // Place restante, en Mo — ou null si le navigateur ne donne pas de lecture exploitable.
@@ -254,8 +267,9 @@ export async function buildPack(trail, depth = {}, onProgress) {
 
   const before = (await storageEstimate())?.usedMB;
   onProgress?.({ phase: "tiles", done: 0, total: tiles.length });
+  let dl;
   try {
-    await downloadTiles(local.id, tiles, (done, total) => onProgress?.({ phase: "tiles", done, total }));
+    dl = await downloadTiles(local.id, tiles, (done, total) => onProgress?.({ phase: "tiles", done, total }));
   } catch (err) {
     // Pack inutilisable : on ne laisse pas un demi-corridor occuper la place ni se faire
     // passer pour un pack valide (il n'entre jamais au manifeste).
@@ -263,7 +277,10 @@ export async function buildPack(trail, depth = {}, onProgress) {
     throw err;
   }
   const after = (await storageEstimate())?.usedMB;
-  if (before != null && after != null) calibrateTileKb((after - before) * 1048576, tiles.length);
+  // Calibration : mesure EXACTE (somme des Content-Length) dès que l'échantillon suffit,
+  // sinon repli sur le delta de storage.estimate comme avant le passage en mode `cors`.
+  if (dl.measured >= 200) calibrateTileKb(dl.bytes, dl.measured);
+  else if (before != null && after != null) calibrateTileKb((after - before) * 1048576, tiles.length);
 
   onProgress?.({ phase: "poi" });
   let poi = [];
@@ -280,6 +297,9 @@ export async function buildPack(trail, depth = {}, onProgress) {
     id: local.id,
     name: local.name,
     tileCount: tiles.length,
+    // Poids réel du corridor, désormais connu exactement (mode `cors` → Content-Length
+    // lisible). Champ neuf, structured-clone, aucune migration IndexedDB.
+    sizeBytes: dl.bytes || null,
     layers: PACK_LAYERS.length,
     deepLayers,
     deepMax,

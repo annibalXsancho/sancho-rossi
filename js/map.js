@@ -1,7 +1,8 @@
 // Sancho Rossi — carte MapLibre GL : fonds, calques, POI Overpass, marqueurs, prévisualisation
-// Migré de Leaflet à MapLibre GL JS au sprint S-V2-CARTE-A : rotation/boussole, échelle et
-// rendu GPU sont le socle d'Explorer (vague 2), de la vue de navigation et du terrain 3D.
-// Les mini-cartes de fiche (detail.js) restent en Leaflet jusqu'au sprint B.
+// Migré de Leaflet à MapLibre GL JS aux sprints S-V2-CARTE-A/B : rotation/boussole, échelle
+// et rendu GPU sont le socle d'Explorer (vague 2), de la vue de navigation et du terrain 3D.
+// Édition (planificateur, boucles) et cartes de fiche sont passées sous MapLibre au sprint B
+// (Leaflet retiré). Le sprint C ajoute le relief 3D togglable (raster-dem Terrarium).
 import { state, trackOf } from "./state.js";
 import { overpassFetch } from "./api.js";
 import { fetchRetry } from "./net.js";
@@ -907,11 +908,79 @@ function initCompass() {
   sync();
 }
 
+// ---------- Relief 3D (S-V2-CARTE-C) ----------
+// Carte 3D façon AllTrails : on incline la caméra et on drape les calques raster sur un
+// modèle numérique de terrain. Le relief vient des tuiles d'ÉLÉVATION Terrarium (AWS,
+// réponses CORS `*` — audité comme prérequis en S-V2-CARTE-A), dont MapLibre décode
+// nativement l'encodage `terrarium` (altitude = R·256 + G + B/256 − 32768).
+//
+// Togglable ET dégradable (contrainte ROADMAP) : rien de la vague 2 n'en dépend. Par
+// défaut éteint — le relief demande le réseau (les tuiles DEM ne sont pas embarquées dans
+// les packs), et laisser la carte plate au démarrage évite tout coût GPU non sollicité.
+const DEM_SOURCE = "src-dem";
+const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+// Exagération douce : assez pour lire une crête, pas au point de caricaturer les pentes
+// (un facteur trop élevé transforme une colline en aiguille et trompe l'œil sur l'effort).
+const DEM_EXAGGERATION = 1.4;
+const PITCH_3D = 65;
+let terrain3d = false;
+
+function ensureDem() {
+  if (!map.getSource(DEM_SOURCE)) {
+    map.addSource(DEM_SOURCE, {
+      type: "raster-dem",
+      tiles: [DEM_TILES],
+      tileSize: 256,
+      encoding: "terrarium",
+      maxzoom: 15, // zoom natif du jeu Terrarium ; MapLibre sur-échantillonne au-delà
+    });
+  }
+}
+
+export const is3D = () => terrain3d;
+
+// Bascule le relief. `setTerrain(null)` remet la carte à plat sans reconstruire le style
+// (tracés et marqueurs conservés). Le ciel n'existe qu'en relief : posé/retiré avec lui.
+export function set3D(on) {
+  terrain3d = on;
+  whenMapReady(() => {
+    if (on) {
+      ensureDem();
+      map.setTerrain({ source: DEM_SOURCE, exaggeration: DEM_EXAGGERATION });
+      // Ciel atmosphérique : donne l'horizon qui fait tout le rendu « 3D » façon AllTrails.
+      // Enveloppé : la propriété `sky` a bougé entre versions de MapLibre, un échec ne doit
+      // pas empêcher l'inclinaison (le cœur du sprint).
+      try {
+        map.setSky({
+          "sky-color": "#a7c7e8", "horizon-color": "#e6eef6", "fog-color": "#eef3f8",
+          "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.25,
+        });
+      } catch { /* ciel indisponible : le relief reste incliné, sans dégradé d'horizon */ }
+      if (map.getPitch() < 40) map.easeTo({ pitch: PITCH_3D, duration: 700 });
+    } else {
+      map.setTerrain(null);
+      // Retour au ciel neutre : `setSky({})` remet les défauts sans atmosphère visible —
+      // `setSky(null)` est refusé par MapLibre 5 (« object expected ») et polluerait la
+      // console. À plat (pitch 0) l'horizon n'est de toute façon pas dans le champ.
+      try { map.setSky({}); } catch { /* rien à retirer */ }
+      if (map.getPitch() > 0) map.easeTo({ pitch: 0, duration: 500 });
+    }
+  });
+  const btn = document.getElementById("btn-3d");
+  btn?.classList.toggle("active", on);
+  btn?.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
 export function initMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), "bottom-right");
   map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+  // Relief 3D : incliner franchement (défaut MapLibre plafonné à 60°) donne la vue rasante
+  // qui fait lire une vallée.
+  map.setMaxPitch(80);
   initScale();
   initCompass();
+
+  document.getElementById("btn-3d")?.addEventListener("click", () => set3D(!terrain3d));
 
   const layersControl = document.getElementById("layers-control");
   const layersPanel = document.getElementById("layers-panel");

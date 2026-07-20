@@ -25,7 +25,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=531",
+        "./js/map.js": "./js/map.js?v=532",
         "./js/filters.js": "./js/filters.js?v=504",
         "./js/trails.js": "./js/trails.js?v=530",
         "./js/detail.js": "./js/detail.js?v=535",
@@ -43,7 +43,7 @@
         "./js/navview.js": "./js/navview.js?v=501",
         "./js/security.js": "./js/security.js?v=516",
         "./js/ui.js": "./js/ui.js?v=528",
-        "./js/offline.js": "./js/offline.js?v=527",
+        "./js/offline.js": "./js/offline.js?v=528",
         "./js/packdialog.js": "./js/packdialog.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=502",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
@@ -206,6 +206,10 @@
         </button>
         <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
+        </button>
+        <!-- Relief 3D : incline la carte sur le terrain réel (Terrarium). Togglable. -->
+        <button class="map-ctl" id="btn-3d" title="Relief 3D" aria-label="Basculer le relief 3D" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5h18"/><path d="m5 19.5 5.2-10.5 3.1 6 2-3.4 3.7 7.9"/></svg>
         </button>
         <!-- Points de passage reliés (icône propre au planificateur). -->
         <button class="map-ctl" id="btn-planner" title="Planifier un itinéraire" aria-label="Planifier un itinéraire">
