@@ -234,8 +234,16 @@ function openFullMap(t) {
     `<span class="fullmap-stat"><b>${t.duration}</b></span>`;
 
   const panel = fullmapEl.querySelector(".fullmap-panel");
-  fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM });
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(fullMap);
+  // `prefix: false` retire le crédit « Leaflet » que la bibliothèque s'attribue d'office :
+  // il n'apporte rien au lecteur et la carte affichait ce badge SANS l'attribution OSM,
+  // pourtant la seule obligatoire — d'où son ajout ici.
+  fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM, attributionControl: false });
+  L.control.attribution({ prefix: false }).addTo(fullMap);
+  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+    maxNativeZoom: 17,
+    maxZoom: 22,
+    attribution: '&copy; OSM, <a href="https://opentopomap.org">OpenTopoMap</a>',
+  }).addTo(fullMap);
   const line = drawTrackL(t.segments || t.track).addTo(fullMap);
   addPoiMarkers(fullMap, t, { tooltips: true });
   // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le

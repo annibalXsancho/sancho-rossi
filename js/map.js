@@ -838,7 +838,7 @@ function initCompass() {
 
 export function initMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), "bottom-right");
-  map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
   initScale();
   initCompass();
 

@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=540" />
+  <link rel="stylesheet" href="css/style.css?v=544" />
   <script type="importmap">
     {
       "imports": {
@@ -28,10 +28,10 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=529",
+        "./js/map.js": "./js/map.js?v=530",
         "./js/filters.js": "./js/filters.js?v=504",
         "./js/trails.js": "./js/trails.js?v=530",
-        "./js/detail.js": "./js/detail.js?v=533",
+        "./js/detail.js": "./js/detail.js?v=534",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/agent.js": "./js/agent.js?v=502",
         "./js/brouter.js": "./js/brouter.js?v=521",
@@ -41,7 +41,7 @@
         "./js/planner.js": "./js/planner.js?v=530",
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=523",
-        "./js/geosearch.js": "./js/geosearch.js?v=522",
+        "./js/geosearch.js": "./js/geosearch.js?v=524",
         "./js/nav.js": "./js/nav.js?v=509",
         "./js/navview.js": "./js/navview.js?v=501",
         "./js/security.js": "./js/security.js?v=516",
@@ -184,25 +184,26 @@
         <div class="map-scale-bar" id="map-scale-bar"></div>
       </div>
 
-      <div class="map-topbar">
-        <div class="map-search">
-          <span class="search-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
-          </span>
-          <input id="search-input" type="search" placeholder="Rechercher un lieu, un massif…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
-          <div id="search-suggest" class="search-suggest hidden" role="listbox"></div>
-        </div>
-        <button id="btn-filters-map" class="btn-filters btn-filters-icon" title="Filtres">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
-          <span id="filters-badge" class="filters-badge hidden"></span>
-        </button>
-        <button id="btn-list" class="btn-filters btn-filters-icon map-list-btn" title="Liste des itinéraires">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+      <!-- Recherche : loupe seule en bas à droite (portée du pouce), qui se déroule vers la
+           gauche au clic. Le bouton reste ancré à droite pendant l'ouverture : la cible ne
+           bouge pas sous le doigt. Les suggestions s'ouvrent vers le haut. -->
+      <div class="map-search map-search-dock" id="map-search">
+        <div id="search-suggest" class="search-suggest hidden" role="listbox"></div>
+        <input id="search-input" type="search" placeholder="Rechercher un lieu, un massif…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" tabindex="-1" />
+        <button class="search-toggle" id="search-toggle" title="Rechercher un lieu" aria-label="Rechercher un lieu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         </button>
       </div>
 
-      <!-- Pile de contrôles à droite : calques, position, circuit -->
+      <!-- Pile de contrôles à droite : filtres, liste, calques, position, circuit -->
       <div class="layers-control map-stack" id="layers-control">
+        <button class="map-ctl map-ctl-badged" id="btn-filters-map" title="Filtres" aria-label="Filtres">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+          <span id="filters-badge" class="filters-badge hidden"></span>
+        </button>
+        <button class="map-ctl map-list-btn" id="btn-list" title="Liste des itinéraires" aria-label="Liste des itinéraires">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+        </button>
         <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte" aria-label="Calques de carte">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
         </button>

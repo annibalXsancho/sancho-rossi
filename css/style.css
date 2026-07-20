@@ -306,20 +306,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* ============ Carte ============ */
 #map { position: absolute; inset: 0; background: var(--surface-2); }
 
-.map-topbar {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 70px;
-  z-index: 1000;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  pointer-events: none;
-}
-
-.map-topbar > * { pointer-events: auto; }
+/* La barre supérieure de carte a disparu : filtres et liste ont rejoint la pile de
+   droite, la recherche est descendue en bas à droite, et le coin haut-gauche est rendu
+   à l'échelle. */
 
 .map-search {
   position: relative;
@@ -334,6 +323,84 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-soft);
   padding: 10px 16px;
+}
+
+/* ---------- Recherche repliable, ancrée en bas à droite ---------- */
+/* Repliée elle n'est qu'une loupe, à portée du pouce. Le bouton est le dernier enfant :
+   il reste collé au bord droit pendant que le champ se déroule vers la gauche, si bien
+   que la cible ne se dérobe pas sous le doigt au moment où l'on tape. */
+/* C'est la largeur du CHAMP qui s'anime, pas celle du conteneur. Animer le conteneur
+   se coinçait : la transition démarrait alors que la vue carte venait d'être affichée,
+   et le moteur restait figé sur la largeur repliée sans qu'aucune animation ne tourne.
+   Le conteneur se dimensionne donc sur son contenu ; ancré à droite, c'est son bord
+   GAUCHE qui avance — exactement le déroulé voulu. */
+.map-search-dock {
+  position: absolute;
+  right: 12px;
+  bottom: 16px;
+  z-index: 1002;
+  width: auto;
+  max-width: calc(100vw - 24px);
+  gap: 0;
+  padding: 0;
+}
+
+.search-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: color 150ms ease-out, transform 150ms ease-out;
+}
+
+.search-toggle svg { width: 19px; height: 19px; }
+.search-toggle:hover { color: var(--red); }
+.search-toggle:active { transform: scale(0.92); }
+.map-search-dock.open .search-toggle { color: var(--red); }
+
+/* Le champ n'existe qu'ouvert : replié il ne doit ni s'afficher, ni prendre le focus. */
+.map-search-dock > input {
+  width: 0;
+  min-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              margin-left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+              opacity 140ms ease-out;
+}
+
+/* Largeur en pixels francs : la borne des petits écrans est portée par le `max-width` du
+   conteneur, que le `flex-shrink` du champ absorbe sans jamais rogner la pastille. */
+.map-search-dock.open > input {
+  width: 290px;
+  margin-left: 18px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Ancrée en bas, la liste de suggestions se déroule vers le HAUT. */
+.map-search-dock .search-suggest {
+  top: auto;
+  bottom: calc(100% + 8px);
+  animation: geo-in-up 160ms ease-out;
+}
+
+@keyframes geo-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-search-dock > input { transition: none; }
+  .map-search-dock .search-suggest { animation: none; }
 }
 
 /* ---------- Suggestions de recherche par lieu (S7) ---------- */
@@ -479,6 +546,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .map-stack .layers-panel { position: absolute; top: 0; right: 50px; }
 
+/* Le compteur de filtres actifs se pose sur le bouton rond de la pile. */
+.map-ctl-badged { position: relative; }
+.map-ctl-badged .filters-badge { position: absolute; top: 4px; right: 4px; }
+
 /* La boussole n'apparaît que si la carte est pivotée (js/map.js initCompass) : elle est
    en fin de pile pour que son apparition ne décale aucun autre bouton. */
 #btn-compass { animation: compass-in 180ms ease-out; }
@@ -511,8 +582,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
    liseré sombre — même principe que le tracé (écart de luminance, pas de teinte). */
 .map-scale {
   position: absolute;
-  top: 66px;
-  left: 12px;
+  top: 14px;
+  left: 14px;
   z-index: 999;
   pointer-events: none;
   user-select: none;
@@ -545,7 +616,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .map-scale-bar i { flex: 1; background: #fff; }
 .map-scale-bar i:nth-child(even) { background: #0b0b0c; }
 
+/* Le coin bas-droit appartient à la recherche : l'attribution vit à gauche, et s'efface
+   pendant la saisie — sur téléphone le champ déplié couvre toute la largeur. */
+.search-open .maplibregl-ctrl-attrib { opacity: 0; pointer-events: none; }
+
 .maplibregl-ctrl-attrib {
+  transition: opacity 140ms ease-out;
   border-radius: var(--radius-full) !important;
   background: color-mix(in srgb, var(--surface) 72%, transparent) !important;
   font-size: 10.5px;
@@ -572,8 +648,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   /* Attribution dégagée de la barre d'onglets. */
   .maplibregl-ctrl-bottom-left,
   .maplibregl-ctrl-bottom-right { margin-bottom: 42px; }
-  /* La barre de recherche passe sous le bandeau : l'échelle descend d'autant. */
-  .map-scale { top: 60px; left: 10px; }
+  .map-scale { top: 12px; left: 12px; }
 }
 
 .layers-panel {
@@ -814,7 +889,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* Mode boucle / planificateur : la carte reste visible, les panneaux d'exploration
    s'effacent (sinon la liste des résultats surgit par-dessus la carte → écran
    instable). Partagé par #loops-bar et #plan-bar. */
-.loops-active .map-topbar,
+.loops-active .map-search-dock,
 .loops-active .results-panel { display: none; }
 .builder-stats { flex: 1; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
@@ -1879,7 +1954,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .nav-offtrack.hidden { display: none; }
 
 /* Masquer l'interface d'exploration pendant la navigation */
-.nav-active .map-topbar, .nav-active .results-panel,
+.nav-active .map-search-dock, .nav-active .results-panel,
 .nav-active .map-osm-btn, .nav-active .layers-control { display: none; }
 
 /* ============ Mode Survivor ============ */
@@ -2373,7 +2448,6 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .header { gap: 8px; padding: 0 10px; }
   .tab-nav-btn { padding: 0 9px; font-size: 11px; }
   .results-panel { width: min(340px, calc(100vw - 24px)); }
-  .map-topbar { right: 66px; }
   .detail-media { grid-template-columns: 1fr; }
   .detail-hero { height: 240px; }
   .contact-form { grid-template-columns: 1fr; }
@@ -2413,11 +2487,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .detail-panel { bottom: 54px; }
   .view { padding: 18px 14px 80px; }
 
-  .map-topbar { top: 10px; left: 10px; right: 62px; flex-wrap: nowrap; }
-  .map-search { flex: 1; width: auto; min-width: 0; }
   .btn-filters { padding: 10px 12px; flex-shrink: 0; }
   .map-list-btn { display: inline-flex; }
   .map-stack { top: 10px; right: 10px; }
+  /* Le dock passe au-dessus de la barre d'onglets. */
+  .map-search-dock { right: 10px; bottom: 66px; }
   .map-stack .layers-panel { right: 50px; max-width: calc(100vw - 74px); }
   .results-panel { top: 64px; bottom: 76px; }
   .builder-bar { top: auto; bottom: 0; left: 0; transform: none; width: 100%; border-left: none; border-right: none; }

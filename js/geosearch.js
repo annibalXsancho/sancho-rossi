@@ -212,6 +212,53 @@ export function initGeoSearch() {
       } else {
         flyToL(r.lat, r.lon, FIT_MAX_ZOOM, { duration: 900 });
       }
+      closeDock();
     },
+  });
+
+  // ---------- Dock repliable (bas à droite) ----------
+  const dock = document.getElementById("map-search");
+  const toggle = document.getElementById("search-toggle");
+  if (!dock || !toggle) return;
+
+  const isOpen = () => dock.classList.contains("open");
+
+  function openDock() {
+    dock.classList.add("open");
+    // Ouvert, le champ occupe presque toute la largeur sur téléphone et passerait sur
+    // l'attribution : on l'efface le temps de la saisie, elle revient à la fermeture.
+    document.body.classList.add("search-open");
+    toggle.setAttribute("aria-expanded", "true");
+    input.tabIndex = 0;
+    // Le focus attend la fin du déroulé : le donner tout de suite ferait remonter le
+    // clavier mobile pendant l'animation, qui saute alors visiblement.
+    setTimeout(() => input.focus(), 180);
+  }
+
+  function closeDock() {
+    if (!isOpen()) return;
+    dock.classList.remove("open");
+    document.body.classList.remove("search-open");
+    toggle.setAttribute("aria-expanded", "false");
+    input.tabIndex = -1;
+    input.value = "";
+    input.blur();
+    suggest.clear();
+  }
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    isOpen() ? closeDock() : openDock();
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.stopPropagation(); closeDock(); }
+  });
+
+  // Un clic ailleurs referme — mais seulement si rien n'est saisi : replier sous les
+  // doigts de quelqu'un qui a commencé à taper lui ferait perdre sa recherche.
+  document.addEventListener("click", (e) => {
+    if (!isOpen() || dock.contains(e.target) || input.value.trim()) return;
+    closeDock();
   });
 }
