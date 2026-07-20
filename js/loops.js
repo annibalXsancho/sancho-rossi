@@ -6,7 +6,7 @@
 // puis on route en boucle par BRouter (hiking-mountain, altitudes en 3ᵉ coord). On
 // génère plusieurs DIRECTIONS et on garde celle qui retrace le moins en visant la distance.
 import { haversineKm, state } from "./state.js";
-import { map, addMarker } from "./map.js";
+import { map, addMarker, drawTrack } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
@@ -229,7 +229,7 @@ function drawGhost(on) {
 function drawLoop(routed) {
   loops.layer.clearLayers();
   loops.startMarker = null;
-  const line = L.polyline(routed.track, { color: "#ff2d20", weight: 4, opacity: 0.95 }).addTo(loops.layer);
+  const line = drawTrack(routed.track).addTo(loops.layer);
   drawStart();
   // Cadre la boucle à l'écart de la barre (à gauche sur desktop, en bas sur mobile),
   // pour qu'elle reste toujours visible.

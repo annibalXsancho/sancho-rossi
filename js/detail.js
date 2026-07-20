@@ -5,7 +5,7 @@ import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
-import { hidePreview, clearActiveTrack, OVERZOOM } from "./map.js";
+import { hidePreview, clearActiveTrack, OVERZOOM, drawTrack } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
@@ -219,7 +219,7 @@ function openFullMap(t) {
   const panel = fullmapEl.querySelector(".fullmap-panel");
   fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(fullMap);
-  const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(fullMap);
+  const line = drawTrack(t.segments || t.track).addTo(fullMap);
   addPoiMarkers(fullMap, t, { tooltips: true });
   // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
   // départ ou l'arrivée se retrouve caché dessous.
@@ -389,7 +389,7 @@ export function renderDetail(id) {
     doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false,
   });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(miniMap);
-  const line = L.polyline(t.segments || t.track, { color: "#ff2d20", weight: 4 }).addTo(miniMap);
+  const line = drawTrack(t.segments || t.track, { weight: 3.5 }).addTo(miniMap);
   addPoiMarkers(miniMap, t);
   miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
   // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du

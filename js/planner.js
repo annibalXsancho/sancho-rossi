@@ -14,7 +14,7 @@
 // SAC), sauvegarde first-class. Le profil interactif (survol lié à la carte, zoom au
 // glisser, coloration par revêtement) et annuler/refaire sont le périmètre B.
 import { state } from "./state.js";
-import { map, addMarker } from "./map.js";
+import { map, addMarker, drawTrack } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
@@ -415,12 +415,7 @@ function redraw() {
   planner.markers.clear();
   const r = planner.routed;
   if (r?.track?.length > 1) {
-    const line = L.polyline(r.track, {
-      color: "#ff2d20",
-      weight: 4,
-      opacity: 0.95,
-      dashArray: r.fallback ? "7 7" : null,
-    });
+    const line = drawTrack(r.track, { dashArray: r.fallback ? "7 9" : null });
     // Cliquer SUR le tracé insère un point de passage à cet endroit (détour). Le clic
     // « dans le vide » ajoute en bout de course (map.js) — stopPropagation évite que
     // les deux se déclenchent pour un même clic.

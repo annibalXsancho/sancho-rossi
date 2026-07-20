@@ -235,18 +235,50 @@ async function refreshPoi(kind) {
   }
 }
 
+// ---------- Tracé à liseré (S-V2-TRACE) ----------
+// Retour terrain : « l'actuel est très peu visible ». Un trait plat de 4 px disparaît
+// dans les courbes de niveau orange du topo (qui rend lui-même les routes de rando en
+// rouge), dans les verts du satellite et en plein soleil. Rendu façon AllTrails/Komoot :
+// un liseré sombre porte le contraste sur TOUS les fonds (clair comme sombre — c'est un
+// écart de luminance, pas de teinte) et le cœur vif porte l'identification.
+export const TRACK_COLOR = "#ff2d20";
+export const TRACK_CASING = "rgba(9, 9, 11, 0.62)";
+
+// Un tracé = deux polylignes superposées dans un featureGroup (getBounds/remove/events
+// se comportent comme sur la polyligne d'avant, y compris la propagation des clics).
+export function drawTrack(latlngs, opts = {}) {
+  const { color = TRACK_COLOR, weight = 4.5, opacity = 1, dashArray = null, interactive = true } = opts;
+  const casing = L.polyline(latlngs, {
+    color: TRACK_CASING,
+    weight: weight + 5,
+    opacity,
+    lineCap: "round",
+    lineJoin: "round",
+    interactive,
+    dashArray,
+  });
+  const core = L.polyline(latlngs, {
+    color,
+    weight,
+    opacity,
+    lineCap: "round",
+    lineJoin: "round",
+    interactive,
+    dashArray,
+  });
+  return L.featureGroup([casing, core]);
+}
+
 // ---- Marqueurs de tracés + survol ----
 export const markers = new Map();
 let activeTrack = null;
 let hoverTrack = null;
 
-// Tracé rouge du parcours sélectionné : dessiné/effacé depuis plusieurs domaines
+// Tracé du parcours sélectionné : dessiné/effacé depuis plusieurs domaines
 // (preview, sélection, fermeture de fiche) — encapsulé ici.
 export function drawActiveTrack(trail) {
   if (activeTrack) activeTrack.remove();
-  activeTrack = L.polyline(trail.segments || trail.track, {
-    color: "#ff2d20", weight: 4, opacity: 0.95,
-  }).addTo(map);
+  activeTrack = drawTrack(trail.segments || trail.track).addTo(map);
   return activeTrack;
 }
 
@@ -287,11 +319,10 @@ export function addMarker(trail) {
   marker.on("mouseover", () => {
     if (state.selectedId === trail.id) return;
     hoverTrack?.remove();
-    hoverTrack = L.polyline(trail.segments || trail.track, {
-      color: "#ff2d20",
-      weight: 3,
-      opacity: 0.85,
-      dashArray: "7 7",
+    hoverTrack = drawTrack(trail.segments || trail.track, {
+      weight: 3.5,
+      opacity: 0.9,
+      dashArray: "7 9",
       interactive: false,
     }).addTo(map);
   });
