@@ -15,25 +15,15 @@ export function initExplorer() {
 
   const grip = el("sheet-grip");
   const head = panel.querySelector(".sheet-actions");
-  const listBtn = el("btn-list");
   const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
 
   // ---------- Actions rapides ----------
-  // On réutilise les points d'entrée existants de la pile de contrôles carte : cliquer le
-  // bouton d'origine ouvre le planificateur / le générateur de boucle exactement comme
-  // avant — aucune logique dupliquée. Filtres et « Mes randos » branchés directement.
+  // Planifier réutilise le point d'entrée existant (#btn-planner de la pile carte, conservé).
+  // La Boucle (#sheet-loops) et « Charger la zone » (#btn-load-trails) sont câblées
+  // directement par leurs modules (loops.js / catalog.js). Filtres et « Mes randos » ici.
   el("sheet-planner")?.addEventListener("click", () => el("btn-planner")?.click());
-  el("sheet-loops")?.addEventListener("click", () => el("btn-loops")?.click());
   el("sheet-filters")?.addEventListener("click", openFilters);
   el("sheet-library")?.addEventListener("click", () => switchTab("itineraires"));
-
-  // Le bouton « Liste » de la pile est actif quand le panneau est ouvert.
-  const syncListBtn = () => {
-    const open = isMobile()
-      ? !panel.classList.contains("sheet-collapsed")
-      : !panel.classList.contains("collapsed");
-    listBtn?.classList.toggle("active", open);
-  };
 
   // ---------- Bottom-sheet glissable (mobile) ----------
   // Deux crans : ouvert (transform 0) / réduit (.sheet-collapsed, position CSS). Le
@@ -45,8 +35,8 @@ export function initExplorer() {
 
   const peekPx = () => parseFloat(getComputedStyle(panel).getPropertyValue("--sheet-peek")) || 112;
   const setY = (y) => { curY = y; panel.style.setProperty("--sheet-y", `${y}px`); };
-  const collapse = () => { panel.classList.add("sheet-collapsed"); syncListBtn(); };
-  const expand = () => { panel.classList.remove("sheet-collapsed"); syncListBtn(); };
+  const collapse = () => panel.classList.add("sheet-collapsed");
+  const expand = () => panel.classList.remove("sheet-collapsed");
 
   const onDown = (e) => {
     if (!isMobile() || dragging) return;
@@ -94,16 +84,11 @@ export function initExplorer() {
     panel.classList.contains("sheet-collapsed") ? expand() : collapse();
   });
 
-  // ---------- Bouton Liste / flèche de repli ----------
+  // ---------- Flèche de repli (⌄) ----------
   const toggle = () => {
-    if (isMobile()) {
-      panel.classList.contains("sheet-collapsed") ? expand() : collapse();
-    } else {
-      panel.classList.toggle("collapsed");
-      syncListBtn();
-    }
+    if (isMobile()) panel.classList.contains("sheet-collapsed") ? expand() : collapse();
+    else panel.classList.toggle("collapsed");
   };
-  listBtn?.addEventListener("click", toggle);
   el("panel-collapse")?.addEventListener("click", toggle);
 
   // ---------- État initial ----------
@@ -121,7 +106,6 @@ export function initExplorer() {
       panel.style.removeProperty("--sheet-y");
       curY = 0;
     }
-    syncListBtn();
   };
   applyInitial();
   window.addEventListener("resize", applyInitial);

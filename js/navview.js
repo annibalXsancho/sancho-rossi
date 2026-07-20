@@ -4,7 +4,7 @@
 import { state, gainOf } from "./state.js";
 import { startNavigation, stopNavigation, setSurvivor, navSession } from "./nav.js";
 import { switchTab } from "./ui.js";
-import { layersConfig, applyLayer } from "./map.js";
+import { layersConfig, applyLayer, LAYER_META } from "./map.js";
 import { renderDetail } from "./detail.js";
 import { hasPack } from "./offline.js";
 
@@ -119,9 +119,8 @@ function renderLayers() {
   const host = document.getElementById("navview-layers");
   host.innerHTML = Object.keys(layersConfig).map((name) => {
     const cfg = layersConfig[name];
-    const src = document.querySelector(`#layers-panel .layer-row[data-layer="${name}"]`);
-    const label = src?.querySelector(".layer-name")?.textContent || name;
-    const min = src?.querySelector(".layer-op")?.min || 15;
+    const label = LAYER_META[name]?.label || name;
+    const min = LAYER_META[name]?.min || 15;
     return `
       <div class="layer-row" data-layer="${name}">
         <label class="switch"><input type="checkbox" ${cfg.on ? "checked" : ""} /><span class="slider-sw"></span></label>

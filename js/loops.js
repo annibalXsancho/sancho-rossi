@@ -391,17 +391,17 @@ function exitLoops() {
   loops.nodesPromise = null;
   document.body.classList.remove("loops-active");
   el("loops-bar").classList.add("hidden");
-  el("btn-loops").classList.remove("active");
+  el("sheet-loops").classList.remove("active");
 }
 
 export function initLoops() {
-  el("btn-loops").addEventListener("click", () => {
+  el("sheet-loops").addEventListener("click", () => {
     if (loops.active) { exitLoops(); return; }
     closeDetail();
     loops.active = true;
     document.body.classList.add("loops-active"); // masque les résultats : la carte reste visible
     el("loops-bar").classList.remove("hidden");
-    el("btn-loops").classList.add("active");
+    el("sheet-loops").classList.add("active");
     renderStartLabel();
     renderResult();
     setBusy(false, "");

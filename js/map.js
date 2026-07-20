@@ -114,6 +114,21 @@ const LAYER_ORDER = [
   "hillshade", "trails", "mtb", "ski", "rain",
 ];
 
+// Libellés + opacité minimale par calque — source unique consommée par le sélecteur de
+// carte ET la liste de calques de la bibliothèque (navview.js), qui ne scrape plus le DOM.
+export const LAYER_META = {
+  plan: { label: "Plan (OpenStreetMap)", min: 15 },
+  topo: { label: "Topographique", min: 15 },
+  satellite: { label: "Satellite", min: 15 },
+  sombre: { label: "Sombre", min: 15 },
+  terrainhd: { label: "Terrain HD", min: 15 },
+  hillshade: { label: "Relief (ombrage)", min: 10 },
+  trails: { label: "Sentiers balisés", min: 15 },
+  mtb: { label: "VTT balisé", min: 15 },
+  ski: { label: "Ski — pistes et itinéraires", min: 15 },
+  rain: { label: "Précipitations (radar direct)", min: 15 },
+};
+
 // ---------- Zooms ----------
 // MapLibre compte les zooms pour des tuiles de 512 px ; le projet — et tous les
 // fournisseurs de tuiles utilisés — raisonne en tuiles de 256 px, comme Leaflet.
@@ -471,11 +486,16 @@ export function applyLayer(name) {
     map.setLayoutProperty(`lyr-${name}`, "visibility", cfg.on ? "visible" : "none");
     map.setPaintProperty(`lyr-${name}`, "raster-opacity", cfg.op / 100);
   });
-  // Toutes les rangées de ce calque (panneau carte + onglet Navigation) restent en phase
-  document.querySelectorAll(`.layer-row[data-layer="${name}"]`).forEach((row) => {
-    row.querySelector("input[type=checkbox]").checked = cfg.on;
-    row.querySelector(".layer-op").value = cfg.op;
-    row.querySelector(".op-val").textContent = `${cfg.op}%`;
+  // Toutes les présentations de ce calque restent en phase : cartes-aperçu + rangées de
+  // surcouches du sélecteur refondu, ET la liste de calques de la bibliothèque (.layer-row).
+  document.querySelectorAll(`[data-layer="${name}"]`).forEach((row) => {
+    row.classList.toggle("active", cfg.on);
+    const cb = row.querySelector("input[type=checkbox]");
+    if (cb) cb.checked = cfg.on;
+    const op = row.querySelector(".layer-op");
+    if (op) op.value = cfg.op;
+    const ov = row.querySelector(".op-val");
+    if (ov) ov.textContent = `${cfg.op}%`;
   });
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
   updateZoomCap();
@@ -1018,13 +1038,31 @@ export function initMap() {
     layersPanel.classList.toggle("hidden")
   );
 
-  document.querySelectorAll(".layer-row[data-layer]").forEach((row) => {
+  // Cartes-aperçu (fonds) : le clic sur la vignette bascule le calque ; le curseur règle
+  // l'opacité (isolé du clic pour ne pas re-basculer la carte). Sur-agrandissement inchangé.
+  document.querySelectorAll(".layer-card[data-layer]").forEach((card) => {
+    const name = card.dataset.layer;
+    const thumb = card.querySelector(".layer-thumb");
+    const toggle = () => { layersConfig[name].on = !layersConfig[name].on; applyLayer(name); };
+    thumb.addEventListener("click", toggle);
+    thumb.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+    card.querySelector(".layer-op")?.addEventListener("input", (e) => {
+      e.stopPropagation();
+      layersConfig[name].op = Number(e.target.value);
+      applyLayer(name);
+    });
+  });
+
+  // Surcouches (relief, sentiers, VTT, ski, pluie) : interrupteur + opacité fine.
+  document.querySelectorAll(".overlay-row[data-layer]").forEach((row) => {
     const name = row.dataset.layer;
     row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
       layersConfig[name].on = e.target.checked;
       applyLayer(name);
     });
-    row.querySelector(".layer-op").addEventListener("input", (e) => {
+    row.querySelector(".layer-op")?.addEventListener("input", (e) => {
       layersConfig[name].op = Number(e.target.value);
       applyLayer(name);
     });
@@ -1032,7 +1070,7 @@ export function initMap() {
 
   LAYER_ORDER.forEach(applyLayer);
 
-  document.querySelectorAll(".layer-row[data-poi]").forEach((row) => {
+  document.querySelectorAll(".overlay-row[data-poi]").forEach((row) => {
     const kind = row.dataset.poi;
     row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
       poiState[kind].on = e.target.checked;

@@ -689,7 +689,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 
 .layers-panel {
-  width: 300px;
+  width: 320px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -766,6 +766,65 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .switch input:checked + .slider-sw { background: var(--red); border-color: var(--red); }
 .switch input:checked + .slider-sw::before { transform: translateX(16px); background: #fff; }
+
+/* ===== Sélecteur de calques refondu (S-V2-EXPLORER-B) : aperçus visuels ===== */
+.layer-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.layer-card { display: flex; flex-direction: column; gap: 4px; }
+.layer-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: box-shadow 0.15s ease-out, transform 0.1s ease-out;
+}
+.layer-thumb:hover { transform: translateY(-1px); }
+.layer-card.active .layer-thumb { box-shadow: inset 0 0 0 2px var(--red), 0 0 0 2px var(--red); }
+.layer-check {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px;
+  display: none; align-items: center; justify-content: center;
+  background: var(--red); color: #fff;
+  border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 800;
+}
+.layer-card.active .layer-check { display: flex; }
+.layer-card-name { font-size: 11.5px; font-weight: 700; text-align: center; color: var(--text-soft); }
+.layer-card.active .layer-card-name { color: var(--text); }
+.layer-card .layer-op { display: none; width: 100%; accent-color: var(--red); height: 3px; margin: 0; }
+.layer-card.active .layer-op { display: block; }
+
+.overlay-list { display: flex; flex-direction: column; gap: 1px; }
+.overlay-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: "ic name sw" ". op op";
+  align-items: center;
+  column-gap: 10px; row-gap: 4px;
+  padding: 7px 5px;
+  border-radius: var(--radius);
+  transition: background 0.12s ease-out;
+}
+.overlay-row:hover { background: var(--surface-2); }
+.overlay-ic { grid-area: ic; font-size: 15px; width: 22px; text-align: center; }
+.overlay-name { grid-area: name; font-size: 12.5px; font-weight: 600; }
+.overlay-row .switch { grid-area: sw; }
+.overlay-row .layer-op { grid-area: op; display: none; accent-color: var(--red); height: 3px; margin: 2px 0 0; }
+.overlay-row.active .layer-op { display: block; }
+
+/* Bouton « Charger les randos de cette zone » dans la feuille Explorer */
+.sheet-load {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 0 var(--sp-3) var(--sp-2);
+}
+.sheet-load svg { width: 18px; height: 18px; }
 
 .poi-marker {
   font-size: 16px;

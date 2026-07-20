@@ -491,6 +491,9 @@ export function renderDetail(id) {
   document.getElementById("btn-gpx").addEventListener("click", () => downloadGPX(t));
   document.getElementById("btn-itinerary").addEventListener("click", () => {
     switchTab("carte");
+    // Sur mobile, réduire la feuille Explorer pour ne pas couvrir le tracé qu'on vient d'ouvrir.
+    if (window.matchMedia("(max-width: 700px)").matches)
+      document.getElementById("results-panel")?.classList.add("sheet-collapsed");
     // Sur la carte uniquement : la fiche ne doit pas se rouvrir par-dessus
     setTimeout(() => selectTrail(id, { openDetail: false }), 100);
   });

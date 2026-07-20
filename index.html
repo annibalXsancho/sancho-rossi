@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=547" />
+  <link rel="stylesheet" href="css/style.css?v=548" />
   <script type="importmap">
     {
       "imports": {
@@ -29,10 +29,10 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=533",
-        "./js/filters.js": "./js/filters.js?v=505",
+        "./js/map.js": "./js/map.js?v=534",
+        "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=531",
-        "./js/detail.js": "./js/detail.js?v=536",
+        "./js/detail.js": "./js/detail.js?v=537",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
         "./js/metrics.js": "./js/metrics.js?v=520",
@@ -40,16 +40,16 @@
         "./js/profile.js": "./js/profile.js?v=526",
         "./js/planner.js": "./js/planner.js?v=531",
         "./js/annotations.js": "./js/annotations.js?v=501",
-        "./js/loops.js": "./js/loops.js?v=524",
+        "./js/loops.js": "./js/loops.js?v=525",
         "./js/geosearch.js": "./js/geosearch.js?v=524",
         "./js/nav.js": "./js/nav.js?v=509",
-        "./js/navview.js": "./js/navview.js?v=502",
+        "./js/navview.js": "./js/navview.js?v=503",
         "./js/security.js": "./js/security.js?v=516",
         "./js/ui.js": "./js/ui.js?v=529",
         "./js/offline.js": "./js/offline.js?v=528",
         "./js/packdialog.js": "./js/packdialog.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
-        "./js/explorer.js": "./js/explorer.js?v=501",
+        "./js/explorer.js": "./js/explorer.js?v=502",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
       }
     }
@@ -156,115 +156,113 @@
       </div>
 
       <!-- Pile de contrôles à droite : filtres, liste, calques, position, circuit -->
+      <!-- Chrome de carte apaisée (S-V2-EXPLORER-B) : seuls calques, position, relief 3D et
+           planificateur flottent. Filtres, liste, boucle et « charger les randos » sont passés
+           dans le panneau glissant. -->
       <div class="layers-control map-stack" id="layers-control">
-        <button class="map-ctl map-ctl-badged" id="btn-filters-map" title="Filtres" aria-label="Filtres">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
-          <span id="filters-badge" class="filters-badge hidden"></span>
-        </button>
-        <button class="map-ctl map-list-btn" id="btn-list" title="Liste des itinéraires" aria-label="Liste des itinéraires">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
-        </button>
         <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte" aria-label="Calques de carte">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
         </button>
+        <!-- Position : flèche de navigation inclinée façon AllTrails. -->
         <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
         </button>
         <!-- Relief 3D : incline la carte sur le terrain réel (Terrarium). Togglable. -->
         <button class="map-ctl" id="btn-3d" title="Relief 3D" aria-label="Basculer le relief 3D" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5h18"/><path d="m5 19.5 5.2-10.5 3.1 6 2-3.4 3.7 7.9"/></svg>
         </button>
-        <!-- Points de passage reliés (icône propre au planificateur). -->
-        <button class="map-ctl" id="btn-planner" title="Planifier un itinéraire" aria-label="Planifier un itinéraire">
+        <!-- Créer un itinéraire (planificateur) : points de passage reliés. -->
+        <button class="map-ctl" id="btn-planner" title="Créer un itinéraire" aria-label="Créer un itinéraire">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18.5 9.5 11l5 3.5L19.5 5.5"/><circle cx="4.5" cy="18.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="9.5" cy="11" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19.5" cy="5.5" r="1.9" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="map-ctl" id="btn-loops" title="Générer une boucle clef en main" aria-label="Générer une boucle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 1-5.66 2.34"/><path d="M6 3.5 6.3 6.6 9.4 6.3"/></svg>
-        </button>
-        <button class="map-ctl" id="btn-load-trails" title="Charger les randos balisées de la zone affichée" aria-label="Charger les randos de la zone">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18c4 0 3-4 6-4s3-4 6-8" stroke-dasharray="1 3.2"/><circle cx="5" cy="18" r="1.5" fill="currentColor" stroke="none"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>
         </button>
         <!-- Boussole : posée en fin de pile pour que son apparition ne décale aucun autre
              bouton. Masquée tant que la carte n'est pas pivotée (js/map.js initCompass). -->
         <button class="map-ctl hidden" id="btn-compass" title="Remettre le nord en haut" aria-label="Remettre le nord en haut">
           <svg class="compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.2 8.8 10.4 10.4 8.8 15.2 13.6 13.6Z" fill="currentColor" stroke="none"/><path d="M12 1.8v2"/></svg>
         </button>
+
+        <!-- Sélecteur de calques refondu : cartes-aperçu (fonds) + pastilles (surcouches, POI). -->
         <div class="layers-panel hidden" id="layers-panel">
           <div class="layers-title">Fond de carte</div>
-
-          <div class="layer-row" data-layer="plan">
-            <label class="switch"><input type="checkbox" checked /><span class="slider-sw"></span></label>
-            <span class="layer-name">Plan (OpenStreetMap)</span>
-            <input type="range" class="layer-op" min="15" max="100" value="100" />
-            <span class="op-val">100%</span>
-          </div>
-          <div class="layer-row" data-layer="topo">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Topographique</span>
-            <input type="range" class="layer-op" min="15" max="100" value="100" />
-            <span class="op-val">100%</span>
-          </div>
-          <div class="layer-row" data-layer="satellite">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Satellite</span>
-            <input type="range" class="layer-op" min="15" max="100" value="100" />
-            <span class="op-val">100%</span>
-          </div>
-          <div class="layer-row" data-layer="sombre">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Sombre</span>
-            <input type="range" class="layer-op" min="15" max="100" value="100" />
-            <span class="op-val">100%</span>
-          </div>
-          <div class="layer-row" data-layer="terrainhd">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Terrain HD</span>
-            <input type="range" class="layer-op" min="15" max="100" value="100" />
-            <span class="op-val">100%</span>
-          </div>
-          <div class="layer-row" data-layer="hillshade">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Relief (ombrage)</span>
-            <input type="range" class="layer-op" min="10" max="100" value="45" />
-            <span class="op-val">45%</span>
-          </div>
-          <div class="layer-row" data-layer="trails">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Sentiers balisés</span>
-            <input type="range" class="layer-op" min="15" max="100" value="85" />
-            <span class="op-val">85%</span>
-          </div>
-          <div class="layer-row" data-layer="mtb">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">VTT balisé</span>
-            <input type="range" class="layer-op" min="15" max="100" value="85" />
-            <span class="op-val">85%</span>
-          </div>
-          <div class="layer-row" data-layer="ski">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Ski — pistes et itinéraires</span>
-            <input type="range" class="layer-op" min="15" max="100" value="85" />
-            <span class="op-val">85%</span>
-          </div>
-          <div class="layer-row" data-layer="rain">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">Précipitations (radar direct)</span>
-            <input type="range" class="layer-op" min="15" max="100" value="70" />
-            <span class="op-val">70%</span>
+          <div class="layer-cards">
+            <div class="layer-card" data-layer="plan">
+              <div class="layer-thumb" role="button" tabindex="0" aria-label="Plan" style="background-image:url('assets/layer-previews/plan.png')"><span class="layer-check">✓</span></div>
+              <div class="layer-card-name">Plan</div>
+              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Plan" />
+            </div>
+            <div class="layer-card" data-layer="topo">
+              <div class="layer-thumb" role="button" tabindex="0" aria-label="Topographique" style="background-image:url('assets/layer-previews/topo.png')"><span class="layer-check">✓</span></div>
+              <div class="layer-card-name">Topo</div>
+              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Topographique" />
+            </div>
+            <div class="layer-card" data-layer="satellite">
+              <div class="layer-thumb" role="button" tabindex="0" aria-label="Satellite" style="background-image:url('assets/layer-previews/satellite.jpg')"><span class="layer-check">✓</span></div>
+              <div class="layer-card-name">Satellite</div>
+              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Satellite" />
+            </div>
+            <div class="layer-card" data-layer="sombre">
+              <div class="layer-thumb" role="button" tabindex="0" aria-label="Sombre" style="background-image:url('assets/layer-previews/sombre.png')"><span class="layer-check">✓</span></div>
+              <div class="layer-card-name">Sombre</div>
+              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Sombre" />
+            </div>
+            <div class="layer-card" data-layer="terrainhd">
+              <div class="layer-thumb" role="button" tabindex="0" aria-label="Terrain" style="background-image:url('assets/layer-previews/terrainhd.jpg')"><span class="layer-check">✓</span></div>
+              <div class="layer-card-name">Terrain</div>
+              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Terrain" />
+            </div>
           </div>
 
-          <div class="layers-title">Couches — points d'intérêt</div>
-          <div class="layer-row poi-row" data-poi="water">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">💧 Eau potable et sources</span>
+          <div class="layers-title">Surcouches</div>
+          <div class="overlay-list">
+            <div class="overlay-row" data-layer="hillshade">
+              <span class="overlay-ic">⛰️</span>
+              <span class="overlay-name">Relief (ombrage)</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+              <input type="range" class="layer-op" min="10" max="100" value="45" aria-label="Opacité relief" />
+            </div>
+            <div class="overlay-row" data-layer="trails">
+              <span class="overlay-ic">🥾</span>
+              <span class="overlay-name">Sentiers balisés</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité sentiers" />
+            </div>
+            <div class="overlay-row" data-layer="mtb">
+              <span class="overlay-ic">🚵</span>
+              <span class="overlay-name">VTT balisé</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité VTT" />
+            </div>
+            <div class="overlay-row" data-layer="ski">
+              <span class="overlay-ic">⛷️</span>
+              <span class="overlay-name">Ski — pistes et itinéraires</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité ski" />
+            </div>
+            <div class="overlay-row" data-layer="rain">
+              <span class="overlay-ic">🌧️</span>
+              <span class="overlay-name">Précipitations (radar direct)</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+              <input type="range" class="layer-op" min="15" max="100" value="70" aria-label="Opacité pluie" />
+            </div>
           </div>
-          <div class="layer-row poi-row" data-poi="huts">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">🏠 Refuges et abris</span>
-          </div>
-          <div class="layer-row poi-row" data-poi="rescue">
-            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            <span class="layer-name">⛑ Secours et bornes SOS</span>
+
+          <div class="layers-title">Points d'intérêt</div>
+          <div class="overlay-list">
+            <div class="overlay-row poi" data-poi="water">
+              <span class="overlay-ic">💧</span>
+              <span class="overlay-name">Eau potable et sources</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            </div>
+            <div class="overlay-row poi" data-poi="huts">
+              <span class="overlay-ic">🏠</span>
+              <span class="overlay-name">Refuges et abris</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            </div>
+            <div class="overlay-row poi" data-poi="rescue">
+              <span class="overlay-ic">⛑</span>
+              <span class="overlay-name">Secours et bornes SOS</span>
+              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+            </div>
           </div>
           <p class="muted poi-hint" id="poi-hint">Zoomez sur un massif : les points se chargent pour la zone affichée.</p>
         </div>
@@ -406,6 +404,10 @@
             <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection">🎲 Autre</button>
           </div>
           <div id="home-suggestions" class="cards-grid reco-grid"></div>
+          <button class="btn sheet-load" id="btn-load-trails" title="Charger les randos balisées de la zone affichée">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18c4 0 3-4 6-4s3-4 6-8" stroke-dasharray="1 3.2"/><circle cx="5" cy="18" r="1.5" fill="currentColor" stroke="none"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>
+            Charger les randos de cette zone
+          </button>
           <div class="results-head">
             <span id="results-count"></span>
             <button id="panel-collapse" title="Replier">⌄</button>

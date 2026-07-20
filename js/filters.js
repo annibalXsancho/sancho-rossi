@@ -188,7 +188,6 @@ export function initFilters() {
     filtersModal.classList.add("hidden");
   }
 
-  document.getElementById("btn-filters-map").addEventListener("click", openFilters);
   document.getElementById("filters-close").addEventListener("click", closeFilters);
   document.getElementById("filters-apply").addEventListener("click", closeFilters);
   filtersModal.addEventListener("click", (e) => { if (e.target === filtersModal) closeFilters(); });
