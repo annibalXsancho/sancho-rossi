@@ -2623,27 +2623,35 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   /* Le bandeau supérieur disparaît sur mobile : toute la hauteur d'écran revient à la
      carte. --header-h à 0 fait remonter <main> et la fiche au ras du haut. Le logo vit
      désormais au centre de la barre du bas (un tap ramène à la carte). */
-  :root { --header-h: 0px; }
-  .header { display: none; }
+  /* Le header DEVIENT la barre du bas. Le tab-nav est SON enfant : on ne peut pas masquer le
+     header sans masquer les onglets (display:none purge tout le sous-arbre, position:fixed
+     compris). On masque donc seulement le logo de marque et les boutons GPX/♥, et on repose
+     le header en bas. --tabbar-h inclut le home indicator (safe-area) des téléphones à encoche. */
+  :root { --header-h: 0px; --tabbar-h: calc(54px + env(safe-area-inset-bottom, 0px)); }
+  .header {
+    top: auto;
+    bottom: 0;
+    height: var(--tabbar-h);
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+    gap: 0;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    z-index: 1400;
+  }
+  .header-brand, .header-nav { display: none; }
 
   .tab-nav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    flex: 1;
     height: 54px;
-    background: var(--bg);
-    border-top: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-around;
-    z-index: 1400;
   }
 
   .tab-nav-btn {
     flex: 1;
     font-size: 10.5px;
-    height: 100%;
+    height: 54px;
     border-bottom: none;
     border-top: 2px solid transparent;
   }
@@ -2669,8 +2677,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .tab-nav-logo.active { border-top: none; background: color-mix(in srgb, var(--red) 16%, var(--surface-2)); }
   .tab-nav-logo svg { display: block; width: 32px; height: 20px; }
 
-  main { bottom: 54px; }
-  .detail-panel { bottom: 54px; }
+  main { bottom: var(--tabbar-h); }
+  .detail-panel { bottom: var(--tabbar-h); }
   .view { padding: 18px 14px 80px; }
 
   .btn-filters { padding: 10px 12px; flex-shrink: 0; }
@@ -2684,8 +2692,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   /* Panneau d'Explorer en bottom-sheet glissable, posé au-dessus de la barre d'onglets.
      Même mécanique que le planificateur (S-PLAN-C) : --sheet-y piloté par le geste,
      .sheet-collapsed = position réduite (poignée + actions visibles). */
+  /* La feuille est enfant de #view-carte, qui s'arrête DÉJÀ au ras de la barre du bas
+     (main bottom = --tabbar-h) : bottom:0 la pose donc pile au-dessus des onglets, sans la
+     bande de carte parasite qu'un décalage de 54px laissait apparaître. */
   .explorer-sheet {
-    top: auto; bottom: 54px; left: 0;
+    top: auto; bottom: 0; left: 0;
     width: 100%; max-width: none;
     max-height: 74vh;
     --sheet-peek: 112px; /* hauteur laissée visible en position réduite : poignée + actions */
