@@ -505,20 +505,45 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .maplibregl-ctrl-group button + button { border-top: none !important; }
 .maplibregl-ctrl-group button { width: 34px; height: 34px; }
 
-/* Échelle : micro-étiquette, donc capitales espacées — discrète, posée sur la carte. */
-.maplibregl-ctrl-scale {
-  border: none;
-  border-bottom: 2px solid color-mix(in srgb, var(--text) 55%, transparent);
-  border-radius: 0;
-  background: none;
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 0 4px 2px;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+/* ---- Échelle : barre graduée à segments alternés (modèle AllTrails) ---- */
+/* Le trait fin du contrôle natif disparaissait sur le satellite et le topo chargé. Ici le
+   contraste ne dépend d'aucun fond : c'est le damier noir/blanc qui le porte, cerné d'un
+   liseré sombre — même principe que le tracé (écart de luminance, pas de teinte). */
+.map-scale {
+  position: absolute;
+  top: 66px;
+  left: 12px;
+  z-index: 999;
+  pointer-events: none;
+  user-select: none;
 }
+
+.map-scale-ticks {
+  position: relative;
+  height: 14px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.map-scale-ticks span { position: absolute; top: 0; white-space: nowrap; }
+.map-scale-ticks .tick-start { left: 0; }
+.map-scale-ticks .tick-mid { left: 50%; transform: translateX(-50%); }
+.map-scale-ticks .tick-end { right: 0; }
+
+.map-scale-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 1px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(9, 9, 11, 0.85), 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.map-scale-bar i { flex: 1; background: #fff; }
+.map-scale-bar i:nth-child(even) { background: #0b0b0c; }
 
 .maplibregl-ctrl-attrib {
   border-radius: var(--radius-full) !important;
@@ -544,9 +569,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
      suffit à zoomer. Le contrôle reste au desktop, où il ne gêne rien. (S-V2-EXPLORER-B
      le retirera partout, au profit de la seule localisation.) */
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; }
-  /* Échelle et attribution dégagées de la barre d'onglets. */
+  /* Attribution dégagée de la barre d'onglets. */
   .maplibregl-ctrl-bottom-left,
   .maplibregl-ctrl-bottom-right { margin-bottom: 42px; }
+  /* La barre de recherche passe sous le bandeau : l'échelle descend d'autant. */
+  .map-scale { top: 60px; left: 10px; }
 }
 
 .layers-panel {

@@ -766,6 +766,57 @@ function enableLongPress(onLongPress) {
   canvas.addEventListener("touchcancel", cancel, { passive: true });
 }
 
+// ---------- Échelle ----------
+// Le `ScaleControl` natif est un trait fin d'un pixel avec une étiquette : sur une photo
+// satellite ou un topo chargé, il disparaît. Modèle retenu (choix utilisateur, capture
+// AllTrails du 20/07/2026) : une **barre graduée à segments alternés** noir/blanc, dont le
+// damier porte lui-même le contraste, quel que soit le fond.
+const SCALE_MAX_PX = 132;   // largeur maximale allouée à la barre
+const SCALE_SEGMENTS = 4;
+const SCALE_MID_MIN_PX = 108;  // en deçà, la graduation médiane chevauche celle de droite
+
+// Plus grande distance « ronde » (1, 2 ou 5 × 10ⁿ) tenant dans la largeur allouée : c'est
+// ce qui donne des graduations lisibles (0 · 10 · 20 km) plutôt qu'un « 17,3 km ».
+function niceDistance(meters) {
+  const pow = 10 ** Math.floor(Math.log10(meters));
+  const fits = [1, 2, 5, 10].map((f) => f * pow).filter((v) => v <= meters);
+  return fits.length ? Math.max(...fits) : pow;
+}
+
+const formatDistance = (m) =>
+  m >= 1000 ? `${+(m / 1000).toFixed(m % 1000 ? 1 : 0)} km` : `${Math.round(m)} m`;
+
+function initScale() {
+  const host = document.getElementById("map-scale");
+  const ticksEl = document.getElementById("map-scale-ticks");
+  const barEl = document.getElementById("map-scale-bar");
+  if (!host) return;
+
+  const update = () => {
+    const y = map.getCanvas().clientHeight / 2;
+    // Mesuré au milieu de l'écran : la distance couverte par un pixel varie avec la
+    // latitude, la lire au centre est ce qui reflète le mieux ce que l'utilisateur voit.
+    const span = map.unproject([0, y]).distanceTo(map.unproject([SCALE_MAX_PX, y]));
+    if (!(span > 0)) return;
+    const total = niceDistance(span);
+    const px = (SCALE_MAX_PX * total) / span;
+    host.style.width = `${px}px`;
+
+    barEl.innerHTML = Array.from({ length: SCALE_SEGMENTS }, () => "<i></i>").join("");
+    // La graduation médiane n'apparaît que si la barre est assez large pour la porter :
+    // en dessous, « 500 m » et « 1 km » se chevauchaient (constaté à z13 sur mobile).
+    const ticks = px >= SCALE_MID_MIN_PX ? [0, total / 2, total] : [0, total];
+    const classes = ticks.length === 3 ? ["start", "mid", "end"] : ["start", "end"];
+    ticksEl.innerHTML = ticks
+      .map((v, i) => `<span class="tick-${classes[i]}">${v === 0 ? "0" : formatDistance(v)}</span>`)
+      .join("");
+  };
+
+  map.on("move", update);
+  map.on("zoom", update);
+  update();
+}
+
 // ---------- Boussole ----------
 // Épuré par défaut : le bouton n'existe à l'écran que si la carte est effectivement
 // pivotée. Un tap remet le nord. La rotation elle-même (deux doigts, clic droit glissé)
@@ -787,8 +838,8 @@ function initCompass() {
 
 export function initMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), "bottom-right");
-  map.addControl(new maplibregl.ScaleControl({ maxWidth: 96, unit: "metric" }), "bottom-left");
   map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+  initScale();
   initCompass();
 
   const layersControl = document.getElementById("layers-control");

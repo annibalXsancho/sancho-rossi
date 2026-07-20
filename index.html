@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=538" />
+  <link rel="stylesheet" href="css/style.css?v=540" />
   <script type="importmap">
     {
       "imports": {
@@ -28,7 +28,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=527",
+        "./js/map.js": "./js/map.js?v=529",
         "./js/filters.js": "./js/filters.js?v=504",
         "./js/trails.js": "./js/trails.js?v=530",
         "./js/detail.js": "./js/detail.js?v=533",
@@ -175,6 +175,14 @@
     <!-- ============ CARTE ============ -->
     <section id="view-carte" class="view hidden">
       <div id="map"></div>
+
+      <!-- Échelle : barre graduée à segments alternés, façon AllTrails — c'est le contraste
+           noir/blanc du damier qui la rend lisible sur le topo comme sur le satellite.
+           Remplie par js/map.js (initScale). -->
+      <div class="map-scale" id="map-scale" aria-hidden="true">
+        <div class="map-scale-ticks" id="map-scale-ticks"></div>
+        <div class="map-scale-bar" id="map-scale-bar"></div>
+      </div>
 
       <div class="map-topbar">
         <div class="map-search">
