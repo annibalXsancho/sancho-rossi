@@ -18,10 +18,9 @@ export function initExplorer() {
   const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
 
   // ---------- Actions rapides ----------
-  // Planifier réutilise le point d'entrée existant (#btn-planner de la pile carte, conservé).
-  // La Boucle (#sheet-loops) et « Charger la zone » (#btn-load-trails) sont câblées
-  // directement par leurs modules (loops.js / catalog.js). Filtres et « Mes randos » ici.
-  el("sheet-planner")?.addEventListener("click", () => el("btn-planner")?.click());
+  // Planifier (#sheet-planner), Boucle (#sheet-loops) et « Charger la zone »
+  // (#btn-load-trails) sont câblés directement par leurs modules (planner.js / loops.js /
+  // catalog.js). Filtres et « Mes randos » ici.
   el("sheet-filters")?.addEventListener("click", openFilters);
   el("sheet-library")?.addEventListener("click", () => switchTab("itineraires"));
 

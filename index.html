@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=550" />
+  <link rel="stylesheet" href="css/style.css?v=551" />
   <script type="importmap">
     {
       "imports": {
@@ -29,7 +29,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=534",
+        "./js/map.js": "./js/map.js?v=535",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=531",
         "./js/detail.js": "./js/detail.js?v=537",
@@ -38,10 +38,10 @@
         "./js/metrics.js": "./js/metrics.js?v=520",
         "./js/surface.js": "./js/surface.js?v=522",
         "./js/profile.js": "./js/profile.js?v=526",
-        "./js/planner.js": "./js/planner.js?v=531",
+        "./js/planner.js": "./js/planner.js?v=532",
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=525",
-        "./js/geosearch.js": "./js/geosearch.js?v=524",
+        "./js/geosearch.js": "./js/geosearch.js?v=525",
         "./js/nav.js": "./js/nav.js?v=509",
         "./js/navview.js": "./js/navview.js?v=503",
         "./js/security.js": "./js/security.js?v=516",
@@ -49,7 +49,7 @@
         "./js/offline.js": "./js/offline.js?v=528",
         "./js/packdialog.js": "./js/packdialog.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
-        "./js/explorer.js": "./js/explorer.js?v=502",
+        "./js/explorer.js": "./js/explorer.js?v=503",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
       }
     }
@@ -136,17 +136,13 @@
         <button class="map-ctl layers-toggle" id="layers-toggle" title="Calques de carte" aria-label="Calques de carte">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
         </button>
-        <!-- Position : flèche de navigation inclinée façon AllTrails. -->
-        <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
-          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
-        </button>
-        <!-- Relief 3D : incline la carte sur le terrain réel (Terrarium). Togglable. -->
+        <!-- Relief 3D : posé juste sous les calques (demande utilisateur). Togglable. -->
         <button class="map-ctl" id="btn-3d" title="Relief 3D" aria-label="Basculer le relief 3D" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5h18"/><path d="m5 19.5 5.2-10.5 3.1 6 2-3.4 3.7 7.9"/></svg>
         </button>
-        <!-- Créer un itinéraire (planificateur) : points de passage reliés. -->
-        <button class="map-ctl" id="btn-planner" title="Créer un itinéraire" aria-label="Créer un itinéraire">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 18.5 9.5 11l5 3.5L19.5 5.5"/><circle cx="4.5" cy="18.5" r="1.9" fill="currentColor" stroke="none"/><circle cx="9.5" cy="11" r="1.5" fill="currentColor" stroke="none"/><circle cx="14.5" cy="14.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19.5" cy="5.5" r="1.9" fill="currentColor" stroke="none"/></svg>
+        <!-- Position : flèche de navigation inclinée façon AllTrails. -->
+        <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
         </button>
         <!-- Boussole : posée en fin de pile pour que son apparition ne décale aucun autre
              bouton. Masquée tant que la carte n'est pas pivotée (js/map.js initCompass). -->

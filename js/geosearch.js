@@ -225,6 +225,10 @@ export function initGeoSearch() {
 
   function openDock() {
     dock.classList.add("open");
+    // Sur mobile, ouvrir la recherche ramène la feuille Explorer en position basse (elle
+    // couvrirait la carte et les suggestions), cf. demande utilisateur.
+    if (window.matchMedia("(max-width: 700px)").matches)
+      document.getElementById("results-panel")?.classList.add("sheet-collapsed");
     // Ouvert, le champ occupe presque toute la largeur sur téléphone et passerait sur
     // l'attribution : on l'efface le temps de la saisie, elle revient à la fermeture.
     document.body.classList.add("search-open");

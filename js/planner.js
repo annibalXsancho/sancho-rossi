@@ -801,7 +801,7 @@ function exitPlanner() {
   document.body.classList.remove("loops-active");
   planner.sheetReset?.();
   el("plan-bar").classList.add("hidden");
-  el("btn-planner").classList.remove("active");
+  el("sheet-planner").classList.remove("active");
 }
 
 // ---------- Bottom-sheet glissable (mobile) ----------
@@ -894,7 +894,7 @@ export function initPlanner() {
     },
   });
 
-  el("btn-planner").addEventListener("click", () => {
+  el("sheet-planner").addEventListener("click", () => {
     if (planner.active) { exitPlanner(); return; }
     closeDetail();
     planner.active = true;
@@ -905,7 +905,7 @@ export function initPlanner() {
     document.body.classList.add("loops-active");
     el("plan-bar").classList.remove("hidden");
     planner.sheetReset?.(); // toujours ouverte à l'ouverture, jamais en position réduite héritée
-    el("btn-planner").classList.add("active");
+    el("sheet-planner").classList.add("active");
     render();
   });
 

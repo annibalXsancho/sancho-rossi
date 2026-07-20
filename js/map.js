@@ -1016,7 +1016,8 @@ export function set3D(on) {
 }
 
 export function initMap() {
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false, showZoom: true }), "bottom-right");
+  // Pas de NavigationControl : les boutons +/− sont retirés (pincement / molette suffisent) ;
+  // la boussole a son propre bouton (#btn-compass). Seule l'attribution OSM reste (obligatoire).
   map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
   // Relief 3D : incliner franchement (défaut MapLibre plafonné à 60°) donne la vue rasante
   // qui fait lire une vallée.
