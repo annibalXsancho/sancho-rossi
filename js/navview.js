@@ -47,7 +47,7 @@ function renderSession() {
 
   const tick = () => {
     const cur = navSession();
-    if (!cur || state.view !== "navigation") { clearInterval(elapsedTimer); elapsedTimer = null; return; }
+    if (!cur || state.view !== "itineraires") { clearInterval(elapsedTimer); elapsedTimer = null; return; }
     const el = document.getElementById("nav-session-elapsed");
     if (el) el.textContent = fmtElapsed(Date.now() - cur.startedAt);
   };

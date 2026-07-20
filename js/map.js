@@ -939,6 +939,30 @@ function ensureDem() {
 
 export const is3D = () => terrain3d;
 
+// Géoloc à l'ouverture d'Explorer. `requestLocate` est la routine « ma position » posée
+// par initMap ; promptGeolocation ne la déclenche qu'UNE fois (flag persistant), au bon
+// moment (première carte affichée), et respecte un refus antérieur — jamais de relance.
+let requestLocate = null;
+let geolocPrompted = false;
+export function promptGeolocation() {
+  if (geolocPrompted) return;
+  geolocPrompted = true;
+  if (localStorage.getItem("sr-geoloc-asked")) return; // déjà proposé (accepté ou refusé)
+  if (!navigator.geolocation || !requestLocate) return;
+  const ask = () => { localStorage.setItem("sr-geoloc-asked", "1"); requestLocate(); };
+  if (navigator.permissions?.query) {
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((st) => {
+        if (st.state === "granted" || st.state === "prompt") ask();
+        else localStorage.setItem("sr-geoloc-asked", "1"); // refus déjà donné : on ne rappelle pas
+      })
+      .catch(ask); // permissions indisponibles : on laisse l'invite native décider
+  } else {
+    ask();
+  }
+}
+
 // Bascule le relief. `setTerrain(null)` remet la carte à plat sans reconstruire le style
 // (tracés et marqueurs conservés). Le ciel n'existe qu'en relief : posé/retiré avec lui.
 export function set3D(on) {
@@ -1059,7 +1083,7 @@ export function initMap() {
     });
   }
 
-  document.getElementById("btn-locate").addEventListener("click", () => {
+  function runLocate() {
     if (!navigator.geolocation) {
       toast("Géolocalisation indisponible sur cet appareil.", { type: "error" });
       return;
@@ -1077,7 +1101,9 @@ export function initMap() {
       (err) => toast(`Position introuvable : ${err.message}`, { type: "error" }),
       { enableHighAccuracy: true, timeout: 15000 }
     );
-  });
+  }
+  requestLocate = runLocate; // exposé à promptGeolocation (invite d'ouverture d'Explorer)
+  document.getElementById("btn-locate").addEventListener("click", runLocate);
 
   // Clic sur la carte : point de passage si le planificateur est ouvert, départ de
   // boucle si le générateur l'est, sinon referme les calques

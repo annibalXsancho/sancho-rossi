@@ -1,5 +1,5 @@
 // Sancho Rossi — rendu des cartes d'itinéraires, favoris, sélection, GPX import/export
-import { state, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js";
+import { state, getTrail, trackOf, trackDistanceKm } from "./state.js";
 import { ensureElevation } from "./api.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
@@ -39,6 +39,7 @@ export function cardHTML(t) {
 }
 
 function bindCardEvents(container) {
+  if (!container) return;
   container.addEventListener("click", (e) => {
     const favBtn = e.target.closest("[data-fav]");
     if (favBtn) {
@@ -68,30 +69,11 @@ export function renderList() {
   updateFiltersBadge(trails.length);
 }
 
-function renderGrid() {
-  const trails = filteredTrails();
-  const total = allTrails().length;
-  document.getElementById("grid-count").textContent = `(${trails.length}/${total})`;
-  document.getElementById("grid-list").innerHTML = trails.length
-    ? trails.map(cardHTML).join("")
-    : `<div class="empty-state"><div class="empty-icon">🥾</div><p>Aucun itinéraire ne correspond aux filtres.</p></div>`;
-}
-
-// Le bloc d'idées de l'accueil (#home-suggestions) est rendu par recommend.js (S9,
-// météo/saison/favoris, re-mélangeable) : renderHome ne touche qu'au sous-titre pour
-// ne pas l'écraser à chaque re-rendu de liste.
-function renderHome() {
-  document.getElementById("home-tagline").textContent =
-    `Toute l'Europe · ${allTrails().length} itinéraires chargés · sentiers balisés à la demande · sans compte, hors-ligne.`;
-}
-
-// Rafraîchit listes / grille / accueil SANS re-rendre la fiche ouverte. À utiliser pour
-// les rafraîchissements en tâche de fond (chargement de zone catalog) : re-rendre la fiche
+// Rafraîchit la liste d'Explorer SANS re-rendre la fiche ouverte. À utiliser pour les
+// rafraîchissements en tâche de fond (chargement de zone catalog) : re-rendre la fiche
 // détruirait l'onglet actif (on retombait sur l'Aperçu au moment de charger la vue 3D).
 export function renderLists() {
   renderList();
-  renderGrid();
-  renderHome();
 }
 
 export function renderAll() {
@@ -312,9 +294,7 @@ export function deleteImported(id) {
 
 export function initTrails() {
   bindCardEvents(document.getElementById("trail-list"));
-  bindCardEvents(document.getElementById("grid-list"));
   bindCardEvents(document.getElementById("home-suggestions"));
-  bindCardEvents(document.getElementById("agent-output"));
 
   const favBtnEl = document.getElementById("btn-favorites");
   favBtnEl.addEventListener("click", () => {
@@ -349,19 +329,4 @@ export function initTrails() {
     }
     if (errors.length) toast("Import impossible — " + errors.join(" · "), { type: "error" });
   });
-
-  // Liste repliable. Le bouton « Liste » de la barre reste le point de ré-ouverture
-  // (la flèche de repli disparaît avec le panneau qui glisse hors écran).
-  const resultsPanel = document.getElementById("results-panel");
-  const listBtn = document.getElementById("btn-list");
-  const syncListBtn = () =>
-    listBtn.classList.toggle("active", !resultsPanel.classList.contains("collapsed"));
-  const toggleList = () => {
-    resultsPanel.classList.toggle("collapsed");
-    syncListBtn();
-  };
-  listBtn.addEventListener("click", toggleList);
-  document.getElementById("panel-collapse").addEventListener("click", toggleList);
-  if (window.innerWidth < 700) resultsPanel.classList.add("collapsed"); // mobile : repliée
-  syncListBtn();
 }

@@ -193,6 +193,10 @@ button { color: inherit; }
 .tab-nav-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .tab-nav-btn svg { width: 22px; height: 22px; display: none; flex-shrink: 0; }
 
+/* Onglet central logo : masqué sur desktop (le header-brand couvre déjà le retour carte),
+   révélé au centre de la barre du bas sur mobile (voir @media 700px). */
+.tab-nav-logo { display: none; }
+
 .header-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .nav-btn {
@@ -1229,6 +1233,66 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .results-panel.collapsed { transform: translateX(calc(-100% - 18px)); }
 
+/* ============ Panneau glissant d'Explorer (bottom-sheet) ============ */
+.explorer-sheet { padding: 0; }
+
+/* Poignée : visible seulement en feuille mobile (voir @media 700px). */
+.sheet-grip { display: none; }
+
+.sheet-actions {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  flex: none;
+}
+.sheet-act {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px 4px;
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+}
+.sheet-act svg { width: 20px; height: 20px; }
+.sheet-act:hover { background: var(--surface-3); color: var(--red); }
+.sheet-act:active { transform: translateY(1px); }
+.sheet-act .filters-badge { position: absolute; top: 5px; right: calc(50% - 26px); }
+
+.sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-reco-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3) 6px;
+}
+.sheet-reco-head .reco-shuffle { font-size: 11px; padding: 4px 8px; min-height: 0; }
+
+/* Cartes d'idées dans un panneau étroit : une colonne, marges resserrées. */
+.explorer-sheet .reco-grid { grid-template-columns: 1fr; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-2); margin: 0; }
+.explorer-sheet .reco-grid:empty { display: none; }
+
+/* La feuille scrolle d'un bloc : la liste et les résultats OSM ne créent pas leur
+   propre zone de défilement imbriquée. */
+.explorer-sheet .trail-list { flex: none; overflow: visible; }
+.explorer-sheet #osm-results { max-height: none; overflow: visible; }
+
 .results-head {
   display: flex;
   align-items: center;
@@ -2121,7 +2185,14 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   padding: 18px 22px;
 }
 
-#view-securite .settings-group { max-width: 760px; }
+/* Titre de section dans Réglages (ex. « Sécurité » fusionnée) : sépare les groupes. */
+.settings-section-title {
+  max-width: 640px;
+  margin: 28px auto 12px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
 
 .settings-group h3 {
   font-size: 12px;
@@ -2240,7 +2311,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .navview-info .muted { font-size: 12px; }
 .navview-go { flex-shrink: 0; }
 #navview-layers .layer-row { padding: 6px 0; }
-#view-navigation .settings-group > .muted { font-size: 12px; margin-top: 10px; }
+#view-itineraires .settings-group > .muted { font-size: 12px; margin-top: 10px; }
 
 /* ============ Panneau de filtres partagé ============ */
 .btn-filters {
@@ -2490,6 +2561,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 /* Téléphone : barre d'onglets en bas, grandes cibles tactiles */
 @media (max-width: 700px) {
+  /* Le bandeau supérieur disparaît sur mobile : toute la hauteur d'écran revient à la
+     carte. --header-h à 0 fait remonter <main> et la fiche au ras du haut. Le logo vit
+     désormais au centre de la barre du bas (un tap ramène à la carte). */
+  :root { --header-h: 0px; }
+  .header { display: none; }
+
   .tab-nav {
     position: fixed;
     left: 0;
@@ -2499,6 +2576,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
     background: var(--bg);
     border-top: 1px solid var(--border);
     display: flex;
+    align-items: center;
     justify-content: space-around;
     z-index: 1400;
   }
@@ -2506,6 +2584,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .tab-nav-btn {
     flex: 1;
     font-size: 10.5px;
+    height: 100%;
     border-bottom: none;
     border-top: 2px solid transparent;
   }
@@ -2515,6 +2594,21 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .tab-nav-btn { flex-direction: column; gap: 0; padding: 0 4px; }
   .tab-nav-btn svg { display: block; }
   .tab-nav-btn .tab-label { display: none; }
+
+  /* Bouton central logo : pastille ronde, sans liseré rouge d'onglet. */
+  .tab-nav-logo {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 46px; height: 46px;
+    margin: 0 6px;
+    border-top: none;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-soft);
+    color: var(--text);
+  }
+  .tab-nav-logo.active { border-top: none; background: color-mix(in srgb, var(--red) 16%, var(--surface-2)); }
+  .tab-nav-logo svg { display: block; width: 32px; height: 20px; }
 
   main { bottom: 54px; }
   .detail-panel { bottom: 54px; }
@@ -2527,7 +2621,44 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
      hauteur de celle-ci ferait flotter le bouton bien trop haut. */
   .map-search-dock { right: 10px; bottom: 10px; }
   .map-stack .layers-panel { right: 50px; max-width: calc(100vw - 74px); }
-  .results-panel { top: 64px; bottom: 76px; }
+
+  /* Panneau d'Explorer en bottom-sheet glissable, posé au-dessus de la barre d'onglets.
+     Même mécanique que le planificateur (S-PLAN-C) : --sheet-y piloté par le geste,
+     .sheet-collapsed = position réduite (poignée + actions visibles). */
+  .explorer-sheet {
+    top: auto; bottom: 54px; left: 0;
+    width: 100%; max-width: none;
+    max-height: 74vh;
+    --sheet-peek: 112px; /* hauteur laissée visible en position réduite : poignée + actions */
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transform: translateY(0);
+    transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+    touch-action: pan-y;
+  }
+  /* Position réduite pilotée en CSS (100 % = hauteur réelle du panneau) : indépendante de
+     la quantité de contenu, donc jamais faussée par une liste qui se remplit après le boot. */
+  .explorer-sheet.sheet-collapsed { transform: translateY(calc(100% - var(--sheet-peek))); }
+  /* Pendant le glissement, --sheet-y (px) pilote la position, sans transition. */
+  .explorer-sheet.sheet-dragging { transition: none; transform: translateY(var(--sheet-y, 0px)); }
+  .explorer-sheet.sheet-noanim { transition: none; } /* placement initial instantané */
+
+  .explorer-sheet .sheet-grip {
+    display: block; flex: none; position: relative;
+    height: 20px; margin: 4px 0 0;
+    cursor: grab; touch-action: none;
+  }
+  .explorer-sheet .sheet-grip::before {
+    content: "";
+    position: absolute; left: 50%; top: 8px;
+    width: 42px; height: 4px;
+    transform: translateX(-50%);
+    border-radius: var(--radius-full);
+    background: var(--surface-3);
+  }
+  .explorer-sheet.sheet-collapsed .sheet-grip::before,
+  .explorer-sheet .sheet-grip:active::before { background: var(--text-soft); }
+  .explorer-sheet .sheet-actions { touch-action: none; } /* zone de préhension du glissement */
   .builder-bar { top: auto; bottom: 0; left: 0; transform: none; width: 100%; border-left: none; border-right: none; }
   /* Planificateur mobile : bottom-sheet GLISSABLE. On la tire vers le bas pour
      dégager la carte en grand (réduit = seuls la poignée et l'en-tête restent),
@@ -2741,7 +2872,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: opacity 0.2s ease-out; transform: none; }
   .toast.show, .toast.leaving { transform: none; }
-  .plan-panel { transition: none; } /* le snap de la bottom-sheet devient instantané */
+  .plan-panel, .explorer-sheet { transition: none; } /* le snap de la bottom-sheet devient instantané */
 }
 
 /* ============ S10 — Squelettes de chargement (pas de spinner brut) ============ */

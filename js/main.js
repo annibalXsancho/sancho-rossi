@@ -3,13 +3,12 @@
 import { state, BASE_TRAILS, getTrail } from "./state.js";
 import { initUi, refreshTilesCount, switchTab } from "./ui.js";
 import { initMap, addMarker } from "./map.js";
-import { initFilters, openFilters } from "./filters.js";
+import { initFilters } from "./filters.js";
 import { initRecommend, renderRecommendations } from "./recommend.js";
 import { initGeoSearch } from "./geosearch.js";
 import { initTrails, renderAll, renderFavCount } from "./trails.js";
 import { initDetail } from "./detail.js";
 import { initCatalog, hydrateCatalog } from "./catalog.js";
-import { initAgent } from "./agent.js";
 import { initPlanner } from "./planner.js";
 import { initLoops } from "./loops.js";
 import { initNav, startNavigation } from "./nav.js";
@@ -17,6 +16,7 @@ import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 import { initOffline } from "./offline.js";
+import { initExplorer } from "./explorer.js";
 import { initToast, toast } from "./toast.js";
 
 // Écran de chargement : retiré une fois l'app prête, avec une durée minimale d'affichage
@@ -41,18 +41,12 @@ initGeoSearch();
 initTrails();
 initDetail();
 initCatalog();
-initAgent();
 initPlanner();
 initLoops();
 initNav();
 initSecurity();
 initRecommend();
-
-// Pont accueil → recherche par critères : ouvre la modale de filtres sur la grille.
-document.getElementById("reco-criteria")?.addEventListener("click", () => {
-  switchTab("itineraires");
-  openFilters();
-});
+initExplorer();
 
 // ---------- Version affichée (Réglages) ----------
 const versionEl = document.getElementById("setting-version");
@@ -140,9 +134,9 @@ loadPersisted().then(async (persisted) => {
     toast("Navigation reprise — votre session a été restaurée.", { type: "success" });
   } else {
     if (savedNav) localStorage.removeItem("sr-nav");
-    const saved = localStorage.getItem("sr-view");
-    const name = saved === "itineraires" ? "navigation" : saved;
-    if (name && name !== "accueil" && document.getElementById(`view-${name}`)) switchTab(name);
+    // Écran par défaut : la carte Explorer plein écran. switchTab redimensionne la carte
+    // et propose la géoloc au bon moment (map.js promptGeolocation, une seule fois).
+    switchTab("carte");
   }
 
   loadWikiPhotos();

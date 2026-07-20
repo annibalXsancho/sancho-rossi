@@ -1,6 +1,6 @@
 // Sancho Rossi — coquille UI : thème, navigation par onglets, réglages
 import { state } from "./state.js";
-import { map, layersConfig, applyLayer, addMarker } from "./map.js";
+import { map, layersConfig, applyLayer, addMarker, promptGeolocation } from "./map.js";
 import { renderAll, renderFavCount } from "./trails.js";
 import { isDetailOpen, closeDetail, isFullMapOpen, closeFullMap, consumeSelfBack } from "./detail.js";
 import { renderSafety, saveContacts } from "./security.js";
@@ -28,10 +28,14 @@ export function switchTab(name) {
   document.querySelectorAll(".tab-nav-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
   );
-  if (name === "carte") setTimeout(() => map.resize(), 60);
-  if (name === "navigation") renderNavView();
-  if (name === "securite") renderSafety();
-  if (name === "reglages") renderOffline();
+  if (name === "carte") {
+    setTimeout(() => map.resize(), 60);
+    // Explorer : on propose la géoloc à la première ouverture (invite native au bon
+    // moment, refus mémorisé — jamais de relance). Voir map.js promptGeolocation.
+    promptGeolocation();
+  }
+  if (name === "itineraires") renderNavView();
+  if (name === "reglages") { renderOffline(); renderSafety(); }
 }
 
 // ---------- Réglages : packs offline + jauge de stockage (S5) ----------
@@ -108,7 +112,7 @@ export function initUi() {
   document.querySelectorAll(".tab-nav-btn").forEach((b) =>
     b.addEventListener("click", () => switchTab(b.dataset.view))
   );
-  document.getElementById("go-home").addEventListener("click", () => switchTab("accueil"));
+  document.getElementById("go-home").addEventListener("click", () => switchTab("carte"));
 
   // ---------- Réglages ----------
   const baseSelect = document.getElementById("setting-baselayer");

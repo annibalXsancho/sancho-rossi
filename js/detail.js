@@ -497,7 +497,7 @@ export function renderDetail(id) {
   document.getElementById("btn-follow").addEventListener("click", () => startNavigation(id));
   document.getElementById("btn-safety").addEventListener("click", () => {
     closeDetail();
-    switchTab("securite");
+    switchTab("reglages"); // la Sécurité (plan de marche) est fusionnée dans les Réglages
     const sel = document.getElementById("plan-trail");
     sel.value = id;
     sel.dispatchEvent(new Event("change"));

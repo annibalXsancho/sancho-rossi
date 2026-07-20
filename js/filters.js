@@ -157,8 +157,9 @@ export function refreshRegionOptions() {
 
 export function updateFiltersBadge(resultCount) {
   const n = activeFiltersCount();
-  ["filters-badge", "filters-badge-2"].forEach((id) => {
+  ["filters-badge", "sheet-filters-badge"].forEach((id) => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.textContent = n;
     el.classList.toggle("hidden", n === 0);
   });
@@ -188,7 +189,6 @@ export function initFilters() {
   }
 
   document.getElementById("btn-filters-map").addEventListener("click", openFilters);
-  document.getElementById("btn-filters-grid").addEventListener("click", openFilters);
   document.getElementById("filters-close").addEventListener("click", closeFilters);
   document.getElementById("filters-apply").addEventListener("click", closeFilters);
   filtersModal.addEventListener("click", (e) => { if (e.target === filtersModal) closeFilters(); });

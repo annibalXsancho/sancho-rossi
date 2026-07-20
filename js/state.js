@@ -1,11 +1,13 @@
 // Sancho Rossi — état central et utilitaires de tracés
 // Seul module autorisé en import top-level par les autres (feuille sans dépendance).
 
-// Graine curatée embarquée (script classique data.js, environnement lexical global).
+// Graine retirée en S-V2-EXPLORER-A : carte propre, tout via chargement à la demande
+// (catalog.js) + « Mes randos ». BASE_TRAILS reste un tableau vide — les rares
+// consommateurs historiques (photos, security) le parcourent sans cas particulier.
 export const BASE_TRAILS = typeof TRAILS !== "undefined" ? TRAILS : [];
 
 export const state = {
-  view: "accueil",
+  view: "carte",
   search: "",
   days: "",
   difficulty: "",
