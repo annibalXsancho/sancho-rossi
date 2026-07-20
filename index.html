@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=549" />
+  <link rel="stylesheet" href="css/style.css?v=550" />
   <script type="importmap">
     {
       "imports": {
@@ -64,20 +64,7 @@
 <body>
   <!-- Écran de chargement : fond noir, logo seul, version en bas — retiré au boot (main.js) -->
   <div id="splash" class="splash">
-    <img src="assets/logo-t.png?v=2" alt="Sancho Rossinante" class="splash-mark"
-      onerror="this.style.display='none';document.getElementById('splash-mark-fb').style.display='block'" />
-    <svg id="splash-mark-fb" class="splash-mark-fb" viewBox="0 0 120 70" aria-hidden="true">
-      <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round">
-        <path d="M60 64 C54 52 44 44 20 26" />
-        <path d="M46 47 C40 38 38 28 36 14" />
-        <path d="M34 38 C28 30 24 22 20 8" />
-        <path d="M24 29 C18 24 12 20 6 16" />
-        <path d="M60 64 C66 52 76 44 100 26" />
-        <path d="M74 47 C80 38 82 28 84 14" />
-        <path d="M86 38 C92 30 96 22 100 8" />
-        <path d="M96 29 C102 24 108 20 114 16" />
-      </g>
-    </svg>
+    <img src="assets/logo-t.png?v=2" alt="Sancho Rossinante" class="splash-mark" />
     <div class="splash-wordmark">
       <div class="splash-name">Sancho Rossinante</div>
       <div class="splash-ver" id="splash-ver"></div>
@@ -88,21 +75,7 @@
   </script>
   <header class="header">
     <div class="header-brand" id="go-home" title="Carte">
-      <img src="assets/logo-t.png?v=2" alt="Sancho Rossi" class="brand-img"
-        onload="document.getElementById('brand-svg').style.display='none'"
-        onerror="this.style.display='none'" />
-      <svg id="brand-svg" class="brand-logo" viewBox="0 0 120 70" aria-hidden="true">
-        <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round">
-          <path d="M60 64 C54 52 44 44 20 26" />
-          <path d="M46 47 C40 38 38 28 36 14" />
-          <path d="M34 38 C28 30 24 22 20 8" />
-          <path d="M24 29 C18 24 12 20 6 16" />
-          <path d="M60 64 C66 52 76 44 100 26" />
-          <path d="M74 47 C80 38 82 28 84 14" />
-          <path d="M86 38 C92 30 96 22 100 8" />
-          <path d="M96 29 C102 24 108 20 114 16" />
-        </g>
-      </svg>
+      <img src="assets/logo-t.png?v=2" alt="Sancho Rossi" class="brand-img" />
     </div>
 
     <!-- Barre à 3 onglets : Itinéraires | logo (carte) | Réglages. Sur mobile elle passe en
@@ -114,7 +87,7 @@
         <span class="tab-label">Itinéraires</span>
       </button>
       <button class="tab-nav-btn tab-nav-logo active" data-view="carte" title="Carte" aria-label="Carte">
-        <svg viewBox="0 0 120 70" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M60 64 C54 52 44 44 20 26"/><path d="M46 47 C40 38 38 28 36 14"/><path d="M34 38 C28 30 24 22 20 8"/><path d="M24 29 C18 24 12 20 6 16"/><path d="M60 64 C66 52 76 44 100 26"/><path d="M74 47 C80 38 82 28 84 14"/><path d="M86 38 C92 30 96 22 100 8"/><path d="M96 29 C102 24 108 20 114 16"/></g></svg>
+        <img src="assets/logo-t.png?v=2" alt="Carte" class="tab-logo-img" />
       </button>
       <button class="tab-nav-btn" data-view="reglages" title="Réglages">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="4" y1="16" x2="20" y2="16"/><circle cx="9" cy="8" r="2.4" fill="var(--bg)"/><circle cx="15" cy="16" r="2.4" fill="var(--bg)"/></svg>

@@ -168,7 +168,10 @@ button { color: inherit; }
 .header-brand { display: flex; align-items: center; cursor: pointer; }
 .brand-logo { width: 46px; height: 27px; color: var(--text); flex-shrink: 0; }
 .brand-img { height: 34px; max-width: 64px; object-fit: contain; flex-shrink: 0; }
-[data-theme="dark"] .brand-img, :root:not([data-theme="light"]) .brand-img { filter: invert(1) hue-rotate(180deg); }
+/* Le logo est noir sur transparent : inversé en blanc sur le thème sombre (marque du header
+   + bouton central de la barre du bas). Le splash gère déjà son inversion (.splash-mark). */
+[data-theme="dark"] .brand-img, :root:not([data-theme="light"]) .brand-img,
+[data-theme="dark"] .tab-logo-img, :root:not([data-theme="light"]) .tab-logo-img { filter: invert(1) hue-rotate(180deg); }
 
 .tab-nav { display: flex; gap: 2px; height: 100%; }
 
@@ -2675,7 +2678,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
     color: var(--text);
   }
   .tab-nav-logo.active { border-top: none; background: color-mix(in srgb, var(--red) 16%, var(--surface-2)); }
-  .tab-nav-logo svg { display: block; width: 32px; height: 20px; }
+  .tab-nav-logo .tab-logo-img { display: block; width: 34px; height: 34px; object-fit: contain; }
 
   main { bottom: var(--tabbar-h); }
   .detail-panel { bottom: var(--tabbar-h); }
