@@ -479,6 +479,76 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .map-stack .layers-panel { position: absolute; top: 0; right: 50px; }
 
+/* La boussole n'apparaît que si la carte est pivotée (js/map.js initCompass) : elle est
+   en fin de pile pour que son apparition ne décale aucun autre bouton. */
+#btn-compass { animation: compass-in 180ms ease-out; }
+#btn-compass.hidden { display: none; }
+.compass-needle { transition: transform 120ms linear; }
+@keyframes compass-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  #btn-compass { animation: none; }
+  .compass-needle { transition: none; }
+}
+
+/* ---- Contrôles natifs MapLibre alignés sur le style v2 ---- */
+/* Nuances de noir, angles adoucis, ombre douce — jamais de bordure 1px. */
+.maplibregl-ctrl-group {
+  border: none !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface) 84%, transparent) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft) !important;
+}
+
+.maplibregl-ctrl-group button + button { border-top: none !important; }
+.maplibregl-ctrl-group button { width: 34px; height: 34px; }
+
+/* Échelle : micro-étiquette, donc capitales espacées — discrète, posée sur la carte. */
+.maplibregl-ctrl-scale {
+  border: none;
+  border-bottom: 2px solid color-mix(in srgb, var(--text) 55%, transparent);
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 4px 2px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.maplibregl-ctrl-attrib {
+  border-radius: var(--radius-full) !important;
+  background: color-mix(in srgb, var(--surface) 72%, transparent) !important;
+  font-size: 10.5px;
+}
+
+.maplibregl-ctrl-attrib a { color: var(--text-soft); }
+
+/* ---- Position sur la carte ---- */
+/* Pastille blanche cerclée de sombre : lisible sur tous les fonds, comme le tracé. */
+.locate-dot, .nav-dot {
+  border-radius: var(--radius-full);
+  background: #2b7de0;
+  box-shadow: 0 0 0 2.5px #fff, 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* En navigation, la position reprend l'accent du tracé pour se relier à lui d'un regard. */
+.nav-dot { background: var(--red); }
+
+@media (max-width: 700px) {
+  /* Règle de la charte : aucun bouton flottant en bas d'écran sur mobile — le pincement
+     suffit à zoomer. Le contrôle reste au desktop, où il ne gêne rien. (S-V2-EXPLORER-B
+     le retirera partout, au profit de la seule localisation.) */
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; }
+  /* Échelle et attribution dégagées de la barre d'onglets. */
+  .maplibregl-ctrl-bottom-left,
+  .maplibregl-ctrl-bottom-right { margin-bottom: 42px; }
+}
+
 .layers-panel {
   width: 300px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -768,9 +838,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .plan-annot-hint.hidden { display: none; }
 
 /* Le mode annotation change le curseur : la carte « attend » le point */
-.plan-annotating #map .leaflet-container,
 .plan-annotating #map,
-.plan-annotating #map .leaflet-interactive { cursor: crosshair !important; }
+.plan-annotating #map .maplibregl-canvas-container,
+.plan-annotating #map .maplibregl-canvas { cursor: crosshair !important; }
 
 /* Liste des repères dans le panneau */
 .plan-annots { display: flex; flex-direction: column; gap: 4px; }
@@ -815,7 +885,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .annot-list-detail { max-width: 560px; margin-bottom: var(--sp-4); }
 
 /* Bulle de création / d'édition d'un repère */
-.annot-popup .leaflet-popup-content { margin: 12px 14px; min-width: 208px; }
+.annot-popup .maplibregl-popup-content { margin: 0; padding: 12px 14px; min-width: 208px; }
 .annot-pop-title { margin-bottom: 8px; }
 .annot-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .annot-kind {
@@ -1178,13 +1248,16 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .card-meta .dot { opacity: 0.35; }
 
-/* ============ Leaflet ============ */
-.map-popup .leaflet-popup-content-wrapper { border-radius: var(--radius); }
+/* ============ Bulles de carte (MapLibre) ============ */
+.map-popup .maplibregl-popup-content { border-radius: var(--radius); box-shadow: var(--shadow-soft); }
 .popup-title { font-weight: 800; font-size: 13.5px; margin-bottom: 2px; }
 .popup-meta { font-size: 12px; color: #5c625c; }
 
 /* Coordonnées d'un point (clic droit / appui long) */
-/* Largeur pilotée par l'option `minWidth` de L.popup (js/map.js), pas ici. */
+/* Sous Leaflet la largeur devait passer par l'option `minWidth` de L.popup, qui
+   dimensionnait le wrapper à l'ouverture en ignorant un min-width interne. MapLibre ne
+   mesure pas le contenu de la même façon : la règle redevient du CSS, à sa place. */
+.map-popup.coord .maplibregl-popup-content { min-width: 190px; }
 .coord-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f938f; margin-bottom: 4px; }
 .coord-dec { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; font-weight: 700; }
 .coord-dms { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #5c625c; margin-top: 2px; }
@@ -1208,14 +1281,18 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .trail-marker-osm { background: #8f938f; }
 
 /* Carte-info au survol d'un marqueur */
-.hover-tooltip {
+.hover-tooltip .maplibregl-popup-content {
   background: none;
   border: none;
   box-shadow: none;
   padding: 0;
 }
 
-.hover-tooltip::before { display: none; }
+/* MapLibre dessine la flèche du popup en bordure CSS colorée : on l'efface. */
+.hover-tooltip .maplibregl-popup-tip { display: none; }
+/* Le survol est indicatif : il ne doit jamais intercepter le pointeur, sinon il
+   déclencherait le mouseleave du marqueur qu'il vient d'ouvrir (clignotement). */
+.hover-tooltip { pointer-events: none; }
 
 .hover-card {
   width: 230px;
@@ -2223,20 +2300,42 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .empty-state { text-align: center; padding: 42px 20px; color: var(--text-soft); }
 .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
 
-/* Leaflet : contrôles adaptés au thème */
-[data-theme="dark"] .leaflet-bar a,
-:root:not([data-theme="light"]) .leaflet-bar a {
+/* MapLibre : contrôles et bulles adaptés au thème */
+[data-theme="dark"] .maplibregl-ctrl-group,
+:root:not([data-theme="light"]) .maplibregl-ctrl-group {
   background: #131315;
-  color: #ececec;
-  border-color: #26262a;
 }
 
-[data-theme="dark"] .leaflet-popup-content-wrapper,
-[data-theme="dark"] .leaflet-popup-tip,
-:root:not([data-theme="light"]) .leaflet-popup-content-wrapper,
-:root:not([data-theme="light"]) .leaflet-popup-tip {
+[data-theme="dark"] .maplibregl-ctrl-group button,
+:root:not([data-theme="light"]) .maplibregl-ctrl-group button {
   background: #131315;
   color: #ececec;
+}
+
+/* Les icônes des contrôles sont des SVG noirs en data-URI : on les éclaircit en bloc
+   plutôt que de réécrire chaque image. */
+[data-theme="dark"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon,
+:root:not([data-theme="light"]) .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.1);
+}
+
+[data-theme="dark"] .maplibregl-popup-content,
+[data-theme="dark"] .maplibregl-popup-tip,
+:root:not([data-theme="light"]) .maplibregl-popup-content,
+:root:not([data-theme="light"]) .maplibregl-popup-tip {
+  background: #131315;
+  color: #ececec;
+}
+
+/* La carte de survol porte son propre fond (.hover-card) : la bulle qui la contient doit
+   rester transparente, sinon on voit une boîte dans une boîte. Réaffirmé après la règle
+   de thème ci-dessus, qui repeindrait sinon le fond du contenu. */
+.hover-tooltip .maplibregl-popup-content,
+[data-theme="dark"] .hover-tooltip .maplibregl-popup-content,
+:root:not([data-theme="light"]) .hover-tooltip .maplibregl-popup-content {
+  background: none;
+  padding: 0;
+  box-shadow: none;
 }
 
 [data-theme="dark"] .popup-meta,

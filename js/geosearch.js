@@ -18,7 +18,7 @@
 // planificateur (S-PLAN) en monte une deuxième instance pour son champ « point de
 // passage » — d'où l'état déplacé en closure, une instance = un champ.
 import { state } from "./state.js";
-import { map } from "./map.js";
+import { boundsOf, boundsZoomL, flyToL } from "./map.js";
 import { switchTab } from "./ui.js";
 import { renderList } from "./trails.js";
 import { fetchRetry } from "./net.js";
@@ -205,11 +205,12 @@ export function initGeoSearch() {
       if (state.view !== "carte") switchTab("carte");
 
       if (r.bounds) {
-        const b = L.latLngBounds(r.bounds);
-        const z = Math.max(FIT_MIN_ZOOM, Math.min(FIT_MAX_ZOOM, map.getBoundsZoom(b)));
-        map.flyTo(b.getCenter(), z, { duration: 0.9 });
+        const b = boundsOf(r.bounds);
+        const c = b.getCenter();
+        const z = Math.max(FIT_MIN_ZOOM, Math.min(FIT_MAX_ZOOM, boundsZoomL(b)));
+        flyToL(c.lat, c.lng, z, { duration: 900 });
       } else {
-        map.flyTo([r.lat, r.lon], FIT_MAX_ZOOM, { duration: 0.9 });
+        flyToL(r.lat, r.lon, FIT_MAX_ZOOM, { duration: 900 });
       }
     },
   });

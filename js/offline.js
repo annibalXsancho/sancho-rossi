@@ -6,7 +6,7 @@
 // "sr-pack-<id>", servi par sw.js). Seules les métadonnées légères vont en IndexedDB.
 import { trackOf } from "./state.js";
 import { ensureElevation, overpassFetch } from "./api.js";
-import { TILE_TEMPLATES, POI_DEFS } from "./map.js";
+import { TILE_TEMPLATES, POI_DEFS, domMarker, makeIcon, markerGroup } from "./map.js";
 import { ensureSavedCopy } from "./trails.js";
 import { saveWeatherSnapshot } from "./weather.js";
 import { saveHikeWeatherSnapshot } from "./hikeweather.js";
@@ -168,17 +168,19 @@ async function fetchCorridorPoi(track) {
   return poi;
 }
 
-// Couche Leaflet des POI d'un pack, affichée hors-ligne pendant la navigation.
+// Groupe de marqueurs des POI d'un pack, affiché hors-ligne pendant la navigation
+// (nav.js le pose sur la carte principale).
 export async function packPoiLayer(id) {
   const poi = await getPackMeta(`poi:${id}`).catch(() => null);
   if (!poi?.length) return null;
-  const group = L.layerGroup();
+  const group = markerGroup();
   for (const p of poi) {
-    L.marker([p.lat, p.lon], {
-      icon: L.divIcon({ className: "poi-marker", html: POI_DEFS[p.kind].icon, iconSize: [22, 22] }),
-    })
-      .bindPopup(`<div class="popup-title">${POI_DEFS[p.kind].icon} ${p.name}</div>`, { className: "map-popup" })
-      .addTo(group);
+    const icon = POI_DEFS[p.kind].icon;
+    group.add(
+      domMarker(p.lat, p.lon, { element: makeIcon("poi-marker", icon, 22) })
+        .setPopup(new maplibregl.Popup({ className: "map-popup", offset: 14 })
+          .setHTML(`<div class="popup-title">${icon} ${p.name}</div>`))
+    );
   }
   return group;
 }

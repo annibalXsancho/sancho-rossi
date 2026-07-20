@@ -1,7 +1,19 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v41";
+const SHELL_CACHE = "sr-shell-v42";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
+
+// Bibliothèques CDN — épinglées par version, donc immuables : cache-first sans revalidation.
+// Sans ça l'appli ne démarrait hors-ligne que si le cache HTTP du navigateur avait gardé
+// Leaflet ; avec MapLibre (1 Mo) le pari devenait intenable. Le cache accepte les réponses
+// opaques (cross-origin sans CORS) : elles se rejouent telles quelles.
+const CDN_ASSETS = [
+  "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js",
+  "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+];
+const CDN_HOSTS = ["unpkg.com", "cdn.jsdelivr.net"];
 
 const SHELL_FILES = [
   "./",
@@ -76,7 +88,16 @@ async function matchPackTile(urlStr) {
 self.addEventListener("install", (e) => {
   // Pas de skipWaiting() ici : une nouvelle coquille ATTEND que la page propose la mise à
   // jour (toast « Recharger »). L'activation immédiate se fait sur message SKIP_WAITING.
-  e.waitUntil(caches.open(SHELL_CACHE).then((c) => c.addAll(SHELL_FILES)));
+  e.waitUntil(
+    caches.open(SHELL_CACHE).then(async (c) => {
+      await c.addAll(SHELL_FILES);
+      // Les CDN sont pré-chargés en best-effort : un unpkg lent ou injoignable ne doit pas
+      // faire échouer l'installation de toute la coquille (addAll est tout-ou-rien).
+      await Promise.all(
+        CDN_ASSETS.map((u) => c.add(new Request(u, { mode: "no-cors" })).catch(() => {}))
+      );
+    })
+  );
 });
 
 // La page (main.js) demande l'activation de la coquille en attente au clic « Recharger ».
@@ -124,6 +145,22 @@ self.addEventListener("fetch", (e) => {
           cache.put(e.request, res.clone());
           if (Math.random() < 0.02) trimTiles();
         }
+        return res;
+      })()
+    );
+    return;
+  }
+
+  // Bibliothèques CDN épinglées par version : cache d'abord (l'URL porte la version, le
+  // contenu ne change jamais), réseau au premier passage puis mise en cache pour l'offline.
+  if (CDN_HOSTS.some((h) => url.hostname.endsWith(h))) {
+    e.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const hit = await cache.match(e.request);
+        if (hit) return hit;
+        const res = await fetch(e.request);
+        if (res.ok || res.type === "opaque") cache.put(e.request, res.clone());
         return res;
       })()
     );

@@ -28,7 +28,7 @@ export function switchTab(name) {
   document.querySelectorAll(".tab-nav-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name)
   );
-  if (name === "carte") setTimeout(() => map.invalidateSize(), 60);
+  if (name === "carte") setTimeout(() => map.resize(), 60);
   if (name === "navigation") renderNavView();
   if (name === "securite") renderSafety();
   if (name === "reglages") renderOffline();

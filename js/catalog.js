@@ -8,7 +8,7 @@
 // Le cache IndexedDB par cellule est conservé (revisiter une zone = zéro appel réseau).
 import { state, catalogTrails, normalizeOsmTrail, trackDistanceKm } from "./state.js";
 import { overpassFetch } from "./api.js";
-import { map, addMarker } from "./map.js";
+import { map, addMarker, mapZoom, boundsContain } from "./map.js";
 import { renderLists } from "./trails.js";
 import { loadCatalog, loadZoneKeys, markZone, putCatalogTrails } from "./storage.js";
 
@@ -118,7 +118,7 @@ function cellBbox({ i, j }) {
 // Nombre de randos actuellement affichées dont le centre est visible (compteur d'état).
 function countInView() {
   const b = map.getBounds();
-  return catalogTrails().filter((t) => b.contains(t.center)).length;
+  return catalogTrails().filter((t) => boundsContain(b, t.center)).length;
 }
 
 // Interroge une cellule, filtre les vraies randos, persiste et affiche les nouvelles.
@@ -152,7 +152,7 @@ function showCachedInView() {
   const b = map.getBounds();
   let n = 0;
   for (const [id, t] of cached) {
-    if (state.catalog.has(id) || !b.contains(t.center)) continue;
+    if (state.catalog.has(id) || !boundsContain(b, t.center)) continue;
     state.catalog.set(id, t);
     addMarker(t);
     n++;
@@ -163,7 +163,7 @@ function showCachedInView() {
 // ---------- Action du bouton « Charger les randos » ----------
 async function loadZoneOnDemand() {
   if (busy) return;
-  if (map.getZoom() < MIN_ZOOM) {
+  if (mapZoom() < MIN_ZOOM) {
     setStatus("Zoomez sur un massif pour charger ses randos balisées.");
     return;
   }

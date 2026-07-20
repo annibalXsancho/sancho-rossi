@@ -1,6 +1,6 @@
 // Sancho Rossi — navigation : suivi du tracé en temps réel (HUD + mode Survivor)
 import { getTrail, trackOf, sampleTrack, haversineKm } from "./state.js";
-import { map } from "./map.js";
+import { map, domMarker, makeIcon } from "./map.js";
 import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { savePos } from "./security.js";
@@ -206,14 +206,12 @@ function onNavFix(pos) {
   if (off) document.getElementById("nav-offdist").textContent = m.offM;
 
   if (!nav.marker) {
-    nav.marker = L.circleMarker([lat, lon], {
-      radius: 9, color: "#fff", weight: 2.5, fillColor: "#ff2d20", fillOpacity: 1,
-    }).addTo(map);
+    nav.marker = domMarker(lat, lon, { element: makeIcon("nav-dot", "", 18) }).addTo(map);
   } else {
-    nav.marker.setLatLng([lat, lon]);
+    nav.marker.setLngLat([lon, lat]);
   }
   if (now - nav.lastPan > 4000) {
-    map.panTo([lat, lon]);
+    map.panTo([lon, lat]);
     nav.lastPan = now;
   }
 }
@@ -226,7 +224,7 @@ export function setSurvivor(on) {
     releaseWakeLock(); // écran libre de se mettre en veille : conso minimale
   } else {
     if (nav.active) requestWakeLock(); // ne pas ré-armer le verrou en quittant la nav
-    setTimeout(() => map.invalidateSize(), 60);
+    setTimeout(() => map.resize(), 60);
   }
   persistNav();
 }

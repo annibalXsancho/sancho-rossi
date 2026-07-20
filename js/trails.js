@@ -3,7 +3,7 @@ import { state, allTrails, getTrail, trackOf, trackDistanceKm } from "./state.js
 import { ensureElevation } from "./api.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
-import { map, markers, addMarker, drawActiveTrack } from "./map.js";
+import { map, markers, addMarker, drawActiveTrack, fitBoundsL, setMarkerVisible } from "./map.js";
 import { renderDetail, closeDetail } from "./detail.js";
 import { switchTab } from "./ui.js";
 import { saveTraces } from "./storage.js";
@@ -63,11 +63,7 @@ export function renderList() {
   // Les itinéraires exclus par les filtres disparaissent aussi de la carte
   const visible = new Set(trails.map((t) => t.id));
   markers.forEach((marker, id) => {
-    if (visible.has(id) || id === state.selectedId) {
-      if (!map.hasLayer(marker)) marker.addTo(map);
-    } else if (map.hasLayer(marker)) {
-      marker.remove();
-    }
+    setMarkerVisible(marker, visible.has(id) || id === state.selectedId);
   });
   updateFiltersBadge(trails.length);
 }
@@ -196,7 +192,7 @@ export function selectTrail(id, { pan = true, openDetail = true } = {}) {
   const trail = getTrail(id);
 
   const line = drawActiveTrack(trail);
-  if (pan) map.fitBounds(line.getBounds(), { padding: [60, 60], maxZoom: 14 });
+  if (pan) fitBoundsL(line.getBounds(), { padding: 60, maxZoom: 14 });
 
   renderList();
   if (openDetail) renderDetail(id);

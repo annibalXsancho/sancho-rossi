@@ -5,7 +5,7 @@ import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
-import { hidePreview, clearActiveTrack, OVERZOOM, drawTrack } from "./map.js";
+import { hidePreview, clearActiveTrack, TRACK_COLOR, TRACK_CASING } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
@@ -13,6 +13,23 @@ import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
+
+// ---------- Tracé Leaflet, local à ce module (transitoire — sprint S-V2-CARTE-A) ----------
+// La carte principale est passée sous MapLibre ; les deux cartes de fiche (#mini-map et
+// #fullmap) restent en Leaflet jusqu'au sprint B. Elles ont donc besoin de leur propre
+// rendu de tracé, au lieu d'importer celui de map.js devenu MapLibre. Même contrat visuel
+// que S-V2-TRACE (liseré sombre + cœur rouge) — les deux versions doivent rester d'accord.
+// À supprimer avec les cartes Leaflet au sprint B.
+const OVERZOOM = 2;
+
+function drawTrackL(latlngs, opts = {}) {
+  const { color = TRACK_COLOR, weight = 4.5, opacity = 1, dashArray = null, interactive = true } = opts;
+  const common = { opacity, lineCap: "round", lineJoin: "round", interactive, dashArray };
+  return L.featureGroup([
+    L.polyline(latlngs, { ...common, color: TRACK_CASING, weight: weight + 5 }),
+    L.polyline(latlngs, { ...common, color, weight }),
+  ]);
+}
 import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
@@ -219,7 +236,7 @@ function openFullMap(t) {
   const panel = fullmapEl.querySelector(".fullmap-panel");
   fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(fullMap);
-  const line = drawTrack(t.segments || t.track).addTo(fullMap);
+  const line = drawTrackL(t.segments || t.track).addTo(fullMap);
   addPoiMarkers(fullMap, t, { tooltips: true });
   // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
   // départ ou l'arrivée se retrouve caché dessous.
@@ -389,7 +406,7 @@ export function renderDetail(id) {
     doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false,
   });
   L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(miniMap);
-  const line = drawTrack(t.segments || t.track, { weight: 3.5 }).addTo(miniMap);
+  const line = drawTrackL(t.segments || t.track, { weight: 3.5 }).addTo(miniMap);
   addPoiMarkers(miniMap, t);
   miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
   // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du

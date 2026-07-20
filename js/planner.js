@@ -15,6 +15,7 @@
 // glisser, coloration par revêtement) et annuler/refaire sont le périmètre B.
 import { state } from "./state.js";
 import { map, addMarker, drawTrack } from "./map.js";
+import { toast } from "./toast.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
@@ -866,6 +867,16 @@ export function initPlanner() {
       map.panTo([r.lat, r.lon]);
     },
   });
+
+  // ---- Garde de migration (sprint S-V2-CARTE-A) ----
+  // La carte principale est passée sous MapLibre ; ce module dessine encore en Leaflet sur
+  // cette même carte. Plutôt que de laisser l'ouverture échouer par une erreur JS, on la
+  // refuse explicitement. Aucun code n'est supprimé : le sprint S-V2-CARTE-B porte
+  // l'édition sous MapLibre et retire ces quelques lignes.
+  el("btn-planner").addEventListener("click", (e) => {
+    e.stopImmediatePropagation();
+    toast("Planificateur en cours de migration vers le nouveau moteur de carte — rétabli au prochain sprint.", { type: "error" });
+  }, true);
 
   el("btn-planner").addEventListener("click", () => {
     if (planner.active) { exitPlanner(); return; }

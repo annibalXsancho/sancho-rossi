@@ -385,6 +385,16 @@ function exitLoops() {
 }
 
 export function initLoops() {
+  // ---- Garde de migration (sprint S-V2-CARTE-A) ----
+  // La carte principale est passée sous MapLibre ; ce module dessine encore en Leaflet sur
+  // cette même carte. Plutôt que de laisser l'ouverture échouer par une erreur JS, on la
+  // refuse explicitement. Aucun code n'est supprimé : le sprint S-V2-CARTE-B porte
+  // l'édition sous MapLibre et retire ces quelques lignes.
+  el("btn-loops").addEventListener("click", (e) => {
+    e.stopImmediatePropagation();
+    toast("Générateur de boucles en cours de migration vers le nouveau moteur de carte — rétabli au prochain sprint.", { type: "error" });
+  }, true);
+
   el("btn-loops").addEventListener("click", () => {
     if (loops.active) { exitLoops(); return; }
     closeDetail();
