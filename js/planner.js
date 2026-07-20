@@ -14,7 +14,7 @@
 // SAC), sauvegarde first-class. Le profil interactif (survol lié à la carte, zoom au
 // glisser, coloration par revêtement) et annuler/refaire sont le périmètre B.
 import { state } from "./state.js";
-import { map, addMarker, drawTrack } from "./map.js";
+import { map, addMarker, drawTrack, domMarker, makeIcon, fitBoundsL } from "./map.js";
 import { toast } from "./toast.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
@@ -37,7 +37,7 @@ export const planner = {
   routed: null,    // { track, eles, distance, ascend, ways, fallback? }
   routing: false,
   seq: 0,
-  layer: L.layerGroup(),
+  trackLine: null, // poignée du tracé routé (map.js) — sert au hit-test d'insertion
   markers: new Map(),
   controller: null,
   timer: null,
@@ -51,7 +51,6 @@ export const planner = {
   // Repères personnels (S-PLAN-C). Hors historique : défaire un point de passage ne
   // doit pas emporter le point d'eau qu'on vient de noter — vies séparées.
   annots: [],      // [{ id, kind, lat, lon, note }]
-  annotLayer: L.layerGroup(),
   annotMarkers: new Map(),
   annotating: false, // le prochain clic carte pose un repère, pas un waypoint
   aSeq: 0,
@@ -111,6 +110,31 @@ export function plannerMapClick(latlng, name = null) {
   plannerAddPoint(latlng, name);
 }
 
+// Clic sur le canevas (pas sur un marqueur) : le planificateur tranche seul entre insérer
+// un point SUR le tracé (détour) et l'ajouter en bout de course. MapLibre fait remonter le
+// clic de la carte ET des couches ensemble — plutôt que de compter sur l'ordre des
+// écouteurs (fragile), on hit-teste ici la couche de tracé avec `e.point`.
+export function plannerCanvasClick(e) {
+  const latlng = e.lngLat;
+  if (planner.annotating) { openAnnotCreate(latlng); return; }
+  const line = planner.trackLine;
+  if (line && planner.routed && !planner.routed.fallback) {
+    const layers = line.hitLayers.filter((id) => map.getLayer(id));
+    if (layers.length && map.queryRenderedFeatures(e.point, { layers }).length) {
+      insertPointAt(latlng);
+      return;
+    }
+  }
+  plannerAddPoint(latlng);
+}
+
+// Bulle d'annotation courante (MapLibre n'a pas de map.closePopup global : on garde la main).
+let annotPopup = null;
+function closeAnnotPopup() {
+  annotPopup?.remove();
+  annotPopup = null;
+}
+
 function setAnnotating(on) {
   planner.annotating = on;
   document.body.classList.toggle("plan-annotating", on);
@@ -134,10 +158,14 @@ function openAnnotCreate(latlng, presetNote = null) {
   div.addEventListener("click", (e) => {
     const b = e.target.closest("[data-kind]");
     if (!b) return;
-    map.closePopup();
+    closeAnnotPopup();
     addAnnot(latlng, b.dataset.kind, presetNote);
   });
-  L.popup({ className: "annot-popup", offset: [0, -6] }).setLatLng(latlng).setContent(div).openOn(map);
+  closeAnnotPopup();
+  annotPopup = new maplibregl.Popup({ className: "annot-popup", offset: 10, closeButton: false })
+    .setLngLat([latlng.lng, latlng.lat])
+    .setDOMContent(div)
+    .addTo(map);
 }
 
 function addAnnot(latlng, kind, note) {
@@ -168,24 +196,27 @@ function openAnnotEdit(a) {
     `</div>`;
   const input = div.querySelector(".annot-note");
   input.addEventListener("input", () => { a.note = input.value.trim(); renderAnnots(); });
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") map.closePopup(); });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") closeAnnotPopup(); });
   div.addEventListener("click", (e) => {
     const kindBtn = e.target.closest("[data-kind]");
     if (kindBtn) {
       a.kind = kindBtn.dataset.kind;
       div.querySelectorAll("[data-kind]").forEach((b) => b.classList.toggle("sel", b.dataset.kind === a.kind));
       input.placeholder = `${annotKind(a.kind).label} — ajouter une note…`;
-      marker.setIcon(annotIconOf(a));
+      const ic = marker.getElement().querySelector(".plan-annot-i");
+      if (ic) ic.textContent = annotKind(a.kind).icon;
       renderAnnots();
       return;
     }
-    if (e.target.closest(".annot-del")) { map.closePopup(); removeAnnot(a.id); return; }
-    if (e.target.closest(".annot-ok")) map.closePopup();
+    if (e.target.closest(".annot-del")) { closeAnnotPopup(); removeAnnot(a.id); return; }
+    if (e.target.closest(".annot-ok")) closeAnnotPopup();
   });
-  const pop = L.popup({ className: "annot-popup", offset: [0, -16] })
-    .setLatLng(marker.getLatLng()).setContent(div).openOn(map);
+  const ll = marker.getLngLat();
+  closeAnnotPopup();
+  annotPopup = new maplibregl.Popup({ className: "annot-popup", offset: 16, closeButton: false })
+    .setLngLat([ll.lng, ll.lat]).setDOMContent(div).addTo(map);
   setTimeout(() => input.focus(), 60);
-  return pop;
+  return annotPopup;
 }
 
 function removeAnnot(id) {
@@ -194,27 +225,30 @@ function removeAnnot(id) {
   renderAnnots();
 }
 
-const annotIconOf = (a) =>
-  L.divIcon({
-    className: "plan-annot",
-    html: `<span class="plan-annot-i">${annotKind(a.kind).icon}</span>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-  });
+const annotIconEl = (a) =>
+  makeIcon("plan-annot", `<span class="plan-annot-i">${annotKind(a.kind).icon}</span>`);
 
 function drawAnnots() {
-  planner.annotLayer.clearLayers();
+  planner.annotMarkers.forEach((m) => m.remove());
   planner.annotMarkers.clear();
   for (const a of planner.annots) {
-    const m = L.marker([a.lat, a.lon], { draggable: true, icon: annotIconOf(a) });
-    m.on("click", (e) => { L.DomEvent.stop(e); openAnnotEdit(a); });
+    const m = domMarker(a.lat, a.lon, { element: annotIconEl(a), draggable: true }).addTo(map);
+    // MapLibre émet encore un `click` sur l'élément après un glisser : le drapeau évite
+    // qu'un déplacement rouvre la bulle d'édition à l'arrivée.
+    let dragged = false;
+    m.on("dragstart", () => { dragged = true; });
     m.on("dragend", () => {
-      const ll = m.getLatLng();
+      const ll = m.getLngLat();
       a.lat = ll.lat;
       a.lon = ll.lng;
       renderAnnots(); // le km le long du tracé a changé, la liste et le profil suivent
+      setTimeout(() => { dragged = false; }, 0);
     });
-    planner.annotLayer.addLayer(m);
+    m.getElement().addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (dragged) return;
+      openAnnotEdit(a);
+    });
     planner.annotMarkers.set(a.id, m);
   }
 }
@@ -412,60 +446,52 @@ async function runRoute() {
 
 // ---------- Rendu carte ----------
 function redraw() {
-  planner.layer.clearLayers();
+  planner.trackLine?.remove();
+  planner.trackLine = null;
+  planner.markers.forEach((m) => m.remove());
   planner.markers.clear();
   const r = planner.routed;
   if (r?.track?.length > 1) {
     const line = drawTrack(r.track, { dashArray: r.fallback ? "7 9" : null });
-    // Cliquer SUR le tracé insère un point de passage à cet endroit (détour). Le clic
-    // « dans le vide » ajoute en bout de course (map.js) — stopPropagation évite que
-    // les deux se déclenchent pour un même clic.
+    planner.trackLine = line;
+    // Cliquer SUR le tracé insère un point de passage (détour) : le hit-test se fait dans
+    // le clic canevas de map.js (plannerCanvasClick), qui lit `planner.trackLine.hitLayers`.
     if (!r.fallback) {
-      line.on("click", (e) => {
-        L.DomEvent.stop(e);
-        // En mode annotation, cliquer le tracé pose le repère dessus (cas nominal :
-        // « à ce point du parcours ») au lieu d'insérer un waypoint.
-        planner.annotating ? openAnnotCreate(e.latlng) : insertPointAt(e.latlng);
-      });
       // Sens carte → profil : longer le tracé du doigt/curseur déplace le curseur du
       // profil. Complète le contrat « carte ↔ profil » (l'autre sens est showCursorOnMap).
       line.on("mousemove", (e) => {
-        const km = planner.profile?.kmNear(e.latlng.lat, e.latlng.lng);
+        const km = planner.profile?.kmNear(e.lngLat.lat, e.lngLat.lng);
         if (km != null) planner.profile.setCursorKm(km);
       });
       line.on("mouseout", () => planner.profile?.setCursorKm(null));
     }
-    planner.layer.addLayer(line);
   }
   planner.waypoints.forEach((w, i) => {
-    const marker = L.marker([w.lat, w.lon], {
-      draggable: true,
-      icon: L.divIcon({
-        className: "plan-wp",
-        html: `<span title="Glisser pour déplacer — cliquer pour retirer">${letterOf(i)}</span>`,
-        iconSize: [26, 26],
-      }),
-    });
+    const element = makeIcon("plan-wp", `<span title="Glisser pour déplacer — cliquer pour retirer">${letterOf(i)}</span>`);
+    const marker = domMarker(w.lat, w.lon, { element, draggable: true }).addTo(map);
     // Déplacer un point = le geste le plus direct pour corriger un itinéraire.
+    let dragged = false;
+    marker.on("dragstart", () => { dragged = true; });
     marker.on("dragend", () => {
-      const ll = marker.getLatLng();
+      const ll = marker.getLngLat();
       w.lat = ll.lat;
       w.lon = ll.lng;
       w.name = null; // le point n'est plus le lieu nommé qu'on avait choisi
       commit();
       renderList();
       reroute();
+      setTimeout(() => { dragged = false; }, 0);
     });
-    // Cliquer un point de passage le RETIRE (choix utilisateur : le geste le plus
-    // court pour corriger un mauvais ping — annuler ⌘Z le ramène). Leaflet ne
-    // déclenche pas de click après un glisser : les deux gestes ne se marchent pas
-    // dessus. En mode annotation, le clic pose un repère à cet endroit à la place.
-    marker.on("click", (e) => {
-      L.DomEvent.stop(e);
-      if (planner.annotating) { openAnnotCreate(marker.getLatLng()); return; }
+    // Cliquer un point de passage le RETIRE (choix utilisateur : le geste le plus court
+    // pour corriger un mauvais ping — annuler ⌘Z le ramène). Le drapeau `dragged` évite
+    // qu'un glisser se termine par un clic (MapLibre, contrairement à Leaflet, en émet un).
+    // En mode annotation, le clic pose un repère à cet endroit à la place.
+    element.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (dragged) return;
+      if (planner.annotating) { openAnnotCreate(marker.getLngLat()); return; }
       removeWaypoint(w.id);
     });
-    planner.layer.addLayer(marker);
     planner.markers.set(w.id, marker);
   });
 }
@@ -474,26 +500,25 @@ function redraw() {
 function showCursorOnMap(p) {
   if (!p) { planner.cursor?.remove(); planner.cursor = null; return; }
   if (!planner.cursor) {
-    planner.cursor = L.circleMarker([p.lat, p.lon], {
-      radius: 5, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
-      interactive: false,
-    }).addTo(map);
+    planner.cursor = domMarker(p.lat, p.lon, { element: makeIcon("map-cursor") }).addTo(map);
   } else {
-    planner.cursor.setLatLng([p.lat, p.lon]);
+    planner.cursor.setLngLat([p.lon, p.lat]);
   }
 }
 
 function fitRoute() {
   const r = planner.routed;
-  if (!r?.track?.length) return;
+  if (!r?.track?.length || !planner.trackLine) return;
   const bar = el("plan-bar");
   const mobile = window.innerWidth < 700;
   // Vue plein écran : le panneau borde à gauche, le dock (profil + stats) recouvre le
   // bas — le cadrage doit éviter les deux, sinon départ ou arrivée finissent dessous.
+  // Padding de Leaflet (paddingTopLeft/BottomRight) traduit en {top,left,bottom,right}.
   const dockH = mobile ? 0 : el("plan-result")?.offsetHeight || 0;
-  map.fitBounds(L.latLngBounds(r.track), mobile
-    ? { paddingTopLeft: [30, 90], paddingBottomRight: [30, (bar?.offsetHeight || 0) + 30], maxZoom: 15 }
-    : { paddingTopLeft: [(bar?.offsetWidth || 380) + 40, 40], paddingBottomRight: [50, dockH + 40], maxZoom: 15 });
+  const padding = mobile
+    ? { top: 90, left: 30, bottom: (bar?.offsetHeight || 0) + 30, right: 30 }
+    : { top: 40, left: (bar?.offsetWidth || 380) + 40, bottom: dockH + 40, right: 50 };
+  fitBoundsL(planner.trackLine.getBounds(), { padding, maxZoom: 15 });
 }
 
 // ---------- Rendu panneau ----------
@@ -753,14 +778,15 @@ function exitPlanner() {
   planner.routing = false;
   planner.controller?.abort();
   clearTimeout(planner.timer);
+  closeAnnotPopup();
+  planner.trackLine?.remove();
+  planner.trackLine = null;
+  planner.markers.forEach((m) => m.remove());
   planner.markers.clear();
-  planner.layer.clearLayers();
-  planner.layer.remove();
   setAnnotating(false);
   planner.annots = [];
+  planner.annotMarkers.forEach((m) => m.remove());
   planner.annotMarkers.clear();
-  planner.annotLayer.clearLayers();
-  planner.annotLayer.remove();
   el("plan-annots").innerHTML = "";
   planner.suggest?.clear();
   planner.profile?.destroy();
@@ -863,20 +889,10 @@ export function initPlanner() {
     container: el("plan-search-wrap"),
     onPick(r) {
       planner.suggest.clear();
-      plannerAddPoint(L.latLng(r.lat, r.lon), r.name);
-      map.panTo([r.lat, r.lon]);
+      plannerAddPoint({ lat: r.lat, lng: r.lon }, r.name);
+      map.panTo([r.lon, r.lat]);
     },
   });
-
-  // ---- Garde de migration (sprint S-V2-CARTE-A) ----
-  // La carte principale est passée sous MapLibre ; ce module dessine encore en Leaflet sur
-  // cette même carte. Plutôt que de laisser l'ouverture échouer par une erreur JS, on la
-  // refuse explicitement. Aucun code n'est supprimé : le sprint S-V2-CARTE-B porte
-  // l'édition sous MapLibre et retire ces quelques lignes.
-  el("btn-planner").addEventListener("click", (e) => {
-    e.stopImmediatePropagation();
-    toast("Planificateur en cours de migration vers le nouveau moteur de carte — rétabli au prochain sprint.", { type: "error" });
-  }, true);
 
   el("btn-planner").addEventListener("click", () => {
     if (planner.active) { exitPlanner(); return; }
@@ -887,8 +903,6 @@ export function initPlanner() {
     // Même leçon qu'en S-BOUCLES : on masque la liste de résultats et la barre de
     // recherche, sinon le panneau surgit par-dessus la carte (« la page saute »).
     document.body.classList.add("loops-active");
-    planner.layer.addTo(map);
-    planner.annotLayer.addTo(map);
     el("plan-bar").classList.remove("hidden");
     planner.sheetReset?.(); // toujours ouverte à l'ouverture, jamais en position réduite héritée
     el("btn-planner").classList.add("active");
@@ -929,7 +943,7 @@ export function initPlanner() {
     if (!row) return;
     const a = planner.annots.find((x) => x.id === row.dataset.a);
     if (!a) return;
-    map.panTo([a.lat, a.lon]);
+    map.panTo([a.lon, a.lat]);
     openAnnotEdit(a);
   });
 }

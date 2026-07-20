@@ -6,7 +6,7 @@
 // puis on route en boucle par BRouter (hiking-mountain, altitudes en 3ᵉ coord). On
 // génère plusieurs DIRECTIONS et on garde celle qui retrace le moins en visant la distance.
 import { haversineKm, state } from "./state.js";
-import { map, addMarker, drawTrack } from "./map.js";
+import { map, addMarker, drawTrack, domMarker, makeIcon, fitBoundsL, circlePolygon } from "./map.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
 import { saveTraces } from "./storage.js";
@@ -25,9 +25,8 @@ const loops = {
   nodes: null,        // nœuds de sentier autour du départ (cache Overpass)
   nodesKey: null,
   nodesPromise: null, // chargement en cours/terminé (préchauffé dès le ping)
-  layer: L.layerGroup(),
+  trackLine: null,    // poignée du tracé de la boucle (map.js)
   startMarker: null,
-  ghost: null,
 };
 
 // ---------- Géométrie de la boucle ----------
@@ -204,40 +203,50 @@ async function generateLoop() {
 }
 
 // ---------- Rendu carte ----------
+const GHOST_SRC = "src-loopghost";
+const GHOST_LYR = "lyr-loopghost";
+
+function clearGhost() {
+  if (map.getLayer(GHOST_LYR)) map.removeLayer(GHOST_LYR);
+  if (map.getSource(GHOST_SRC)) map.removeSource(GHOST_SRC);
+}
+
 function drawStart() {
-  if (loops.startMarker) loops.startMarker.remove();
+  loops.startMarker?.remove();
   if (!loops.start) return;
-  loops.startMarker = L.circleMarker([loops.start.lat, loops.start.lon], {
-    radius: 8, color: "#fff", weight: 2.5, fillColor: "#ff2d20", fillOpacity: 1,
-  }).addTo(loops.layer).bindTooltip("Départ", { direction: "top", offset: [0, -8] });
+  const element = makeIcon("loop-start");
+  element.title = "Départ";
+  loops.startMarker = domMarker(loops.start.lat, loops.start.lon, { element }).addTo(map);
 }
 
 function drawGhost(on) {
-  if (loops.ghost) { loops.ghost.remove(); loops.ghost = null; }
-  if (on && loops.start) {
-    // Anneau fantôme DÉCALÉ dans la direction de sortie : il effleure le départ et bombe
-    // dans le sens où partira la boucle (aperçu de la forme réelle, plus un cercle centré).
-    const rKm = loops.targetKm / 6.28;
-    const [cLat, cLon] = offsetKm(loops.start.lat, loops.start.lon, rKm, loops.baseAngle);
-    loops.ghost = L.circle([cLat, cLon], {
-      radius: rKm * 1000, color: "#ff2d20", weight: 1.5,
-      dashArray: "6 8", fill: false, opacity: 0.6,
-    }).addTo(loops.layer);
-  }
+  clearGhost();
+  if (!on || !loops.start) return;
+  // Anneau fantôme DÉCALÉ dans la direction de sortie : il effleure le départ et bombe
+  // dans le sens où partira la boucle (aperçu de la forme réelle, plus un cercle centré).
+  // `L.circle` (rayon en mètres) devient un polygone géodésique — `circle-radius` de
+  // MapLibre serait en pixels et ne suivrait pas le zoom.
+  const rKm = loops.targetKm / 6.28;
+  const [cLat, cLon] = offsetKm(loops.start.lat, loops.start.lon, rKm, loops.baseAngle);
+  map.addSource(GHOST_SRC, { type: "geojson", data: circlePolygon(cLat, cLon, rKm * 1000) });
+  map.addLayer({
+    id: GHOST_LYR, type: "line", source: GHOST_SRC,
+    paint: { "line-color": "#ff2d20", "line-width": 1.5, "line-opacity": 0.6, "line-dasharray": [4, 5] },
+  });
 }
 
 function drawLoop(routed) {
-  loops.layer.clearLayers();
-  loops.startMarker = null;
-  const line = drawTrack(routed.track).addTo(loops.layer);
+  loops.trackLine?.remove();
+  loops.trackLine = drawTrack(routed.track);
   drawStart();
   // Cadre la boucle à l'écart de la barre (à gauche sur desktop, en bas sur mobile),
-  // pour qu'elle reste toujours visible.
+  // pour qu'elle reste toujours visible. Padding Leaflet → {top,left,bottom,right}.
   const bar = document.getElementById("loops-bar");
   const mobile = window.innerWidth < 700;
-  map.fitBounds(line.getBounds(), mobile
-    ? { paddingTopLeft: [30, 90], paddingBottomRight: [30, (bar?.offsetHeight || 0) + 30], maxZoom: 15 }
-    : { paddingTopLeft: [(bar?.offsetWidth || 360) + 40, 40], paddingBottomRight: [50, 50], maxZoom: 15 });
+  const padding = mobile
+    ? { top: 90, left: 30, bottom: (bar?.offsetHeight || 0) + 30, right: 30 }
+    : { top: 40, left: (bar?.offsetWidth || 360) + 40, bottom: 50, right: 50 };
+  fitBoundsL(loops.trackLine.getBounds(), { padding, maxZoom: 15 });
 }
 
 // ---------- UI ----------
@@ -312,8 +321,8 @@ export function setStart(latlng) {
   loops.nodes = null;
   loops.nodesKey = null;
   loops.nodesPromise = null;
-  loops.layer.clearLayers();
-  loops.startMarker = null;
+  loops.trackLine?.remove();
+  loops.trackLine = null;
   drawStart();
   drawGhost(true);
   renderStartLabel();
@@ -372,35 +381,25 @@ function exitLoops() {
   loops.start = null;
   loops.routed = null;
   loops.busy = false;
+  loops.trackLine?.remove();
+  loops.trackLine = null;
+  loops.startMarker?.remove();
   loops.startMarker = null;
-  loops.ghost = null;
+  clearGhost();
   loops.nodes = null;
   loops.nodesKey = null;
   loops.nodesPromise = null;
-  loops.layer.clearLayers();
-  loops.layer.remove();
   document.body.classList.remove("loops-active");
   el("loops-bar").classList.add("hidden");
   el("btn-loops").classList.remove("active");
 }
 
 export function initLoops() {
-  // ---- Garde de migration (sprint S-V2-CARTE-A) ----
-  // La carte principale est passée sous MapLibre ; ce module dessine encore en Leaflet sur
-  // cette même carte. Plutôt que de laisser l'ouverture échouer par une erreur JS, on la
-  // refuse explicitement. Aucun code n'est supprimé : le sprint S-V2-CARTE-B porte
-  // l'édition sous MapLibre et retire ces quelques lignes.
-  el("btn-loops").addEventListener("click", (e) => {
-    e.stopImmediatePropagation();
-    toast("Générateur de boucles en cours de migration vers le nouveau moteur de carte — rétabli au prochain sprint.", { type: "error" });
-  }, true);
-
   el("btn-loops").addEventListener("click", () => {
     if (loops.active) { exitLoops(); return; }
     closeDetail();
     loops.active = true;
     document.body.classList.add("loops-active"); // masque les résultats : la carte reste visible
-    loops.layer.addTo(map);
     el("loops-bar").classList.remove("hidden");
     el("btn-loops").classList.add("active");
     renderStartLabel();

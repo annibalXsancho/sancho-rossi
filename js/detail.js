@@ -5,7 +5,7 @@ import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
 import { putMeta } from "./storage.js";
-import { hidePreview, clearActiveTrack, TRACK_COLOR, TRACK_CASING } from "./map.js";
+import { hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { startNavigation } from "./nav.js";
@@ -14,22 +14,6 @@ import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
 
-// ---------- Tracé Leaflet, local à ce module (transitoire — sprint S-V2-CARTE-A) ----------
-// La carte principale est passée sous MapLibre ; les deux cartes de fiche (#mini-map et
-// #fullmap) restent en Leaflet jusqu'au sprint B. Elles ont donc besoin de leur propre
-// rendu de tracé, au lieu d'importer celui de map.js devenu MapLibre. Même contrat visuel
-// que S-V2-TRACE (liseré sombre + cœur rouge) — les deux versions doivent rester d'accord.
-// À supprimer avec les cartes Leaflet au sprint B.
-const OVERZOOM = 2;
-
-function drawTrackL(latlngs, opts = {}) {
-  const { color = TRACK_COLOR, weight = 4.5, opacity = 1, dashArray = null, interactive = true } = opts;
-  const common = { opacity, lineCap: "round", lineJoin: "round", interactive, dashArray };
-  return L.featureGroup([
-    L.polyline(latlngs, { ...common, color: TRACK_CASING, weight: weight + 5 }),
-    L.polyline(latlngs, { ...common, color, weight }),
-  ]);
-}
 import { toast } from "./toast.js";
 
 const detailPanel = document.getElementById("detail-panel");
@@ -66,21 +50,22 @@ const poiProfileMarkers = (t) =>
     .filter((p) => p.km != null)
     .map((p) => ({ km: p.km, icon: annotKind(p.kind).icon, label: p.note || annotKind(p.kind).label }));
 
-// Pose les repères sur une carte Leaflet de la fiche (mini-carte inerte ou plein
-// écran). Même pastille que le planificateur, en plus petit.
-function addPoiMarkers(leafletMap, t, { tooltips = false } = {}) {
+// Pose les repères sur une carte de fiche (mini-carte inerte ou plein écran). Même pastille
+// que le planificateur, en plus petit. Sur la carte plein écran (tooltips), le repère
+// ouvre au tap une bulle avec sa note ; inerte, il ne capte aucun événement (le survol du
+// tracé pour le profil doit passer au travers).
+function addPoiMarkers(mapInstance, t, { tooltips = false } = {}) {
   (t.pois || []).forEach((p) => {
-    const mk = L.marker([p.lat, p.lon], {
-      interactive: tooltips,
-      keyboard: false,
-      icon: L.divIcon({
-        className: "plan-annot plan-annot-sm",
-        html: `<span class="plan-annot-i">${annotKind(p.kind).icon}</span>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      }),
-    }).addTo(leafletMap);
-    if (tooltips) mk.bindTooltip(escapeHtml(p.note || annotKind(p.kind).label), { direction: "top", offset: [0, -10] });
+    const element = makeIcon("plan-annot plan-annot-sm", `<span class="plan-annot-i">${annotKind(p.kind).icon}</span>`);
+    const marker = domMarker(p.lat, p.lon, { element }).addTo(mapInstance);
+    if (tooltips) {
+      marker.setPopup(
+        new maplibregl.Popup({ className: "map-popup", offset: 14, closeButton: false })
+          .setHTML(`<div class="popup-title">${annotKind(p.kind).icon} ${escapeHtml(p.note || annotKind(p.kind).label)}</div>`)
+      );
+    } else {
+      element.style.pointerEvents = "none";
+    }
   });
 }
 
@@ -165,12 +150,9 @@ function showOnMiniMap(p) {
   if (!miniMap) return;
   if (!p) { miniCursor?.remove(); miniCursor = null; return; }
   if (!miniCursor) {
-    miniCursor = L.circleMarker([p.lat, p.lon], {
-      radius: 5, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
-      interactive: false,
-    }).addTo(miniMap);
+    miniCursor = domMarker(p.lat, p.lon, { element: makeIcon("map-cursor") }).addTo(miniMap);
   } else {
-    miniCursor.setLatLng([p.lat, p.lon]);
+    miniCursor.setLngLat([p.lon, p.lat]);
   }
 }
 
@@ -209,12 +191,9 @@ function showOnFullMap(p) {
   if (!fullMap) return;
   if (!p) { fullCursor?.remove(); fullCursor = null; return; }
   if (!fullCursor) {
-    fullCursor = L.circleMarker([p.lat, p.lon], {
-      radius: 6, color: "#fff", weight: 2, fillColor: "#ff2d20", fillOpacity: 1,
-      interactive: false,
-    }).addTo(fullMap);
+    fullCursor = domMarker(p.lat, p.lon, { element: makeIcon("map-cursor map-cursor-lg") }).addTo(fullMap);
   } else {
-    fullCursor.setLatLng([p.lat, p.lon]);
+    fullCursor.setLngLat([p.lon, p.lat]);
   }
 }
 
@@ -234,29 +213,24 @@ function openFullMap(t) {
     `<span class="fullmap-stat"><b>${t.duration}</b></span>`;
 
   const panel = fullmapEl.querySelector(".fullmap-panel");
-  // `prefix: false` retire le crédit « Leaflet » que la bibliothèque s'attribue d'office :
-  // il n'apporte rien au lecteur et la carte affichait ce badge SANS l'attribution OSM,
-  // pourtant la seule obligatoire — d'où son ajout ici.
-  fullMap = L.map("fullmap", { maxZoom: 17 + OVERZOOM, attributionControl: false });
-  L.control.attribution({ prefix: false }).addTo(fullMap);
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-    maxNativeZoom: 17,
-    maxZoom: 22,
-    attribution: '&copy; OSM, <a href="https://opentopomap.org">OpenTopoMap</a>',
-  }).addTo(fullMap);
-  const line = drawTrackL(t.segments || t.track).addTo(fullMap);
-  addPoiMarkers(fullMap, t, { tooltips: true });
-  // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
-  // départ ou l'arrivée se retrouve caché dessous.
-  fullMap.fitBounds(line.getBounds(), {
-    paddingTopLeft: [40, 60],
-    paddingBottomRight: [40, (panel?.offsetHeight || 150) + 30],
+  // `attribution:true` affiche le crédit OSM (obligatoire) sans le badge « Leaflet » que
+  // l'ancienne carte s'attribuait à tort. MapLibre lit l'attribution de la source topo.
+  fullMap = createFicheMap("fullmap", { attribution: true });
+  fullMap.on("load", () => {
+    if (!isFullMapOpen()) return; // fermé pendant le chargement du style
+    const line = drawTrackOn(fullMap, t.segments || t.track);
+    addPoiMarkers(fullMap, t, { tooltips: true });
+    // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
+    // départ ou l'arrivée se retrouve caché dessous.
+    fullMap.fitBounds(line.getBounds(), {
+      padding: { top: 60, left: 40, right: 40, bottom: (panel?.offsetHeight || 150) + 30 },
+    });
+    line.on("mousemove", (e) => {
+      const km = fullProfile?.kmNear(e.lngLat.lat, e.lngLat.lng);
+      if (km != null) fullProfile.setCursorKm(km);
+    });
+    line.on("mouseout", () => fullProfile?.setCursorKm(null));
   });
-  line.on("mousemove", (e) => {
-    const km = fullProfile?.kmNear(e.latlng.lat, e.latlng.lng);
-    if (km != null) fullProfile.setCursorKm(km);
-  });
-  line.on("mouseout", () => fullProfile?.setCursorKm(null));
 
   ensureElevation(t)
     .then((eles) => {
@@ -408,23 +382,22 @@ export function renderDetail(id) {
   detailPanel.classList.remove("hidden");
   detailPanel.scrollTop = 0;
 
-  // Mini-carte
-  miniMap = L.map("mini-map", {
-    zoomControl: false, dragging: false, scrollWheelZoom: false,
-    doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false,
+  // Mini-carte : aperçu figé (gestes coupés), mais événements gardés pour le survol.
+  miniMap = createFicheMap("mini-map", { inert: true });
+  miniMap.on("load", () => {
+    if (seq !== renderSeq) return; // une autre fiche s'est ouverte pendant le chargement
+    const line = drawTrackOn(miniMap, t.segments || t.track, { weight: 3.5 });
+    addPoiMarkers(miniMap, t);
+    miniMap.fitBounds(line.getBounds(), { padding: 18 });
+    // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du
+    // profil (l'autre sens passe par showOnMiniMap). Le profil arrive après (async) :
+    // le handler lit `profile` au moment de l'événement, jamais à l'attache.
+    line.on("mousemove", (e) => {
+      const km = profile?.kmNear(e.lngLat.lat, e.lngLat.lng);
+      if (km != null) profile.setCursorKm(km);
+    });
+    line.on("mouseout", () => profile?.setCursorKm(null));
   });
-  L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", { maxNativeZoom: 17, maxZoom: 22 }).addTo(miniMap);
-  const line = drawTrackL(t.segments || t.track, { weight: 3.5 }).addTo(miniMap);
-  addPoiMarkers(miniMap, t);
-  miniMap.fitBounds(line.getBounds(), { padding: [18, 18] });
-  // Sens carte → profil : longer le tracé sur la mini-carte déplace le curseur du
-  // profil (l'autre sens passe par showOnMiniMap). Le profil arrive après (async) :
-  // le handler lit `profile` au moment de l'événement, jamais à l'attache.
-  line.on("mousemove", (e) => {
-    const km = profile?.kmNear(e.latlng.lat, e.latlng.lng);
-    if (km != null) profile.setCursorKm(km);
-  });
-  line.on("mouseout", () => profile?.setCursorKm(null));
 
   // Clic (ou Entrée) sur la mini-carte → carte plein écran
   const wrap = document.getElementById("mini-map-wrap");

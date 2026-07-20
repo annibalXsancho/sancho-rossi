@@ -656,6 +656,26 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* En navigation, la position reprend l'accent du tracé pour se relier à lui d'un regard. */
 .nav-dot { background: var(--red); }
 
+/* Curseur de survol (profil → carte) : point rouge cerclé de blanc, remplace le
+   L.circleMarker de Leaflet. N'intercepte aucun événement. */
+.map-cursor {
+  width: 12px; height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--red);
+  box-shadow: 0 0 0 2px #fff, 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.map-cursor-lg { width: 14px; height: 14px; }
+
+/* Départ d'une boucle générée : gros point rouge cerclé de blanc. */
+.loop-start {
+  width: 16px; height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--red);
+  box-shadow: 0 0 0 2.5px #fff, 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
 @media (max-width: 700px) {
   /* Règle de la charte : aucun bouton flottant en bas d'écran sur mobile — le pincement
      suffit à zoomer. Le contrôle reste au desktop, où il ne gêne rien. (S-V2-EXPLORER-B

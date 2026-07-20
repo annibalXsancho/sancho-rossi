@@ -7,7 +7,7 @@ import { overpassFetch } from "./api.js";
 import { fetchRetry } from "./net.js";
 import { toast } from "./toast.js";
 import { photoOf, photoStyle } from "./photos.js";
-import { planner, plannerMapClick } from "./planner.js";
+import { planner, plannerMapClick, plannerCanvasClick } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
@@ -297,10 +297,12 @@ export const TRACK_CASING = "rgba(9, 9, 11, 0.62)";
 
 let trackSeq = 0;
 
-// Un tracé = une source GeoJSON + deux couches `line` superposées (liseré, puis cœur).
-// Renvoie une poignée au contrat stable : setData / remove / getBounds — celui dont
-// dépendent trails.js, nav.js et, au sprint B, le planificateur.
-export function drawTrack(latlngs, opts = {}) {
+// Un tracé = une source GeoJSON + deux couches `line` superposées (liseré, puis cœur), posé
+// sur une INSTANCE de carte donnée : la carte principale (drawTrack) ou une carte de fiche
+// (drawTrackOn — mini-carte, plein écran). Renvoie une poignée au contrat stable
+// setData / getBounds / remove, plus `on`/`hitLayers` dont dépend l'édition du planificateur
+// (survol profil ↔ carte, clic d'insertion). C'est ce qui a remplacé le L.featureGroup.
+function buildTrack(mapInstance, latlngs, opts = {}) {
   const { color = TRACK_COLOR, weight = 4.5, opacity = 1, dashArray = null } = opts;
   const id = `trk-${++trackSeq}`;
   const casingId = `${id}-casing`;
@@ -308,6 +310,9 @@ export function drawTrack(latlngs, opts = {}) {
   let coords = latlngs.map(toLngLat);
   let added = false;
   let removed = false;
+  // Survols en attente d'installation : posés sur la couche de liseré (la plus large, elle
+  // couvre toute l'emprise visible du tracé), rejoués à l'installation du style.
+  const bound = [];
 
   const feature = () => ({
     type: "Feature",
@@ -322,11 +327,11 @@ export function drawTrack(latlngs, opts = {}) {
       ? { "line-dasharray": dashArray.split(/[\s,]+/).map((n) => Number(n) / w) }
       : {};
 
-  whenMapReady(() => {
+  const install = () => {
     if (removed) return;
-    map.addSource(id, { type: "geojson", data: feature() });
+    mapInstance.addSource(id, { type: "geojson", data: feature() });
     const layout = { "line-cap": "round", "line-join": "round" };
-    map.addLayer({
+    mapInstance.addLayer({
       id: casingId, type: "line", source: id, layout,
       paint: {
         "line-color": TRACK_CASING,
@@ -335,7 +340,7 @@ export function drawTrack(latlngs, opts = {}) {
         ...dashFor(weight + 5),
       },
     });
-    map.addLayer({
+    mapInstance.addLayer({
       id: coreId, type: "line", source: id, layout,
       paint: {
         "line-color": color,
@@ -345,26 +350,92 @@ export function drawTrack(latlngs, opts = {}) {
       },
     });
     added = true;
-  });
+    bound.forEach((l) => mapInstance.on(l.type, casingId, l.fn));
+  };
 
   return {
     id,
-    layerIds: [casingId, coreId],
+    coreId,
+    casingId,
+    hitLayers: [casingId, coreId], // pour queryRenderedFeatures (insertion planificateur)
+    _install: install,
     setData(next) {
       coords = next.map(toLngLat);
-      if (added) map.getSource(id)?.setData(feature());
+      if (added) mapInstance.getSource(id)?.setData(feature());
     },
     getBounds() {
       return boundsOfLngLat(coords); // `coords` est déjà en [lng, lat]
     },
+    // Survol carte → profil : `mouseout` de Leaflet devient `mouseleave` de MapLibre. Les
+    // écouteurs se posent sur la couche de liseré ; MapLibre passe `e.lngLat` (pas
+    // `e.latlng`) — les appelants ont été alignés en conséquence.
+    on(type, fn) {
+      const mlType = type === "mouseout" ? "mouseleave" : type;
+      bound.push({ type: mlType, fn });
+      if (added) mapInstance.on(mlType, casingId, fn);
+      return this;
+    },
     remove() {
       removed = true;
+      if (added) bound.forEach((l) => mapInstance.off(l.type, casingId, l.fn));
       if (!added) return;
-      [coreId, casingId].forEach((l) => map.getLayer(l) && map.removeLayer(l));
-      if (map.getSource(id)) map.removeSource(id);
+      [coreId, casingId].forEach((l) => mapInstance.getLayer(l) && mapInstance.removeLayer(l));
+      if (mapInstance.getSource(id)) mapInstance.removeSource(id);
       added = false;
     },
   };
+}
+
+export function drawTrack(latlngs, opts = {}) {
+  const t = buildTrack(map, latlngs, opts);
+  whenMapReady(() => t._install());
+  return t;
+}
+
+// Tracé sur une carte de fiche (instance distincte, style déjà chargé quand on appelle).
+export function drawTrackOn(mapInstance, latlngs, opts = {}) {
+  const t = buildTrack(mapInstance, latlngs, opts);
+  t._install();
+  return t;
+}
+
+// ---------- Carte de fiche autonome (mini-carte, plein écran) ----------
+// Remplace les `L.map` + `L.tileLayer` de detail.js (S-V2-CARTE-B) : une instance MapLibre
+// à fond topo unique. `inert` fige l'aperçu (mini-carte) SANS couper la répartition
+// d'événements — le survol du tracé pilote encore le curseur du profil, ce que
+// `interactive:false` (qui débranche tous les écouteurs) interdirait.
+export function createFicheMap(container, { inert = false, attribution = false } = {}) {
+  const topo = TILE_TEMPLATES.topo;
+  const m = new maplibregl.Map({
+    container,
+    attributionControl: attribution ? { compact: false } : false,
+    maxZoom: 17 + OVERZOOM - ZOOM_OFFSET,
+    refreshExpiredTiles: false,
+    style: {
+      version: 8,
+      sources: {
+        topo: {
+          type: "raster",
+          tiles: tileUrls(topo),
+          tileSize: 256,
+          maxzoom: topo.maxZoom,
+          attribution: topo.attribution,
+        },
+      },
+      layers: [{ id: "topo", type: "raster", source: "topo" }],
+    },
+  });
+  if (inert) {
+    m.dragPan.disable();
+    m.scrollZoom.disable();
+    m.boxZoom.disable();
+    m.dragRotate.disable();
+    m.keyboard.disable();
+    m.doubleClickZoom.disable();
+    m.touchZoomRotate.disable();
+    m.touchPitch?.disable();
+  }
+  return m;
 }
 
 // ---------- Radar de précipitations ----------
@@ -942,7 +1013,10 @@ export function initMap() {
   // Clic sur la carte : point de passage si le planificateur est ouvert, départ de
   // boucle si le générateur l'est, sinon referme les calques
   map.on("click", (e) => {
-    if (planner.active) { plannerMapClick(e.lngLat); return; }
+    // Clic sur le canevas : le planificateur décide seul entre poser un point en bout de
+    // course et INSÉRER sur le tracé (hit-test de la couche de tracé), d'où le passage de
+    // l'événement entier — `e.point` sert au queryRenderedFeatures.
+    if (planner.active) { plannerCanvasClick(e); return; }
     if (loops.active) { setLoopStart(e.lngLat); return; }
     layersPanel.classList.add("hidden");
   });

@@ -1,17 +1,15 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v42";
+const SHELL_CACHE = "sr-shell-v43";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
 // Bibliothèques CDN — épinglées par version, donc immuables : cache-first sans revalidation.
 // Sans ça l'appli ne démarrait hors-ligne que si le cache HTTP du navigateur avait gardé
-// Leaflet ; avec MapLibre (1 Mo) le pari devenait intenable. Le cache accepte les réponses
-// opaques (cross-origin sans CORS) : elles se rejouent telles quelles.
+// MapLibre (1 Mo) — pari intenable. Le cache accepte les réponses opaques (cross-origin
+// sans CORS) : elles se rejouent telles quelles. (Leaflet retiré au sprint S-V2-CARTE-B.)
 const CDN_ASSETS = [
   "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js",
   "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
 ];
 const CDN_HOSTS = ["unpkg.com", "cdn.jsdelivr.net"];
 
