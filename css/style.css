@@ -337,7 +337,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .map-search-dock {
   position: absolute;
   right: 12px;
-  bottom: 16px;
+  bottom: 10px;
   z-index: 1002;
   width: auto;
   max-width: calc(100vw - 24px);
@@ -616,18 +616,34 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .map-scale-bar i { flex: 1; background: #fff; }
 .map-scale-bar i:nth-child(even) { background: #0b0b0c; }
 
-/* Le coin bas-droit appartient à la recherche : l'attribution vit à gauche, et s'efface
-   pendant la saisie — sur téléphone le champ déplié couvre toute la largeur. */
+/* Le coin bas-droit appartient à la recherche : l'attribution vit à gauche, tout en bas,
+   et s'efface pendant la saisie — sur téléphone le champ déplié couvre toute la largeur. */
 .search-open .maplibregl-ctrl-attrib { opacity: 0; pointer-events: none; }
+
+/* Aussi discrète que la licence l'autorise : pas de pastille, minuscule, très atténuée.
+   Elle ne peut pas disparaître — créditer OSM est une obligation, pas un choix de style —
+   mais elle se rappelle au regard seulement quand on la cherche, et reprend du contraste
+   au survol pour rester cliquable. */
+.maplibregl-ctrl-bottom-left { margin: 0 0 1px 4px; }
 
 .maplibregl-ctrl-attrib {
   transition: opacity 140ms ease-out;
-  border-radius: var(--radius-full) !important;
-  background: color-mix(in srgb, var(--surface) 72%, transparent) !important;
-  font-size: 10.5px;
+  border-radius: 0 !important;
+  background: none !important;
+  padding: 0 4px !important;
+  font-size: 9px;
+  line-height: 1.4;
+  opacity: 0.34;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-.maplibregl-ctrl-attrib a { color: var(--text-soft); }
+.maplibregl-ctrl-attrib:hover { opacity: 0.75; }
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a { color: #fff; }
+
+/* Le bouton ⓘ de la version compacte n'apporte rien ici : le crédit tient en trois mots. */
+.maplibregl-ctrl-attrib-button { display: none !important; }
+.maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-inner { display: block !important; }
 
 /* ---- Position sur la carte ---- */
 /* Pastille blanche cerclée de sombre : lisible sur tous les fonds, comme le tracé. */
@@ -645,9 +661,6 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
      suffit à zoomer. Le contrôle reste au desktop, où il ne gêne rien. (S-V2-EXPLORER-B
      le retirera partout, au profit de la seule localisation.) */
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; }
-  /* Attribution dégagée de la barre d'onglets. */
-  .maplibregl-ctrl-bottom-left,
-  .maplibregl-ctrl-bottom-right { margin-bottom: 42px; }
   .map-scale { top: 12px; left: 12px; }
 }
 
@@ -2490,8 +2503,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .btn-filters { padding: 10px 12px; flex-shrink: 0; }
   .map-list-btn { display: inline-flex; }
   .map-stack { top: 10px; right: 10px; }
-  /* Le dock passe au-dessus de la barre d'onglets. */
-  .map-search-dock { right: 10px; bottom: 66px; }
+  /* #view-carte s'arrête DÉJÀ au-dessus de la barre d'onglets : un décalage de la
+     hauteur de celle-ci ferait flotter le bouton bien trop haut. */
+  .map-search-dock { right: 10px; bottom: 10px; }
   .map-stack .layers-panel { right: 50px; max-width: calc(100vw - 74px); }
   .results-panel { top: 64px; bottom: 76px; }
   .builder-bar { top: auto; bottom: 0; left: 0; transform: none; width: 100%; border-left: none; border-right: none; }
