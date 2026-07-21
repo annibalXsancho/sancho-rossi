@@ -2351,15 +2351,6 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .nav-session-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .nav-session-actions .btn { flex: 1 1 auto; justify-content: center; }
 
-.navview-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-}
 .navview-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .navview-info strong { font-size: 13.5px; }
 .navview-info .muted { font-size: 12px; }
@@ -2368,55 +2359,91 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 #navview-layers .layer-row { padding: 6px 0; }
 #view-itineraires .settings-group > .muted { font-size: 12px; margin-top: 10px; }
 
-/* ---- Menu contextuel d'un itinéraire (appui long) : réutilise .pack-modal/.pack-sheet ---- */
-.itin-sheet { width: min(400px, 100%); }
-.itin-menu-head { margin-bottom: var(--sp-4); }
-.itin-menu-name { margin-top: var(--sp-1); }
+/* ---- Ligne d'itinéraire : glissé-pour-supprimer + bulles à l'appui long ---- */
+.itin-item {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;                 /* borne le glissement et le fond rouge */
+}
+.itin-item:not(:first-of-type) { margin-top: 2px; }
 
-.itin-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
-.act-row {
+/* Fond révélé par le glissement : bouton poubelle plaqué à droite */
+.itin-swipe-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--red);
+}
+.itin-del {
+  width: 76px;
+  border: none;
+  background: var(--red);
+  color: #fff;
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  width: 100%;
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-2);
-  border: none;
-  border-radius: var(--radius);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left;
+  justify-content: center;
   cursor: pointer;
-  transition: background 150ms ease-out, transform 120ms ease-out, box-shadow 150ms ease-out;
 }
-.act-row:hover { background: var(--surface-3); transform: translateY(-1px); box-shadow: var(--shadow-soft); }
-.act-row:active { transform: translateY(0) scale(0.99); }
-.act-ic { flex: none; width: 22px; font-size: 16px; text-align: center; }
-.act-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.act-sub { font-size: 11.5px; font-weight: 500; color: var(--text-soft); }
+.itin-del:active { background: var(--red-dim); }
+.itin-del svg { width: 22px; height: 22px; }
 
-.act-danger { color: var(--red); }
-.act-danger .act-sub { color: color-mix(in srgb, var(--red) 55%, var(--text-soft)); }
-.act-armed { background: var(--red); color: #fff; justify-content: center; }
-.act-armed:hover { background: var(--red-dim); }
+/* Carte au-dessus : opaque, glisse horizontalement, jamais de sélection de texte à l'appui long */
+.itin-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 2px;
+  background: var(--surface);
+  cursor: pointer;
+  touch-action: pan-y;              /* on gère l'horizontal, le vertical scrolle nativement */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;      /* pas de menu/loupe natifs à l'appui long */
+  transition: transform 200ms ease-out;
+}
+.itin-item:not(:first-of-type) .itin-card { border-top: 1px solid var(--border); }
+.navview-info strong.editing {
+  -webkit-user-select: text;
+  user-select: text;
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+  padding: 0 4px;
+  margin: 0 -4px;
+}
 
-.itin-rename { display: flex; flex-direction: column; gap: var(--sp-2); }
-.itin-rename-input {
-  width: 100%;
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-2);
+.itin-right { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+.itin-quick { display: none; align-items: center; gap: var(--sp-2); }
+.itin-card.quick-open .navview-go { display: none; }
+.itin-card.quick-open .itin-quick { display: flex; }
+.itin-bubble {
+  width: 40px;
+  height: 40px;
+  flex: none;
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
   color: var(--text);
-  font: inherit;
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: transform 120ms ease-out, background 150ms ease-out;
+  animation: bubble-in 160ms ease-out both;
 }
-.itin-rename-input:focus { outline: none; box-shadow: var(--focus-ring); }
-.itin-rename-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-1); }
-@media (max-width: 700px) {
-  .itin-rename-actions .btn { flex: 1; justify-content: center; }
+.itin-bubble:nth-child(2) { animation-delay: 40ms; }
+.itin-bubble:hover { background: var(--border-strong); }
+.itin-bubble:active { transform: scale(0.9); }
+.itin-bubble svg { width: 19px; height: 19px; }
+@keyframes bubble-in { from { opacity: 0; transform: scale(0.6) translateX(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .itin-card { transition: none; }
+  .itin-bubble { animation: none; }
 }
 
 /* ============ Panneau de filtres partagé ============ */

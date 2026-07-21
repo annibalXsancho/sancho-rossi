@@ -7,10 +7,33 @@ import { switchTab } from "./ui.js";
 import { layersConfig, applyLayer, LAYER_META } from "./map.js";
 import { renderDetail } from "./detail.js";
 import { hasPack } from "./offline.js";
-import { openItinMenu } from "./itinmenu.js";
+import { renameImported, deleteImported } from "./trails.js";
+import { openPlannerForEdit } from "./planner.js";
+import { toast } from "./toast.js";
 
-const LONG_PRESS_MS = 500;    // durée d'appui avant le menu contextuel
-const LONG_PRESS_MOVE = 10;   // tolérance de glissement (px) — au-delà, c'est un scroll
+// Gestes d'ergonomie sur « Mes itinéraires » (façon apps pro) :
+//   • glisser vers la gauche  → révèle un bouton rouge poubelle → supprimer
+//   • maintenir (appui long)  → deux bulles à droite : ✎ renommer, ⤳ modifier le tracé
+//   • tap simple              → ouvre la fiche
+const DEL_W = 76;             // largeur du bouton poubelle révélé par le glissement
+const LONG_PRESS_MS = 450;    // durée d'appui avant les bulles d'action
+const AXIS_THRESHOLD = 8;     // px avant de trancher entre glissement horizontal et scroll
+
+// Un seul itinéraire « ouvert » à la fois (glissé OU bulles affichées).
+let openItem = null;
+
+function closeOpenItem() {
+  if (!openItem) return;
+  const card = openItem.querySelector(".itin-card");
+  if (card) { card.style.transition = ""; card.style.transform = ""; card.classList.remove("quick-open"); }
+  openItem._open = false;
+  openItem = null;
+}
+
+// Fermer l'itinéraire ouvert dès qu'on touche ailleurs (capture : avant les gestes de ligne).
+document.addEventListener("pointerdown", (e) => {
+  if (openItem && !openItem.contains(e.target)) closeOpenItem();
+}, true);
 
 let elapsedTimer = null;
 
@@ -70,10 +93,16 @@ function renderSession() {
   });
 }
 
+// ---------- Icônes (traits, remplis via currentColor) ----------
+const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><line x1="10" y1="11" x2="10" y2="16.5"/><line x1="14" y1="11" x2="14" y2="16.5"/></svg>`;
+const ICON_PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const ICON_ROUTE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18.5 9.5 11l5 3.5L20 6"/><circle cx="4" cy="18.5" r="1.7" fill="currentColor" stroke="none"/><circle cx="20" cy="6" r="1.7" fill="currentColor" stroke="none"/></svg>`;
+
 // ---------- Mes itinéraires (créés au planificateur ou importés en GPX) ----------
 function renderTrails() {
   const host = document.getElementById("navview-trails");
   const trails = state.imported;
+  openItem = null; // le DOM va être remplacé : aucun élément « ouvert » ne survit
 
   if (!trails.length) {
     host.innerHTML = `
@@ -87,7 +116,7 @@ function renderTrails() {
     return;
   }
 
-  host.innerHTML = `<p class="navview-hint muted">Appui long sur un itinéraire pour le renommer, modifier ou supprimer.</p>` + trails.map((t) => {
+  host.innerHTML = `<p class="navview-hint muted">Glissez un itinéraire vers la gauche pour le supprimer, ou maintenez-le pour le renommer ou modifier le tracé.</p>` + trails.map((t) => {
     const g = gainOf(t);
     const stats = [
       `${t.distance} km`,
@@ -96,12 +125,23 @@ function renderTrails() {
       hasPack(t.id) ? "✓ hors-ligne" : null,
     ].filter(Boolean).join(" · ");
     return `
-      <div class="navview-row" data-id="${t.id}">
-        <div class="navview-info">
-          <strong>${t.name}</strong>
-          <span class="muted">${stats}</span>
+      <div class="itin-item" data-id="${t.id}">
+        <div class="itin-swipe-bg">
+          <button class="itin-del" data-del="${t.id}" aria-label="Supprimer l'itinéraire" title="Supprimer">${ICON_TRASH}</button>
         </div>
-        <button class="btn navview-go" data-go="${t.id}">▶ Suivre</button>
+        <div class="itin-card">
+          <div class="navview-info">
+            <strong>${t.name}</strong>
+            <span class="muted">${stats}</span>
+          </div>
+          <div class="itin-right">
+            <button class="btn navview-go" data-go="${t.id}">▶ Suivre</button>
+            <div class="itin-quick" aria-hidden="true">
+              <button class="itin-bubble" data-act="rename" aria-label="Renommer" title="Renommer">${ICON_PENCIL}</button>
+              <button class="itin-bubble" data-act="edit" aria-label="Modifier le tracé" title="Modifier le tracé">${ICON_ROUTE}</button>
+            </div>
+          </div>
+        </div>
       </div>`;
   }).join("");
 
@@ -111,46 +151,155 @@ function renderTrails() {
       startNavigation(b.dataset.go);
     })
   );
-  host.querySelectorAll(".navview-row").forEach((row) =>
-    bindRowGestures(row, trails.find((t) => t.id === row.dataset.id))
+  host.querySelectorAll(".itin-item").forEach((item) =>
+    bindItemGestures(item, trails.find((t) => t.id === item.dataset.id))
   );
 }
 
-// Tap = ouvrir la fiche ; appui long (ou clic droit) = menu Renommer / Modifier / Supprimer.
-// L'appui long s'arme sur pointerdown et s'annule si le doigt glisse (l'utilisateur scrolle)
-// ou relâche trop tôt ; il neutralise alors le clic de navigation qui suivrait.
-function bindRowGestures(row, trail) {
+// Trois gestes sur une même ligne, sans se marcher dessus :
+//   tap → fiche ; appui long → bulles renommer/modifier ; glissé gauche → poubelle.
+// On tranche l'axe (horizontal = glissement, vertical = scroll) au premier mouvement franc.
+function bindItemGestures(item, trail) {
   if (!trail) return;
-  let timer = null, fired = false, sx = 0, sy = 0;
+  const card = item.querySelector(".itin-card");
+  let startX = 0, startY = 0, axis = null, longFired = false, moved = false, baseX = 0, curX = 0;
+  let timer = null;
 
-  const cancel = () => { clearTimeout(timer); timer = null; };
-  const open = () => {
-    fired = true;
-    cancel();
+  const clearTimer = () => { clearTimeout(timer); timer = null; };
+  const setX = (x) => { curX = x; card.style.transform = x ? `translateX(${x}px)` : ""; };
+
+  const openQuick = () => {
+    longFired = true;
+    clearTimer();
+    if (openItem && openItem !== item) closeOpenItem();
     if (navigator.vibrate) navigator.vibrate(12);
-    openItinMenu(trail);
+    card.classList.add("quick-open");
+    openItem = item; item._open = true;
   };
 
-  row.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".navview-go")) return; // le bouton « Suivre » garde son geste
-    fired = false;
-    sx = e.clientX; sy = e.clientY;
-    cancel();
-    timer = setTimeout(open, LONG_PRESS_MS);
+  card.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".navview-go") || e.target.closest(".itin-quick") || e.target.isContentEditable) return;
+    startX = e.clientX; startY = e.clientY;
+    axis = null; moved = false; longFired = false;
+    // Reprend depuis l'état glissé si la ligne est déjà ouverte en mode poubelle.
+    baseX = (item._open && !card.classList.contains("quick-open")) ? -DEL_W : 0;
+    clearTimer();
+    timer = setTimeout(openQuick, LONG_PRESS_MS);
+    card.setPointerCapture?.(e.pointerId);
   });
-  row.addEventListener("pointermove", (e) => {
-    if (timer && (Math.abs(e.clientX - sx) > LONG_PRESS_MOVE || Math.abs(e.clientY - sy) > LONG_PRESS_MOVE)) cancel();
-  });
-  row.addEventListener("pointerup", cancel);
-  row.addEventListener("pointercancel", cancel);
-  row.addEventListener("pointerleave", cancel);
 
-  row.addEventListener("contextmenu", (e) => { e.preventDefault(); open(); });
-  row.addEventListener("click", (e) => {
-    if (fired) { fired = false; return; }        // l'appui long a déjà agi
-    if (e.target.closest(".navview-go")) return; // « Suivre » gère son propre clic
+  card.addEventListener("pointermove", (e) => {
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (axis === null) {
+      if (Math.abs(dx) < AXIS_THRESHOLD && Math.abs(dy) < AXIS_THRESHOLD) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      clearTimer(); // dès qu'on bouge, plus d'appui long
+      if (axis === "x") {
+        card.classList.remove("quick-open");
+        if (openItem && openItem !== item) closeOpenItem();
+        card.style.transition = "none";
+      } else return; // scroll vertical : on laisse la page défiler
+    }
+    if (axis !== "x") return;
+    moved = true;
+    e.preventDefault();
+    setX(Math.max(-DEL_W, Math.min(0, baseX + dx))); // glissement borné, uniquement vers la gauche
+  });
+
+  const finish = (e) => {
+    clearTimer();
+    card.releasePointerCapture?.(e.pointerId);
+    if (axis === "x") {
+      card.style.transition = "";
+      const open = curX < -DEL_W / 2;
+      setX(open ? -DEL_W : 0);
+      item._open = open;
+      if (open) { if (openItem && openItem !== item) closeOpenItem(); openItem = item; }
+      else if (openItem === item) openItem = null;
+    }
+    axis = null;
+  };
+  card.addEventListener("pointerup", finish);
+  card.addEventListener("pointercancel", finish);
+
+  // Clic droit (desktop) : équivalent de l'appui long, sans menu natif.
+  card.addEventListener("contextmenu", (e) => { e.preventDefault(); openQuick(); });
+
+  card.addEventListener("click", (e) => {
+    if (e.target.closest(".navview-go") || e.target.closest(".itin-quick") || e.target.isContentEditable) return;
+    if (longFired) { longFired = false; return; } // l'appui long a déjà agi
+    if (moved) { moved = false; return; }         // c'était un glissement
+    if (item._open) { closeOpenItem(); return; }  // referme la ligne ouverte
     renderDetail(trail.id);
   });
+
+  // Bulles d'action (appui long)
+  item.querySelector('[data-act="rename"]').addEventListener("click", (e) => {
+    e.stopPropagation();
+    startInlineRename(item, trail);
+  });
+  item.querySelector('[data-act="edit"]').addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeOpenItem();
+    openPlannerForEdit(trail);
+  });
+
+  // Poubelle révélée par le glissement
+  item.querySelector("[data-del]").addEventListener("click", (e) => {
+    e.stopPropagation();
+    card.style.transition = "transform 180ms ease-out";
+    setX(-item.offsetWidth); // la ligne sort par la gauche, puis on supprime
+    setTimeout(() => {
+      openItem = null;
+      deleteImported(trail.id);
+      renderNavView();
+      toast("Itinéraire supprimé.");
+    }, 170);
+  });
+}
+
+// Renommage en place : le titre de la ligne devient éditable (Entrée/clic-ailleurs valide,
+// Échap annule). Même geste que la fiche — un seul champ, pas de boîte de dialogue.
+function startInlineRename(item, trail) {
+  const card = item.querySelector(".itin-card");
+  card.classList.remove("quick-open");
+  if (openItem === item) openItem = null;
+
+  const strong = card.querySelector(".navview-info strong");
+  if (!strong || strong.isContentEditable) return;
+  const original = trail.name;
+  strong.setAttribute("contenteditable", "plaintext-only");
+  strong.classList.add("editing");
+  strong.focus();
+  const range = document.createRange();
+  range.selectNodeContents(strong);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    strong.removeEventListener("keydown", onKey);
+    strong.removeEventListener("blur", onBlur);
+    strong.removeAttribute("contenteditable");
+    strong.classList.remove("editing");
+    const next = strong.textContent.trim();
+    if (commit && next && next !== original && renameImported(trail.id, next)) {
+      toast("Itinéraire renommé.", { type: "success" });
+      renderNavView();
+    } else {
+      strong.textContent = original; // annulation ou nom vide/inchangé
+    }
+  };
+  const onKey = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  };
+  const onBlur = () => finish(true);
+  strong.addEventListener("keydown", onKey);
+  strong.addEventListener("blur", onBlur);
 }
 
 // ---------- Calques ----------
