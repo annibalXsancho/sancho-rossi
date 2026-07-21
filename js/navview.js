@@ -244,9 +244,16 @@ function bindItemGestures(item, trail) {
     openPlannerForEdit(trail);
   });
 
-  // Poubelle révélée par le glissement
-  item.querySelector("[data-del]").addEventListener("click", (e) => {
+  // Poubelle révélée par le glissement. On agit sur `pointerup` (et non `click`) :
+  // après un glissement, le navigateur annule souvent le premier `click` synthétisé —
+  // c'est ce qui obligeait à taper deux fois. `pointerup` se déclenche dès le premier
+  // relâchement ; un garde empêche la double-suppression (pointerup + click éventuel).
+  const delBtn = item.querySelector("[data-del]");
+  let deleting = false;
+  const doDelete = (e) => {
     e.stopPropagation();
+    if (deleting) return;
+    deleting = true;
     card.style.transition = "transform 180ms ease-out";
     setX(-item.offsetWidth); // la ligne sort par la gauche, puis on supprime
     setTimeout(() => {
@@ -255,7 +262,9 @@ function bindItemGestures(item, trail) {
       renderNavView();
       toast("Itinéraire supprimé.");
     }, 170);
-  });
+  };
+  delBtn.addEventListener("pointerup", doDelete);
+  delBtn.addEventListener("click", doDelete); // repli desktop (souris) ; dédupliqué par le garde
 }
 
 // Renommage en place : le titre de la ligne devient éditable (Entrée/clic-ailleurs valide,
