@@ -27,7 +27,11 @@ export const DEEP_ZOOMS = [16, 17];
 // s'arrête à 13, hillshade à 16 mais n'est qu'un ombrage — sans micro-détail utile).
 export const DEEP_LAYERS = ["plan", "topo", "satellite", "sombre", "trails"];
 
-const TILE_CAP = 24000;         // garde-fou : au-delà, tracé trop long pour un pack unique
+const TILE_CAP = 24000;         // garde-fou corridor : au-delà, tracé trop long pour un pack unique
+// Cap des packs de ZONE (S-V2-PACKS-ZONE). Une surface légitime (« toute la vallée ») dépasse
+// vite le cap corridor ; on le relève, le vrai filet restant l'estimation honnête affichée +
+// assertRoomFor + le QuotaExceededError intercepté à l'écriture.
+const ZONE_TILE_CAP = 60000;
 const CONCURRENCY = 6;
 
 // Poids moyen d'une tuile, pour l'estimation affichée AVANT téléchargement. Depuis le
@@ -128,15 +132,66 @@ export function estimatePack(trail, depth = {}) {
   return { tiles, mb, mbLabel: mb < 10 ? mb.toFixed(1) : String(Math.round(mb)), overCap: tiles > TILE_CAP };
 }
 
+// ---------- Tuiles d'une ZONE (rectangle bbox, S-V2-PACKS-ZONE) ----------
+// Même modèle de profondeur que le corridor : les 7 calques jusqu'à z15, 1–2 calques
+// « détaillés » jusqu'à z16/z17. La différence est la surface : on balaie TOUTES les tuiles
+// (x,y) entre les coins NO (n,w) et SE (s,e) au lieu de suivre un tracé. Dédup par Set.
+function computeZoneTiles(bbox, depth = {}) {
+  const { deepLayers, deepMax } = normalizeDepth(depth);
+  const { s, w, n, e } = bbox;
+  const seen = new Set();
+  const tiles = [];
+  for (const layer of PACK_LAYERS) {
+    const target = deepLayers.includes(layer) ? deepMax : ZMAX;
+    const maxZ = Math.min(target, TILE_TEMPLATES[layer].maxZoom);
+    for (let z = ZMIN; z <= maxZ; z++) {
+      const nT = 2 ** z;
+      const tl = lonLatToTile(n, w, z);   // coin nord-ouest
+      const br = lonLatToTile(s, e, z);   // coin sud-est
+      const x0 = Math.min(tl.x, br.x), x1 = Math.max(tl.x, br.x);
+      const y0 = Math.min(tl.y, br.y), y1 = Math.max(tl.y, br.y);
+      for (let x = x0; x <= x1; x++)
+        for (let y = y0; y <= y1; y++) {
+          if (x < 0 || y < 0 || x >= nT || y >= nT) continue;
+          const key = `${layer}|${z}|${x}|${y}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          tiles.push({ layer, z, x, y });
+        }
+    }
+  }
+  return tiles;
+}
+
+export function estimateZonePack(bbox, depth = {}) {
+  const tiles = computeZoneTiles(bbox, depth).length;
+  const mb = (tiles * avgTileKb()) / 1024;
+  return { tiles, mb, mbLabel: mb < 10 ? mb.toFixed(1) : String(Math.round(mb)), overCap: tiles > ZONE_TILE_CAP };
+}
+
 // ---------- Manifeste (cache mémoire + persistance légère) ----------
 let manifest = {};
+// Téléchargements de zone interrompus, reprenables (S-V2-PACKS-ZONE). Map id→record,
+// persistée sous une seule clé (comme le manifeste). Un pack terminé n'y figure plus.
+let pending = {};
 
 export async function initOffline() {
   manifest = (await getPackMeta("manifest").catch(() => null)) || {};
+  pending = (await getPackMeta("pending").catch(() => null)) || {};
 }
 
 export const hasPack = (id) => !!manifest[id];
 export const listPacks = () => Object.values(manifest).sort((a, b) => b.createdAt - a.createdAt);
+export const listPending = () => Object.values(pending).sort((a, b) => b.createdAt - a.createdAt);
+
+async function putPending(rec) { pending[rec.id] = rec; await putPackMeta("pending", pending); }
+async function clearPendingRecord(id) { delete pending[id]; await putPackMeta("pending", pending); }
+// Abandon d'un téléchargement en attente : on retire le record ET le corridor partiel.
+export async function delPending(id) {
+  await clearPendingRecord(id);
+  await caches.delete(packCacheName(id)).catch(() => {});
+  await delPackMeta(`poi:${id}`).catch(() => {});
+}
 
 // ---------- POI du corridor ----------
 function classifyPoi(tags) {
@@ -146,13 +201,19 @@ function classifyPoi(tags) {
   return null;
 }
 
-async function fetchCorridorPoi(track) {
+function bboxOfTrack(track) {
   let s = 90, w = 180, nn = -90, e = -180;
   for (const [lat, lon] of track) {
     if (lat < s) s = lat; if (lat > nn) nn = lat;
     if (lon < w) w = lon; if (lon > e) e = lon;
   }
-  const bbox = `${s},${w},${nn},${e}`;
+  return { s, w, n: nn, e };
+}
+
+const fetchCorridorPoi = (track) => fetchBboxPoi(bboxOfTrack(track));
+
+async function fetchBboxPoi({ s, w, n, e }) {
+  const bbox = `${s},${w},${n},${e}`;
   const query =
     `[out:json][timeout:25];(` +
     `${POI_DEFS.water.query(bbox)}${POI_DEFS.huts.query(bbox)}${POI_DEFS.rescue.query(bbox)}` +
@@ -189,25 +250,36 @@ export async function packPoiLayer(id) {
 }
 
 // ---------- Construction / suppression ----------
-async function downloadTiles(id, tiles, onProgress) {
+// `resume` : saute les tuiles déjà en cache (re-run idempotent et bon marché d'un pack de
+// zone interrompu). `shouldStop()` : arrêt coopératif propre (bouton Annuler) — le partiel
+// reste en place, reprenable ; on ne jette rien.
+async function downloadTiles(id, tiles, onProgress, { resume = false, shouldStop = null } = {}) {
   const cache = await caches.open(packCacheName(id));
   const total = tiles.length;
-  let done = 0, i = 0, quotaHit = false, bytes = 0, measured = 0;
+  let done = 0, i = 0, quotaHit = false, stopped = false, bytes = 0, measured = 0;
   async function worker() {
-    while (i < tiles.length && !quotaHit) {
+    while (i < tiles.length && !quotaHit && !stopped) {
+      if (shouldStop?.()) { stopped = true; break; }
       const t = tiles[i++];
       const url = buildTileUrl(t.layer, t.z, t.x, t.y);
+      const key = normTileKey(url);
       try {
-        // Mode `cors` (et non plus `no-cors`) : sous MapLibre chaque tuile devient une
-        // texture WebGL, qui refuse une réponse opaque. Les 7 calques embarqués répondent
-        // tous `Access-Control-Allow-Origin: *` → réponse lisible, décodable hors-ligne.
-        const res = await fetch(url, { mode: "cors" });
-        if (res.ok) {
-          // Content-Length est un en-tête de réponse sûr (toujours lisible, même cross-
-          // origin) : on somme le poids réel plutôt que de le deviner (calibration exacte).
-          const len = Number(res.headers.get("content-length"));
-          if (Number.isFinite(len) && len > 0) { bytes += len; measured++; }
-          await cache.put(normTileKey(url), res);
+        // Reprise : une tuile déjà téléchargée (persistée en Cache Storage) n'est pas
+        // refetchée — c'est ce qui rend « Reprendre » économe après une interruption.
+        if (resume && (await cache.match(key))) {
+          /* déjà en cache */
+        } else {
+          // Mode `cors` (et non plus `no-cors`) : sous MapLibre chaque tuile devient une
+          // texture WebGL, qui refuse une réponse opaque. Les 7 calques embarqués répondent
+          // tous `Access-Control-Allow-Origin: *` → réponse lisible, décodable hors-ligne.
+          const res = await fetch(url, { mode: "cors" });
+          if (res.ok) {
+            // Content-Length est un en-tête de réponse sûr (toujours lisible, même cross-
+            // origin) : on somme le poids réel plutôt que de le deviner (calibration exacte).
+            const len = Number(res.headers.get("content-length"));
+            if (Number.isFinite(len) && len > 0) { bytes += len; measured++; }
+            await cache.put(key, res);
+          }
         }
       } catch (err) {
         // Quota dépassé : inutile de marteler, tout le reste échouera aussi. On arrête net
@@ -221,7 +293,7 @@ async function downloadTiles(id, tiles, onProgress) {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   if (quotaHit) throw new Error("le stockage de l'appareil est plein. Supprimez un pack ou choisissez moins de calques détaillés.");
-  return { bytes, measured };
+  return { bytes, measured, stopped };
 }
 
 // Place restante, en Mo — ou null si le navigateur ne donne pas de lecture exploitable.
@@ -312,6 +384,69 @@ export async function buildPack(trail, depth = {}, onProgress) {
   return manifest[local.id];
 }
 
+// Pack de ZONE (S-V2-PACKS-ZONE) : une surface bbox, indépendante de tout tracé. Même
+// socle que buildPack (Cache Storage `sr-pack-<id>`, clé normalisée, calibration) mais
+// tuiles de surface, POI de la bbox, pas de snapshot météo (une zone n'est pas une rando).
+// Un record de reprise est posé AVANT le téléchargement : une interruption (fermeture,
+// quota, Annuler) le laisse en place → « Reprendre » relance sans re-télécharger le déjà-fait.
+// `opts`: { id, resume, createdAt, shouldStop }. Renvoie l'entrée manifeste, ou null si annulé.
+export async function buildZonePack(name, bbox, depth = {}, onProgress, opts = {}) {
+  const { deepLayers, deepMax } = normalizeDepth(depth);
+  const id = opts.id || `zone-${Date.now()}`;
+  const resume = !!opts.resume;
+  const createdAt = opts.createdAt || Date.now();
+
+  onProgress?.({ phase: "prepare" });
+  const tiles = computeZoneTiles(bbox, { deepLayers, deepMax });
+  if (tiles.length > ZONE_TILE_CAP) {
+    throw new Error(`Zone de ${tiles.length} tuiles : trop vaste pour un pack unique à ce niveau de détail.`);
+  }
+  // À la reprise, une partie est déjà sur le disque : ne pas re-refuser sur la place totale.
+  if (!resume) await assertRoomFor(tiles.length);
+
+  await putPending({ id, name, bbox, depth: { deepLayers, deepMax }, tileCount: tiles.length, createdAt });
+
+  const before = (await storageEstimate())?.usedMB;
+  onProgress?.({ phase: "tiles", done: 0, total: tiles.length });
+  const dl = await downloadTiles(
+    id, tiles,
+    (done, total) => onProgress?.({ phase: "tiles", done, total }),
+    { resume, shouldStop: opts.shouldStop }
+  ); // quota → throw (partiel conservé en pending, reprenable), pas de suppression du cache
+  if (dl.stopped) { onProgress?.({ phase: "stopped" }); return null; }  // annulé : pending gardé
+
+  const after = (await storageEstimate())?.usedMB;
+  if (dl.measured >= 200) calibrateTileKb(dl.bytes, dl.measured);
+  else if (!resume && before != null && after != null) calibrateTileKb((after - before) * 1048576, tiles.length);
+
+  onProgress?.({ phase: "poi" });
+  let poi = [];
+  try { poi = await fetchBboxPoi(bbox); await putPackMeta(`poi:${id}`, poi); } catch { /* POI best-effort */ }
+
+  manifest[id] = {
+    id, name, kind: "zone", bbox,
+    tileCount: tiles.length,
+    sizeBytes: dl.bytes || null,
+    layers: PACK_LAYERS.length,
+    deepLayers, deepMax,
+    poiCount: poi.length,
+    createdAt,
+  };
+  await putPackMeta("manifest", manifest);
+  await clearPendingRecord(id);
+  onProgress?.({ phase: "done" });
+  return manifest[id];
+}
+
+// Reprend un téléchargement de zone interrompu depuis son record pending.
+export async function resumeZonePack(id, onProgress, shouldStop) {
+  const rec = pending[id];
+  if (!rec) throw new Error("Téléchargement introuvable.");
+  return buildZonePack(rec.name, rec.bbox, rec.depth, onProgress, {
+    id: rec.id, resume: true, createdAt: rec.createdAt, shouldStop,
+  });
+}
+
 export async function deletePack(id) {
   await caches.delete(packCacheName(id)).catch(() => {});
   await delPackMeta(`poi:${id}`).catch(() => {});
@@ -319,6 +454,7 @@ export async function deletePack(id) {
   await delPackMeta(`hw:${id}`).catch(() => {});
   delete manifest[id];
   await putPackMeta("manifest", manifest);
+  if (pending[id]) await clearPendingRecord(id);
 }
 
 // Purge de tous les packs (bouton « Tout effacer » des Réglages).

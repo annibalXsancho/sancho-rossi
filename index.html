@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=553" />
+  <link rel="stylesheet" href="css/style.css?v=554" />
   <script type="importmap">
     {
       "imports": {
@@ -45,11 +45,12 @@
         "./js/nav.js": "./js/nav.js?v=509",
         "./js/navview.js": "./js/navview.js?v=506",
         "./js/security.js": "./js/security.js?v=516",
-        "./js/ui.js": "./js/ui.js?v=529",
-        "./js/offline.js": "./js/offline.js?v=528",
-        "./js/packdialog.js": "./js/packdialog.js?v=501",
+        "./js/ui.js": "./js/ui.js?v=530",
+        "./js/offline.js": "./js/offline.js?v=529",
+        "./js/packdialog.js": "./js/packdialog.js?v=502",
+        "./js/zoneselect.js": "./js/zoneselect.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
-        "./js/explorer.js": "./js/explorer.js?v=503",
+        "./js/explorer.js": "./js/explorer.js?v=504",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501"
       }
     }
@@ -377,6 +378,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18c4 0 3-4 6-4s3-4 6-8" stroke-dasharray="1 3.2"/><circle cx="5" cy="18" r="1.5" fill="currentColor" stroke="none"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>
             Charger les randos de cette zone
           </button>
+          <button class="btn sheet-load" id="btn-pack-zone" title="Télécharger une zone entière pour le mode avion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3M12 9v6m0 0-2.5-2.5M12 15l2.5-2.5"/></svg>
+            Télécharger cette zone (hors-ligne)
+          </button>
           <div class="results-head">
             <span id="results-count"></span>
             <button id="panel-collapse" title="Replier">⌄</button>
@@ -498,10 +503,12 @@
 
       <div class="settings-group">
         <h3>Packs hors-ligne (terrain)</h3>
-        <p class="muted">Chaque pack embarque le corridor de carte (tous calques, z12–15), les points
-        d'eau/refuges/secours et un snapshot météo autour d'une rando — pour naviguer en mode avion.
-        Créez-en un depuis une fiche → « ⤓ Terrain ».</p>
+        <p class="muted">Un pack de <strong>rando</strong> embarque le corridor de carte + les points
+        d'eau/refuges/secours autour d'un tracé (depuis une fiche → « ⤓ Terrain »). Un pack de
+        <strong>zone</strong> couvre une surface entière (carte → feuille → « Télécharger cette zone »)
+        pour naviguer en mode avion.</p>
         <div id="offline-gauge" class="offline-gauge"></div>
+        <div id="pending-list" class="packs-list"></div>
         <div id="packs-list" class="packs-list"></div>
       </div>
 

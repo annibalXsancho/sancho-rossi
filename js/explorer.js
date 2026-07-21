@@ -6,8 +6,30 @@
 // c'est un panneau docké repliable. La mécanique reprend celle du planificateur (S-PLAN-C).
 import { openFilters } from "./filters.js";
 import { switchTab } from "./ui.js";
+import { selectZone, runZonePackJob } from "./zoneselect.js";
+import { askZonePackOptions } from "./packdialog.js";
+import { buildZonePack } from "./offline.js";
+import { toast } from "./toast.js";
 
 const el = (id) => document.getElementById(id);
+
+// Télécharger une ZONE hors-ligne (S-V2-PACKS-ZONE) : cadrage rectangle → choix
+// calques/zoom → build avec chip de progression. Lancé depuis la feuille Explorer.
+async function startZoneDownload() {
+  const bbox = await selectZone();
+  if (!bbox) return;
+  const opts = await askZonePackOptions(bbox);
+  if (!opts) return;
+  const { name, deepLayers, deepMax } = opts;
+  const { result, err } = await runZonePackJob({
+    label: name,
+    job: (onProgress, shouldStop) =>
+      buildZonePack(name, bbox, { deepLayers, deepMax }, onProgress, { shouldStop }),
+  });
+  if (err) toast(`Téléchargement incomplet : ${err.message}`, { type: "error" });
+  else if (result === null) toast("Téléchargement interrompu — reprenez-le depuis Réglages.");
+  else toast(`Zone « ${name} » prête hors-ligne.`, { type: "success" });
+}
 
 export function initExplorer() {
   const panel = el("results-panel");
@@ -23,6 +45,7 @@ export function initExplorer() {
   // catalog.js). Filtres et « Mes randos » ici.
   el("sheet-filters")?.addEventListener("click", openFilters);
   el("sheet-library")?.addEventListener("click", () => switchTab("itineraires"));
+  el("btn-pack-zone")?.addEventListener("click", startZoneDownload);
 
   // ---------- Bottom-sheet glissable (mobile) ----------
   // Deux crans : ouvert (transform 0) / réduit (.sheet-collapsed, position CSS). Le

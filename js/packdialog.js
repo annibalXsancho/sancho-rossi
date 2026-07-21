@@ -1,8 +1,9 @@
 // Sancho Rossi — feuille de choix avant téléchargement d'un pack terrain (S-V2-ZOOM)
 // Remplace le confirm() natif : profondeur de zoom + calques détaillés, avec estimation
-// de poids recalculée à chaque geste et place restante affichée. Conçue pour resservir
-// telle quelle aux packs de zone (S-V2-PACKS-ZONE).
-import { DEEP_LAYERS, DEEP_MAX_LAYERS, DEEP_ZOOMS, estimatePack, freeSpaceMB } from "./offline.js";
+// de poids recalculée à chaque geste et place restante affichée. Depuis S-V2-PACKS-ZONE
+// elle sert AUSSI aux packs de zone (`askZonePackOptions`), via `openPackSheet` paramétré :
+// même feuille, un champ nom en plus et l'estimation branchée sur la bbox.
+import { DEEP_LAYERS, DEEP_MAX_LAYERS, DEEP_ZOOMS, estimatePack, estimateZonePack, freeSpaceMB } from "./offline.js";
 import { toast } from "./toast.js";
 
 const LAYER_LABEL = {
@@ -15,8 +16,23 @@ const DEFAULTS = { deepLayers: ["topo", "satellite"], deepMax: 17 };
 
 let lastChoice = null;
 
-// Ouvre la feuille. Résout { deepLayers, deepMax } si l'utilisateur valide, null s'il annule.
+// Pack d'une rando (corridor) : résout { deepLayers, deepMax } ou null.
 export function askPackOptions(trail) {
+  return openPackSheet({ title: trail.name, estimate: (depth) => estimatePack(trail, depth) });
+}
+
+// Pack d'une zone (bbox) : résout { name, deepLayers, deepMax } ou null.
+export function askZonePackOptions(bbox) {
+  return openPackSheet({
+    title: "Emporter cette zone",
+    withName: true,
+    defaultName: "Ma zone",
+    estimate: (depth) => estimateZonePack(bbox, depth),
+  });
+}
+
+// Feuille générique. `cfg`: { title, estimate(depth), withName?, defaultName? }.
+function openPackSheet(cfg) {
   return new Promise((resolve) => {
     const choice = {
       deepLayers: [...(lastChoice?.deepLayers ?? DEFAULTS.deepLayers)],
@@ -34,6 +50,12 @@ export function askPackOptions(trail) {
           </div>
           <button class="btn-ghost pack-close" aria-label="Fermer">✕</button>
         </div>
+
+        ${cfg.withName ? `
+        <div class="pack-section">
+          <label class="eyebrow" for="pack-name">Nom de la zone</label>
+          <input type="text" id="pack-name" class="pack-name-input" maxlength="60" />
+        </div>` : ""}
 
         <div class="pack-section">
           <div class="eyebrow">Niveau de détail</div>
@@ -57,7 +79,9 @@ export function askPackOptions(trail) {
           <button class="btn btn-primary" id="pack-go">Télécharger</button>
         </div>
       </div>`;
-    el.querySelector(".pack-title").textContent = trail.name;
+    el.querySelector(".pack-title").textContent = cfg.title;
+    const nameEl = el.querySelector("#pack-name");
+    if (nameEl) nameEl.value = cfg.defaultName || "";
 
     const zoomsEl = el.querySelector("#pack-zooms");
     const layersEl = el.querySelector("#pack-layers");
@@ -65,7 +89,7 @@ export function askPackOptions(trail) {
 
     // « Standard » = deepMax 0 : aucun calque approfondi, pack z12–15 d'avant S-V2-ZOOM.
     const ZOOM_OPTS = [
-      { z: 0, label: "Standard", hint: "Zoom 15 — vue d'ensemble du corridor, pack le plus léger." },
+      { z: 0, label: "Standard", hint: "Zoom 15 — vue d'ensemble, pack le plus léger." },
       { z: 16, label: "Détaillé", hint: "Zoom 16 — les sentiers et intersections se lisent." },
       { z: 17, label: "Maximum", hint: "Zoom 17 — les lacets du sentier sont lisibles, à privilégier en navigation." },
     ].filter((o) => o.z === 0 || DEEP_ZOOMS.includes(o.z));
@@ -110,12 +134,12 @@ export function askPackOptions(trail) {
       // Le choix de calques n'a de sens qu'en mode approfondi.
       el.querySelector("#pack-layers-section").classList.toggle("pack-off", choice.deepMax === 0);
 
-      const est = estimatePack(trail, deep ? choice : {});
+      const est = cfg.estimate(deep ? choice : {});
       el.querySelector("#pack-mb").textContent = `~${est.mbLabel} Mo`;
       el.querySelector("#pack-tiles").textContent = `· ${est.tiles.toLocaleString("fr-FR")} tuiles`;
 
       let problem = null;
-      if (est.overCap) problem = "Tracé trop long pour un pack unique à ce niveau de détail.";
+      if (est.overCap) problem = "Zone trop vaste pour un pack unique à ce niveau de détail — réduisez-la ou baissez le zoom.";
       else if (choice.deepMax > 0 && !choice.deepLayers.length) problem = "Choisissez au moins un calque détaillé.";
       else if (freeMB != null && est.mb > freeMB * 0.9) problem = `Il ne reste que ~${Math.round(freeMB)} Mo sur cet appareil.`;
 
@@ -139,7 +163,10 @@ export function askPackOptions(trail) {
     el.addEventListener("click", (e) => { if (e.target === el) close(null); });
     goBtn.addEventListener("click", () => {
       lastChoice = { deepLayers: [...choice.deepLayers], deepMax: choice.deepMax };
-      close(choice.deepMax > 0 ? choice : { deepLayers: [], deepMax: 0 });
+      const depth = choice.deepMax > 0 ? { deepLayers: choice.deepLayers, deepMax: choice.deepMax } : { deepLayers: [], deepMax: 0 };
+      close(cfg.withName
+        ? { name: (nameEl?.value.trim() || cfg.defaultName || "Zone"), ...depth }
+        : depth);
     });
     document.addEventListener("keydown", onKey);
 

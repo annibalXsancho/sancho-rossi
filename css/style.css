@@ -2297,6 +2297,16 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .pack-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pack-info strong { font-size: 13.5px; }
 .pack-info .muted { font-size: 12px; }
+/* Badge « zone » / « interrompu » et rangées de reprise (S-V2-PACKS-ZONE) */
+.pack-badge {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent);
+  border-radius: var(--radius-full); padding: 2px 8px; vertical-align: middle; margin-left: 4px;
+}
+.pending-head { display: block; margin: 4px 0 2px; color: var(--text-soft); }
+.pack-row-pending { background: color-mix(in srgb, var(--red) 6%, transparent); border-radius: var(--radius); padding-left: 10px; padding-right: 10px; }
+.pack-row-actions { display: flex; gap: var(--sp-2); flex: none; }
+.pack-row-actions .btn { padding: 6px 12px; font-size: 12.5px; }
 .wx-snapshot {
   font-size: 12.5px;
   color: var(--text);
@@ -3159,4 +3169,69 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .pack-modal, .pack-sheet { transition: none; }
+}
+
+.pack-name-input {
+  width: 100%; margin-top: var(--sp-1); padding: 10px 12px;
+  background: var(--surface-2); color: var(--text);
+  border: none; border-radius: var(--radius); font: inherit; font-size: 14px;
+}
+.pack-name-input:focus { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---- Cadrage d'une zone à emporter (S-V2-PACKS-ZONE) ---- */
+/* L'overlay laisse passer les gestes vers la carte (pan/pinch dessous) ; seules les
+   poignées et la barre capturent le pointeur. */
+.zone-overlay { position: absolute; inset: 0; z-index: 2200; pointer-events: none; }
+.zone-box {
+  position: absolute; pointer-events: none;
+  border: 2px solid var(--red); border-radius: var(--radius);
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, #000 50%, transparent);
+}
+.zone-handle {
+  position: absolute; width: 22px; height: 22px; pointer-events: auto;
+  background: var(--surface); border: 2px solid var(--red); border-radius: 6px;
+  box-shadow: var(--shadow-soft); touch-action: none;
+}
+.zone-handle[data-corner="nw"] { top: -12px; left: -12px; cursor: nwse-resize; }
+.zone-handle[data-corner="ne"] { top: -12px; right: -12px; cursor: nesw-resize; }
+.zone-handle[data-corner="se"] { bottom: -12px; right: -12px; cursor: nwse-resize; }
+.zone-handle[data-corner="sw"] { bottom: -12px; left: -12px; cursor: nesw-resize; }
+.zone-bar {
+  position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+  pointer-events: auto; display: flex; align-items: center; gap: var(--sp-3);
+  max-width: calc(100% - 28px);
+  padding: 10px 12px 10px 16px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-full); box-shadow: var(--shadow-soft);
+}
+.zone-bar-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.zone-bar-hint { font-size: 12px; color: var(--text-soft); }
+.zone-bar-actions { display: flex; gap: var(--sp-2); flex: none; }
+
+/* Contrôles carte + feuille masqués pendant le cadrage : la zone occupe l'écran. */
+.zone-selecting .map-stack,
+.zone-selecting .map-scale,
+.zone-selecting .map-search-dock,
+.zone-selecting #results-panel,
+.zone-selecting .maplibregl-ctrl-bottom-left,
+.zone-selecting .maplibregl-ctrl-bottom-right { display: none !important; }
+
+/* Chip de progression du téléchargement de zone (au-dessus de tout). */
+.zone-progress {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%); z-index: 3200;
+  display: flex; align-items: center; gap: var(--sp-3);
+  max-width: calc(100% - 28px);
+  padding: 10px 12px 10px 18px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-full); box-shadow: var(--shadow-soft);
+}
+.zone-progress-label { font-size: 13.5px; font-weight: 600; }
+
+@media (max-width: 700px) {
+  .zone-handle { width: 26px; height: 26px; }
+  .zone-bar { bottom: calc(16px + env(safe-area-inset-bottom)); left: 12px; right: 12px; transform: none; max-width: none; }
+  .zone-bar-actions { margin-left: auto; }
 }
