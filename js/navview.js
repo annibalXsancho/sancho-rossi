@@ -7,6 +7,10 @@ import { switchTab } from "./ui.js";
 import { layersConfig, applyLayer, LAYER_META } from "./map.js";
 import { renderDetail } from "./detail.js";
 import { hasPack } from "./offline.js";
+import { openItinMenu } from "./itinmenu.js";
+
+const LONG_PRESS_MS = 500;    // durée d'appui avant le menu contextuel
+const LONG_PRESS_MOVE = 10;   // tolérance de glissement (px) — au-delà, c'est un scroll
 
 let elapsedTimer = null;
 
@@ -83,7 +87,7 @@ function renderTrails() {
     return;
   }
 
-  host.innerHTML = trails.map((t) => {
+  host.innerHTML = `<p class="navview-hint muted">Appui long sur un itinéraire pour le renommer, modifier ou supprimer.</p>` + trails.map((t) => {
     const g = gainOf(t);
     const stats = [
       `${t.distance} km`,
@@ -108,8 +112,45 @@ function renderTrails() {
     })
   );
   host.querySelectorAll(".navview-row").forEach((row) =>
-    row.addEventListener("click", () => renderDetail(row.dataset.id))
+    bindRowGestures(row, trails.find((t) => t.id === row.dataset.id))
   );
+}
+
+// Tap = ouvrir la fiche ; appui long (ou clic droit) = menu Renommer / Modifier / Supprimer.
+// L'appui long s'arme sur pointerdown et s'annule si le doigt glisse (l'utilisateur scrolle)
+// ou relâche trop tôt ; il neutralise alors le clic de navigation qui suivrait.
+function bindRowGestures(row, trail) {
+  if (!trail) return;
+  let timer = null, fired = false, sx = 0, sy = 0;
+
+  const cancel = () => { clearTimeout(timer); timer = null; };
+  const open = () => {
+    fired = true;
+    cancel();
+    if (navigator.vibrate) navigator.vibrate(12);
+    openItinMenu(trail);
+  };
+
+  row.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".navview-go")) return; // le bouton « Suivre » garde son geste
+    fired = false;
+    sx = e.clientX; sy = e.clientY;
+    cancel();
+    timer = setTimeout(open, LONG_PRESS_MS);
+  });
+  row.addEventListener("pointermove", (e) => {
+    if (timer && (Math.abs(e.clientX - sx) > LONG_PRESS_MOVE || Math.abs(e.clientY - sy) > LONG_PRESS_MOVE)) cancel();
+  });
+  row.addEventListener("pointerup", cancel);
+  row.addEventListener("pointercancel", cancel);
+  row.addEventListener("pointerleave", cancel);
+
+  row.addEventListener("contextmenu", (e) => { e.preventDefault(); open(); });
+  row.addEventListener("click", (e) => {
+    if (fired) { fired = false; return; }        // l'appui long a déjà agi
+    if (e.target.closest(".navview-go")) return; // « Suivre » gère son propre clic
+    renderDetail(trail.id);
+  });
 }
 
 // ---------- Calques ----------

@@ -13,11 +13,12 @@
 // Périmètre A : waypoints éditables, routage, métriques (dist / durée / D+ / D− /
 // SAC), sauvegarde first-class. Le profil interactif (survol lié à la carte, zoom au
 // glisser, coloration par revêtement) et annuler/refaire sont le périmètre B.
-import { state } from "./state.js";
+import { state, trackOf } from "./state.js";
 import { map, addMarker, drawTrack, domMarker, makeIcon, fitBoundsL } from "./map.js";
 import { toast } from "./toast.js";
 import { renderAll, selectTrail } from "./trails.js";
 import { closeDetail } from "./detail.js";
+import { switchTab } from "./ui.js";
 import { saveTraces } from "./storage.js";
 import { brouterRoute } from "./brouter.js";
 import { createGeoSuggest } from "./geosearch.js";
@@ -33,6 +34,7 @@ const HISTORY_MAX = 60;
 
 export const planner = {
   active: false,
+  editId: null,    // id de l'itinéraire réédité (« Modifier le tracé ») — null = nouveau plan
   waypoints: [],   // [{ id, lat, lon, name }] — ordre de passage, source de vérité
   routed: null,    // { track, eles, distance, ascend, ways, fallback? }
   routing: false,
@@ -699,6 +701,9 @@ function defaultName(dist) {
 function savePlan() {
   const r = planner.routed;
   if (!r || r.fallback || r.distance == null) return;
+  // Réédition (« Modifier le tracé ») : on écrase l'itinéraire d'origine plutôt que d'en
+  // créer un nouveau. On capture l'existant AVANT exitPlanner, qui remet editId à null.
+  const existing = planner.editId ? state.imported.find((t) => t.id === planner.editId) : null;
   const gain = r.eles ? computeGain(r.eles) : null;
   const loss = r.eles ? computeLoss(r.eles) : null;
   const altMax = r.eles ? Math.round(Math.max(...r.eles)) : null;
@@ -719,14 +724,20 @@ function savePlan() {
     };
   });
   const trail = {
-    id: `plan-${Date.now()}`,
+    id: existing ? existing.id : `plan-${Date.now()}`,
     imported: true,
     custom: true,
     // Invariant tenu dans toute l'app : eles.length === track.length, sinon absent.
     // Le respecter débloque gratuitement le profil de la fiche (ensureElevation
     // court-circuite), la 3D et le profil hors-ligne.
     eles: r.eles && r.eles.length === track.length ? r.eles.map((e) => Math.round(e)) : undefined,
-    name: defaultName(dist),
+    // Réédition : le nom (et le favori, porté par l'id) survivent à la modification —
+    // « Modifier le tracé » change le parcours, pas l'identité. Un nouveau plan tire son
+    // nom des extrémités.
+    name: existing ? existing.name : defaultName(dist),
+    // Points de passage conservés tels quels : c'est ce qui rend l'itinéraire réédition-fidèle
+    // (« Modifier » le rouvrira exactement sur ces points, sans reconstruction).
+    waypoints: planner.waypoints.map((w) => ({ lat: w.lat, lon: w.lon, name: w.name ?? null })),
     location: "Itinéraire planifié",
     region: "Mes itinéraires",
     difficulty: "personnalisé",
@@ -762,16 +773,110 @@ function savePlan() {
     track,
     segments: [track],
   };
-  state.imported.unshift(trail);
+  if (existing) {
+    // Remplacement en place : garde la position de l'itinéraire dans « Mes itinéraires ».
+    const idx = state.imported.findIndex((t) => t.id === existing.id);
+    if (idx >= 0) state.imported[idx] = trail; else state.imported.unshift(trail);
+  } else {
+    state.imported.unshift(trail);
+  }
   saveTraces(state.imported);
-  addMarker(trail);
+  addMarker(trail); // idempotent : remplace le marqueur de même id (cas réédition)
   exitPlanner();
   renderAll();
   selectTrail(trail.id);
+  toast(existing ? "Itinéraire modifié." : "Itinéraire enregistré.", { type: "success" });
+}
+
+// ---------- Réédition d'un itinéraire existant (« Modifier le tracé ») ----------
+// Depuis « Mes itinéraires » : on réamorce le planificateur avec les points de passage de
+// l'itinéraire, et l'enregistrement écrase l'itinéraire d'origine (même id → favori et
+// pack hors-ligne conservés). Les circuits planifiés portent leurs waypoints exacts ;
+// pour un GPX ou un ancien circuit sans waypoints, on reconstruit des ancres depuis le
+// tracé — BRouter recalcule alors la géométrie entre elles.
+function seedWaypoints(trail) {
+  if (Array.isArray(trail.waypoints) && trail.waypoints.length >= 2) {
+    return trail.waypoints.map((w, i) => ({
+      id: `w${i + 1}`, lat: w.lat, lon: w.lon, name: w.name ?? null,
+    }));
+  }
+  const track = trail.track || trackOf(trail) || [];
+  if (track.length < 2) return [];
+  const n = Math.min(8, track.length);           // ancres éditables, sans sur-contraindre
+  const step = (track.length - 1) / (n - 1);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const [lat, lon] = track[Math.round(i * step)];
+    out.push({ id: `w${i + 1}`, lat, lon, name: null });
+  }
+  return out;
+}
+
+// Bascule le libellé du panneau/bouton entre « planifier » (nouveau) et « modifier »
+// (réédition), pour que l'utilisateur sache qu'il écrase l'itinéraire d'origine.
+function setEditingChrome(editing, name = "") {
+  const bar = el("plan-bar");
+  const title = bar.querySelector(".plan-title");
+  const lead = bar.querySelector(".plan-lead");
+  const save = el("plan-save");
+  if (editing) {
+    if (title) title.textContent = "Modifier l'itinéraire";
+    if (lead) lead.textContent = name ? `« ${name} » — ajustez les points de passage.` : "Ajustez les points de passage.";
+    if (save) save.textContent = "Enregistrer les modifications";
+  } else {
+    if (title) title.textContent = "Planifier votre itinéraire";
+    if (lead) lead.textContent = "Cliquez sur la carte pour ajouter des points de passage.";
+    if (save) save.textContent = "Enregistrer";
+  }
+}
+
+export function openPlannerForEdit(trail) {
+  if (!trail) return;
+  const wps = seedWaypoints(trail);
+  if (wps.length < 2) { toast("Ce tracé n'a pas assez de points pour être réédité.", { type: "error" }); return; }
+  const derived = !(Array.isArray(trail.waypoints) && trail.waypoints.length >= 2);
+
+  switchTab("carte");     // le planificateur vit dans l'onglet Carte
+  if (planner.active) exitPlanner();
+  closeDetail();
+
+  planner.active = true;
+  planner.editId = trail.id;
+  planner.seq = wps.length;
+  planner.aSeq = 0;
+  planner.waypoints = wps;
+  // Repères personnels rejoués (ils survivent à l'édition, comme dans savePlan → pois).
+  planner.annots = (trail.pois || []).map((p) => ({
+    id: `a${++planner.aSeq}`, kind: p.kind, lat: p.lat, lon: p.lon, note: p.note || "",
+  }));
+  planner.history = [snapshot()]; // le fond de pile « annuler » est l'itinéraire chargé
+  planner.hIndex = 0;
+
+  document.body.classList.add("loops-active");
+  el("plan-bar").classList.remove("hidden");
+  planner.sheetReset?.();
+  el("sheet-planner").classList.add("active");
+  setEditingChrome(true, trail.name);
+
+  drawAnnots();
+  redraw();
+  render();
+  reroute();
+
+  // Cadrer sur les points de passage tout de suite (le tracé routé arrive après le reroute).
+  const lats = wps.map((w) => w.lat), lons = wps.map((w) => w.lon);
+  fitBoundsL(
+    [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    { padding: 80, maxZoom: 14 }
+  );
+
+  if (derived) toast("Tracé repris depuis ses points clés — ajustez les points de passage à votre guise.");
 }
 
 function exitPlanner() {
   planner.active = false;
+  planner.editId = null;
+  setEditingChrome(false);
   planner.waypoints = [];
   planner.routed = null;
   planner.locate = null;

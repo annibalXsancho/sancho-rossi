@@ -2364,8 +2364,60 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .navview-info strong { font-size: 13.5px; }
 .navview-info .muted { font-size: 12px; }
 .navview-go { flex-shrink: 0; }
+.navview-hint { font-size: 11.5px; margin: 0 0 var(--sp-1); }
 #navview-layers .layer-row { padding: 6px 0; }
 #view-itineraires .settings-group > .muted { font-size: 12px; margin-top: 10px; }
+
+/* ---- Menu contextuel d'un itinéraire (appui long) : réutilise .pack-modal/.pack-sheet ---- */
+.itin-sheet { width: min(400px, 100%); }
+.itin-menu-head { margin-bottom: var(--sp-4); }
+.itin-menu-name { margin-top: var(--sp-1); }
+
+.itin-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
+.act-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 150ms ease-out, transform 120ms ease-out, box-shadow 150ms ease-out;
+}
+.act-row:hover { background: var(--surface-3); transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.act-row:active { transform: translateY(0) scale(0.99); }
+.act-ic { flex: none; width: 22px; font-size: 16px; text-align: center; }
+.act-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.act-sub { font-size: 11.5px; font-weight: 500; color: var(--text-soft); }
+
+.act-danger { color: var(--red); }
+.act-danger .act-sub { color: color-mix(in srgb, var(--red) 55%, var(--text-soft)); }
+.act-armed { background: var(--red); color: #fff; justify-content: center; }
+.act-armed:hover { background: var(--red-dim); }
+
+.itin-rename { display: flex; flex-direction: column; gap: var(--sp-2); }
+.itin-rename-input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+.itin-rename-input:focus { outline: none; box-shadow: var(--focus-ring); }
+.itin-rename-actions { display: flex; gap: var(--sp-2); justify-content: flex-end; margin-top: var(--sp-1); }
+@media (max-width: 700px) {
+  .itin-rename-actions .btn { flex: 1; justify-content: center; }
+}
 
 /* ============ Panneau de filtres partagé ============ */
 .btn-filters {
