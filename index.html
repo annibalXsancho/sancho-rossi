@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=554" />
+  <link rel="stylesheet" href="css/style.css?v=555" />
   <script type="importmap">
     {
       "imports": {
@@ -42,7 +42,7 @@
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=525",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
-        "./js/nav.js": "./js/nav.js?v=509",
+        "./js/nav.js": "./js/nav.js?v=510",
         "./js/navview.js": "./js/navview.js?v=506",
         "./js/security.js": "./js/security.js?v=516",
         "./js/ui.js": "./js/ui.js?v=530",
@@ -238,21 +238,52 @@
         </div>
       </div>
 
-      <!-- HUD de navigation (mode Avancé) -->
+      <!-- Vue de navigation (mode Avancé) — plein écran, façon Google Maps/AllTrails :
+           carte suivie au cap de marche, métriques glissables, profil lié (js/nav.js). -->
       <div id="nav-hud" class="nav-hud hidden">
+        <!-- Barre haute flottante : quitter · nom (lisible mobile) · signal GPS -->
         <div class="nav-top">
-          <button id="nav-stop" class="btn btn-danger">■ Terminer</button>
-          <div class="nav-title" id="nav-title"></div>
-          <button id="nav-mode" class="btn">🪫 Survivor</button>
+          <button id="nav-stop" class="nav-quit" title="Terminer la navigation" aria-label="Terminer la navigation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+          <div class="nav-head">
+            <div class="nav-title" id="nav-title"></div>
+            <div id="nav-gps" class="nav-gps" data-state="search">Recherche du signal GPS…</div>
+          </div>
         </div>
-        <div id="nav-offtrack" class="nav-offtrack hidden">⚠ HORS TRACÉ — <span id="nav-offdist"></span> m</div>
-        <div class="nav-bottom">
-          <div id="nav-gps" class="nav-gps" data-state="search">Recherche du signal GPS…</div>
-          <div class="nav-stats">
-            <div class="nav-stat"><span id="nav-remaining">—</span><label>km restants</label></div>
-            <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
-            <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
-            <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+
+        <div id="nav-offtrack" class="nav-offtrack hidden">⚠ Hors tracé — <span id="nav-offdist"></span> m</div>
+
+        <!-- Contrôles flottants : recentrer (si on a lâché le suivi) · orientation carte -->
+        <div class="nav-fabs">
+          <button id="nav-recenter" class="nav-fab hidden" title="Recentrer sur ma position" aria-label="Recentrer sur ma position">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
+          </button>
+          <button id="nav-heading" class="nav-fab nav-fab-compass" title="Orientation : cap de marche / nord en haut" aria-label="Orientation de la carte" aria-pressed="true">
+            <svg class="nav-compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 8.4 12 12 10.4 15.6 12Z" fill="var(--red)" stroke="none"/><path d="M12 10.4 15.6 12 12 21 8.4 12Z" fill="currentColor" stroke="none" opacity="0.5"/></svg>
+          </button>
+        </div>
+
+        <!-- Feuille de métriques glissable (crans réduit / déployé, mécanique explorer.js) -->
+        <div id="nav-sheet" class="nav-sheet nav-sheet-collapsed">
+          <div class="nav-sheet-grip" id="nav-sheet-grip" role="button" tabindex="0" aria-label="Réduire ou agrandir les métriques"></div>
+          <div class="nav-peek">
+            <div class="nav-peek-main"><span id="nav-remaining">—</span><small>km restants</small></div>
+            <div class="nav-peek-side">
+              <div class="nav-peek-cell"><span id="nav-eta">—</span><label>arrivée est.</label></div>
+              <div class="nav-peek-cell"><span id="nav-remain-time">—</span><label>durée restante</label></div>
+            </div>
+          </div>
+          <div class="nav-sheet-body">
+            <div class="nav-grid">
+              <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
+              <div class="nav-stat"><span id="nav-total">—</span><label>km total</label></div>
+              <div class="nav-stat"><span id="nav-gain">—</span><label>D+ réalisé</label></div>
+              <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
+              <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+            </div>
+            <div class="nav-profile" id="nav-profile"></div>
+            <button id="nav-mode" class="btn btn-ghost nav-eco-btn">🪫 Mode éco (économie d'énergie)</button>
           </div>
         </div>
       </div>
@@ -675,22 +706,28 @@
   </section>
 
   <!-- Mode Survivor : écran statique basse consommation -->
+  <!-- Mode éco : la carte reste VISIBLE (figée sur le dernier ping mesuré + tracé), seul un
+       bandeau haut et un panneau bas sombres s'y superposent. Focus économie d'énergie :
+       wake-lock relâché, rafraîchissement ~20 s, pas de suivi caméra continu (js/nav.js). -->
   <section id="nav-survivor" class="nav-survivor hidden">
-    <div class="surv-title" id="surv-title"></div>
-    <div class="surv-main"><span id="surv-remaining">—</span><label>km restants</label></div>
-    <div class="surv-row">
-      <div class="surv-cell"><span id="surv-alt">—</span><label>altitude</label></div>
-      <div class="surv-cell"><span id="surv-heading">—</span><label>cap tracé</label></div>
-      <div class="surv-cell"><span id="surv-time">—</span><label>dernière maj</label></div>
+    <div class="surv-top"><div class="surv-title" id="surv-title"></div></div>
+    <div class="surv-panel">
+      <div class="surv-metrics">
+        <div class="surv-main"><span id="surv-remaining">—</span><label>km restants</label></div>
+        <div class="surv-sub">
+          <div class="surv-cell"><span id="surv-done">—</span><label>km parcourus</label></div>
+          <div class="surv-cell"><span id="surv-time">—</span><label>dernière maj</label></div>
+        </div>
+      </div>
+      <div id="surv-off" class="surv-off hidden">⚠ Hors tracé</div>
+      <div id="surv-gps" class="surv-gps hidden">⚠ Signal GPS perdu</div>
+      <div class="surv-actions">
+        <button id="surv-advanced" class="surv-btn">Mode avancé</button>
+        <button id="surv-stop" class="surv-btn surv-btn-danger">Terminer</button>
+      </div>
+      <p class="surv-note">Carte figée sur votre dernière position, rafraîchie toutes les 20 s,
+      écran libre de s'éteindre : consommation minimale. Le GPS continue d'enregistrer votre position.</p>
     </div>
-    <div id="surv-off" class="surv-off hidden">⚠ HORS TRACÉ</div>
-    <div id="surv-gps" class="surv-gps hidden">⚠ SIGNAL GPS PERDU</div>
-    <div class="surv-actions">
-      <button id="surv-advanced" class="surv-btn">Mode avancé</button>
-      <button id="surv-stop" class="surv-btn surv-btn-danger">Terminer</button>
-    </div>
-    <p class="surv-note">Écran statique noir, rafraîchi toutes les 20 s, carte coupée, veille autorisée :
-    consommation minimale. Le GPS continue d'enregistrer votre position pour la sécurité.</p>
   </section>
 
   <!-- Fiche itinéraire plein écran, façon AllTrails -->
