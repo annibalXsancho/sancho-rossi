@@ -10,6 +10,7 @@ import { listPacks, deletePack, deleteAllPacks, storageEstimate, listPending, de
 import { runZonePackJob } from "./zoneselect.js";
 import { toast } from "./toast.js";
 import { renderNavView } from "./navview.js";
+import { initSync, renderSyncStatus, scheduleSync } from "./sync.js";
 
 // Surface approximative d'une bbox, en km² (équirectangulaire — largement suffisant pour
 // une étiquette de pack de zone).
@@ -46,7 +47,8 @@ export function switchTab(name) {
     promptGeolocation();
   }
   if (name === "itineraires") renderNavView();
-  if (name === "reglages") { renderOffline(); renderSafety(); }
+  if (name === "reglages") { renderOffline(); renderSafety(); renderSyncStatus(); }
+  scheduleSync(); // no-op si non configuré (S-V2-SYNC) — quasi tous les parcours passent par un changement d'onglet
 }
 
 // ---------- Réglages : packs offline + jauge de stockage (S5, S-V2-PACKS-ZONE) ----------
@@ -246,5 +248,15 @@ export function initUi() {
     await clearAll();         // stores IndexedDB (dont manifeste/POI/météo des packs)
     caches?.delete("sr-tiles-v1");
     location.reload();
+  });
+
+  // ---------- Synchronisation (S-V2-SYNC) ----------
+  initSync();
+  // Contenu adopté depuis le coffre distant (itinéraires/repères/préférences) : le
+  // déclencheur (bouton, retour réseau) n'a pas forcément la main sur trails.js/map.js.
+  window.addEventListener("sr-sync-changed", () => {
+    state.imported.forEach(addMarker);
+    renderAll();
+    renderFavCount();
   });
 }

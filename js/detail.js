@@ -13,6 +13,7 @@ import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
+import { touchPrefs } from "./sync.js";
 import { shareTrail } from "./share.js";
 import { trailMarks, removeFieldMark } from "./fieldmarks.js";
 
@@ -579,6 +580,7 @@ export function renderDetail(id) {
     statusEl.textContent = "…";
     noteTimer = setTimeout(() => {
       saveNote(id, notesEl.value);
+      touchPrefs();
       statusEl.textContent = "✓ Enregistré";
       setTimeout(() => (statusEl.textContent = ""), 1600);
     }, 500);

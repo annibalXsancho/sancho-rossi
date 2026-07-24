@@ -344,6 +344,7 @@ function saveLoop() {
     id: `boucle-${Date.now()}`,
     imported: true,
     custom: true,
+    updatedAt: Date.now(), // S-V2-SYNC : réconciliation « dernier écrit gagne » par tracé
     eles: r.eles && r.eles.length === track.length ? r.eles.map((e) => Math.round(e)) : undefined,
     name: `Boucle ${dist} km — ${new Date().toLocaleDateString("fr-FR")}`,
     location: "Boucle générée",

@@ -31,29 +31,30 @@
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
         "./js/map.js": "./js/map.js?v=538",
         "./js/filters.js": "./js/filters.js?v=506",
-        "./js/trails.js": "./js/trails.js?v=532",
-        "./js/detail.js": "./js/detail.js?v=539",
-        "./js/share.js": "./js/share.js?v=502",
+        "./js/trails.js": "./js/trails.js?v=533",
+        "./js/detail.js": "./js/detail.js?v=540",
+        "./js/share.js": "./js/share.js?v=503",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
         "./js/metrics.js": "./js/metrics.js?v=520",
         "./js/surface.js": "./js/surface.js?v=522",
         "./js/profile.js": "./js/profile.js?v=526",
-        "./js/planner.js": "./js/planner.js?v=534",
+        "./js/planner.js": "./js/planner.js?v=535",
         "./js/annotations.js": "./js/annotations.js?v=501",
-        "./js/fieldmarks.js": "./js/fieldmarks.js?v=501",
-        "./js/loops.js": "./js/loops.js?v=525",
+        "./js/fieldmarks.js": "./js/fieldmarks.js?v=502",
+        "./js/loops.js": "./js/loops.js?v=526",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
         "./js/nav.js": "./js/nav.js?v=517",
         "./js/navview.js": "./js/navview.js?v=509",
-        "./js/security.js": "./js/security.js?v=517",
-        "./js/ui.js": "./js/ui.js?v=530",
+        "./js/security.js": "./js/security.js?v=518",
+        "./js/ui.js": "./js/ui.js?v=531",
         "./js/offline.js": "./js/offline.js?v=529",
         "./js/packdialog.js": "./js/packdialog.js?v=502",
         "./js/zoneselect.js": "./js/zoneselect.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
         "./js/explorer.js": "./js/explorer.js?v=504",
-        "./js/viewer3d.js": "./js/viewer3d.js?v=501"
+        "./js/viewer3d.js": "./js/viewer3d.js?v=501",
+        "./js/sync.js": "./js/sync.js?v=501"
       }
     }
   </script>
@@ -578,6 +579,27 @@
       </div>
 
       <div class="settings-group">
+        <h3>🔄 Synchronisation entre appareils</h3>
+        <p class="muted">Un dépôt GitHub <strong>privé</strong> sert de coffre : vos itinéraires, repères et
+        préférences retrouvés sur chaque appareil, sans compte ni serveur applicatif. Créez un
+        <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">jeton
+        d'accès personnel</a> à portée restreinte à ce seul dépôt (lecture/écriture du contenu), et un dépôt
+        privé vide pour l'accueillir — puis collez les deux ici, sur chaque appareil.</p>
+        <div class="plan-form">
+          <input id="sync-repo" type="text" placeholder="votre-compte/mon-coffre-rando" autocomplete="off" />
+          <input id="sync-token" type="password" placeholder="Jeton d'accès" autocomplete="off" />
+          <button class="btn btn-primary" id="sync-connect">Connecter</button>
+        </div>
+        <div class="settings-row">
+          <span id="sync-status" class="muted">Non configuré.</span>
+        </div>
+        <div class="settings-row">
+          <span id="sync-last" class="muted"></span>
+          <button class="btn" id="sync-now">Synchroniser maintenant</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
         <h3>Sur votre téléphone / un autre appareil</h3>
         <p class="muted">1 — Les deux appareils doivent être sur le même Wi-Fi.<br>
         2 — Sur le Mac, le serveur doit être lancé en écoute réseau :
@@ -829,6 +851,6 @@
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=527"></script>
+  <script type="module" src="js/main.js?v=528"></script>
 </body>
 </html>

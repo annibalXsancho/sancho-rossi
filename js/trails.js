@@ -10,6 +10,7 @@ import { saveTraces } from "./storage.js";
 import { toast } from "./toast.js";
 import { trailMarks } from "./fieldmarks.js";
 import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
+import { touchPrefs, tombstoneTrace } from "./sync.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -88,6 +89,7 @@ export function renderAll() {
 // ---------- Favoris / « Mes randos » ----------
 function persistFavorites() {
   localStorage.setItem("sr-favorites", JSON.stringify([...state.favorites]));
+  touchPrefs();
 }
 
 // Retire la copie locale d'un tracé enregistré (OSM). Ne touche pas aux GPX/circuits
@@ -95,6 +97,7 @@ function persistFavorites() {
 function removeSavedCopy(id) {
   state.imported = state.imported.filter((t) => t.id !== id);
   saveTraces(state.imported);
+  tombstoneTrace(id);
   const cat = state.catalog.get(id);
   if (cat) addMarker(cat); // le tracé existe encore au catalogue : rebranche son marqueur
   else { markers.get(id)?.remove(); markers.delete(id); }
@@ -115,6 +118,7 @@ export async function ensureSavedCopy(t) {
   if (!t.osm) return t;
   const copy = structuredClone(t);
   copy.saved = true;
+  copy.updatedAt = Date.now(); // S-V2-SYNC : réconciliation « dernier écrit gagne » par tracé
   if (eles && eles.length > 1) {
     copy.eles = eles;
     const e = state.elev[t.id];
@@ -335,6 +339,7 @@ export function renameImported(id, name) {
   const t = state.imported.find((x) => x.id === id);
   if (!t || !clean || clean === t.name) return false;
   t.name = clean;
+  t.updatedAt = Date.now();
   saveTraces(state.imported);
   renderAll();
   return true;
@@ -343,10 +348,12 @@ export function renameImported(id, name) {
 export function deleteImported(id) {
   state.imported = state.imported.filter((t) => t.id !== id);
   saveTraces(state.imported);
+  tombstoneTrace(id);
   markers.get(id)?.remove();
   markers.delete(id);
   state.favorites.delete(id);
   localStorage.setItem("sr-favorites", JSON.stringify([...state.favorites]));
+  touchPrefs();
   closeDetail();
   renderAll();
   renderFavCount();
@@ -373,6 +380,7 @@ export function initTrails() {
     for (const file of gpxInput.files) {
       try {
         const trail = parseGPX(await file.text(), file.name);
+        trail.updatedAt = Date.now();
         state.imported.unshift(trail);
         addMarker(trail);
         lastId = trail.id;

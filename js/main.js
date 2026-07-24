@@ -20,6 +20,7 @@ import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initToast, toast } from "./toast.js";
 import { checkIncomingShare } from "./share.js";
+import { runSync } from "./sync.js";
 
 // Écran de chargement : retiré une fois l'app prête, avec une durée minimale d'affichage
 // pour éviter un flash (boot rapide) — jamais de saut de layout, fondu doux.
@@ -117,6 +118,11 @@ loadPersisted().then(async (persisted) => {
   // Repères posés sur le terrain : jeu minuscule chargé en entier avant les rendus, qui
   // les lisent ensuite de façon synchrone (fiche, profil, navigation).
   await loadFieldMarks();
+
+  // Coffre GitHub (S-V2-SYNC) : tire le distant AVANT le premier rendu si configuré — un
+  // itinéraire ajouté sur un autre appareil doit apparaître dès l'ouverture. No-op silencieux
+  // si non configuré ; jamais bloquant (réseau capricieux → on continue avec le local).
+  await runSync().catch((err) => console.warn("Sync boot :", err));
 
   // Le catalogue OSM d'abord, puis la graine curatée et les tracés locaux : une copie
   // enregistrée (dans imported) reprend ainsi le marqueur de son homologue catalogue.

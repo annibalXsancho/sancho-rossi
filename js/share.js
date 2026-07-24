@@ -286,6 +286,7 @@ function buildFromTrack(payload) {
 async function doImport(payload) {
   try {
     const trail = payload.mo === "w" ? await buildFromWaypoints(payload) : buildFromTrack(payload);
+    trail.updatedAt = Date.now(); // S-V2-SYNC : réconciliation « dernier écrit gagne » par tracé
     state.imported.unshift(trail);
     await saveTraces(state.imported);
     addMarker(trail);

@@ -3,6 +3,7 @@
 import { state, BASE_TRAILS as TRAILS, catalogTrails, getTrail, trackOf } from "./state.js";
 import { fetchRetry } from "./net.js";
 import { toast } from "./toast.js";
+import { touchPrefs } from "./sync.js";
 
 // ---------- Veille automatique : alerte si aucune activité après l'heure prévue ----------
 let watchTopic = localStorage.getItem("sr-topic");
@@ -135,6 +136,7 @@ function renderWatchStatus() {
 // ---------- Sécurité : contacts, position, plan de marche ----------
 export function saveContacts() {
   localStorage.setItem("sr-contacts", JSON.stringify(state.contacts));
+  touchPrefs();
 }
 
 function renderContacts() {

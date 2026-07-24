@@ -752,6 +752,7 @@ function savePlan() {
     id: existing ? existing.id : `plan-${Date.now()}`,
     imported: true,
     custom: true,
+    updatedAt: Date.now(), // S-V2-SYNC : réconciliation « dernier écrit gagne » par tracé
     // Invariant tenu dans toute l'app : eles.length === track.length, sinon absent.
     // Le respecter débloque gratuitement le profil de la fiche (ensureElevation
     // court-circuite), la 3D et le profil hors-ligne.

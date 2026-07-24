@@ -16,6 +16,7 @@ import { loadMarks, putMark, delMark } from "./storage.js";
 import { trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 import { trackOf } from "./state.js";
 import { toast } from "./toast.js";
+import { touchMarks } from "./sync.js";
 
 const byTrail = new Map(); // trailId → [repères, ordre de pose]
 const byId = new Map();
@@ -109,6 +110,7 @@ export function removeFieldMark(id) {
     if (!list.length) byTrail.delete(m.trailId);
   }
   delMark(id).catch((err) => console.warn("Suppression du repère non persistée :", err));
+  touchMarks();
 }
 
 let warned = false;
@@ -121,4 +123,5 @@ function persist(m) {
     warned = true; // une seule alerte : sur le terrain, un flot de toasts n'aide personne
     toast("Repère non enregistré — stockage indisponible.", { type: "error" });
   });
+  touchMarks();
 }
