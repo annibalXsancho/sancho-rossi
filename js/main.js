@@ -19,6 +19,7 @@ import { loadFieldMarks } from "./fieldmarks.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initToast, toast } from "./toast.js";
+import { checkIncomingShare } from "./share.js";
 
 // Écran de chargement : retiré une fois l'app prête, avec une durée minimale d'affichage
 // pour éviter un flash (boot rapide) — jamais de saut de layout, fondu doux.
@@ -146,4 +147,8 @@ loadPersisted().then(async (persisted) => {
 
   loadWikiPhotos();
   hideSplash();
+
+  // Lien de partage (S-V2-PARTAGE) : après la restauration d'une session en cours (une
+  // rando déjà commencée prime), la modale d'import se propose si l'URL en porte un.
+  checkIncomingShare();
 });

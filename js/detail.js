@@ -13,6 +13,7 @@ import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
+import { shareTrail } from "./share.js";
 import { trailMarks, removeFieldMark } from "./fieldmarks.js";
 
 import { toast } from "./toast.js";
@@ -371,7 +372,8 @@ export function renderDetail(id) {
       </div>
       <div class="action-row action-row-minor">
         <button class="btn-ghost" id="btn-gpx">⤓ GPX</button>
-        <button class="btn-ghost" id="btn-safety">🛟 Partager</button>
+        <button class="btn-ghost" id="btn-share-link">↗ Partager le lien</button>
+        <button class="btn-ghost" id="btn-safety">🛟 Plan de marche</button>
         ${t.imported ? `<button class="btn-ghost btn-ghost-danger" id="btn-delete-gpx">🗑 Supprimer</button>` : ""}
       </div>
     </div>
@@ -533,6 +535,7 @@ export function renderDetail(id) {
   document.getElementById("btn-detail-fav").addEventListener("click", () => toggleFavorite(id));
   document.getElementById("btn-offline").addEventListener("click", () => downloadPack(t, id));
   document.getElementById("btn-gpx").addEventListener("click", () => downloadGPX(t));
+  document.getElementById("btn-share-link").addEventListener("click", () => shareTrail(t));
   document.getElementById("btn-itinerary").addEventListener("click", () => {
     switchTab("carte");
     // Sur mobile, réduire la feuille Explorer pour ne pas couvrir le tracé qu'on vient d'ouvrir.

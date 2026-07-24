@@ -16,7 +16,8 @@
 import { state, trackOf } from "./state.js";
 import { map, addMarker, drawTrack, domMarker, makeIcon, fitBoundsL } from "./map.js";
 import { toast } from "./toast.js";
-import { renderAll, selectTrail } from "./trails.js";
+import { renderAll, selectTrail, downloadGPX } from "./trails.js";
+import { shareTrail } from "./share.js";
 import { closeDetail } from "./detail.js";
 import { switchTab } from "./ui.js";
 import { saveTraces } from "./storage.js";
@@ -635,6 +636,8 @@ function render(errMsg) {
   status.textContent = msg;
   status.classList.toggle("hidden", !msg);
   el("plan-save").disabled = !planner.routed || planner.routed.fallback || planner.routing;
+  el("plan-gpx").disabled = !planner.routed || planner.routed.fallback || planner.routing;
+  el("plan-share").disabled = !planner.routed || planner.routed.fallback || planner.routing;
   el("plan-reverse").disabled = planner.waypoints.length < 2;
   el("plan-loop").disabled = planner.waypoints.length < 2 || isLooped();
   el("plan-reset").disabled = !planner.waypoints.length;
@@ -698,6 +701,39 @@ function defaultName(dist) {
   return `Itinéraire ${dist.toLocaleString("fr-FR")} km — ${new Date().toLocaleDateString("fr-FR")}`;
 }
 
+// Repères embarqués avec leur km figé (au moment de la sauvegarde, ou de l'export/
+// partage d'un brouillon non enregistré) : la fiche n'a pas besoin de re-projeter.
+// Partagé par `savePlan` et `plannerDraft` (S-V2-PARTAGE — GPX/lien depuis un
+// brouillon en cours d'édition, avant tout « Enregistrer »).
+function plannerPois() {
+  return planner.annots.map((a) => {
+    const p = planner.locate?.(a.lat, a.lon);
+    return {
+      kind: a.kind,
+      note: a.note || "",
+      lat: a.lat,
+      lon: a.lon,
+      km: p && p.offM <= ANNOT_NEAR_M ? Math.round(p.km * 10) / 10 : null,
+    };
+  });
+}
+
+// Objet léger, NON persisté, pour l'export GPX / le partage d'un itinéraire en cours
+// d'édition (`#plan-gpx`/`#plan-share`) : mêmes champs que `savePlan` lit `trailToGPX`/
+// `shareTrail` (name, waypoints, track, segments, pois) — rien n'est écrit en base tant
+// que l'utilisateur n'a pas cliqué « Enregistrer ».
+function plannerDraft() {
+  const r = planner.routed;
+  if (!r || r.fallback || r.distance == null) return null;
+  return {
+    name: defaultName(Math.round(r.distance * 10) / 10),
+    waypoints: planner.waypoints.map((w) => ({ lat: w.lat, lon: w.lon, name: w.name ?? null })),
+    track: r.track,
+    segments: [r.track],
+    pois: plannerPois(),
+  };
+}
+
 function savePlan() {
   const r = planner.routed;
   if (!r || r.fallback || r.distance == null) return;
@@ -711,18 +747,7 @@ function savePlan() {
   const hours = naismithHours(dist, gain || 0);
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });
   const track = r.track;
-  // Repères embarqués avec leur km figé au moment de la sauvegarde : la fiche n'a
-  // pas besoin de re-projeter (et un tracé sauvegardé ne bouge plus).
-  const pois = planner.annots.map((a) => {
-    const p = planner.locate?.(a.lat, a.lon);
-    return {
-      kind: a.kind,
-      note: a.note || "",
-      lat: a.lat,
-      lon: a.lon,
-      km: p && p.offM <= ANNOT_NEAR_M ? Math.round(p.km * 10) / 10 : null,
-    };
-  });
+  const pois = plannerPois();
   const trail = {
     id: existing ? existing.id : `plan-${Date.now()}`,
     imported: true,
@@ -1021,6 +1046,8 @@ export function initPlanner() {
   el("plan-reset").addEventListener("click", resetRoute);
   el("plan-cancel").addEventListener("click", exitPlanner);
   el("plan-save").addEventListener("click", savePlan);
+  el("plan-gpx").addEventListener("click", () => { const d = plannerDraft(); if (d) downloadGPX(d); });
+  el("plan-share").addEventListener("click", () => { const d = plannerDraft(); if (d) shareTrail(d); });
   el("plan-fit").addEventListener("click", fitRoute);
   el("plan-undo").addEventListener("click", undo);
   el("plan-redo").addEventListener("click", redo);

@@ -8,6 +8,8 @@ import { renderDetail, closeDetail } from "./detail.js";
 import { switchTab } from "./ui.js";
 import { saveTraces } from "./storage.js";
 import { toast } from "./toast.js";
+import { trailMarks } from "./fieldmarks.js";
+import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -180,10 +182,19 @@ export function selectTrail(id, { pan = true, openDetail = true } = {}) {
   if (openDetail) renderDetail(id);
 }
 
+// Échappe le texte inséré dans un nœud XML (name/desc) : un repère ou un nom de
+// tracé peut contenir &, <, >, ", ' — sans échappement le GPX généré serait invalide.
+function xmlEsc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+}
+
 // ---------- GPX : export ----------
 // Pleine résolution, un <trkseg> par tronçon : pas de lignes droites entre
 // segments disjoints, pas de sous-échantillonnage.
-function trailToGPX(trail) {
+// Repères en <wpt> (S-V2-PARTAGE) : `trailMarks` fusionne pois préparés + repères de
+// terrain (fieldmarks.js) — fonctionne aussi sur un brouillon sans id (planificateur
+// non enregistré, `trailMarks({})` → `fieldMarks(undefined)` → []).
+export function trailToGPX(trail) {
   const segs = trail.segments || [trail.track];
   // Altitudes incluses seulement si relevées point par point (GPX importés)
   const eles = trail.eles && trail.eles.length === trackOf(trail).length ? trail.eles : null;
@@ -201,11 +212,21 @@ function trailToGPX(trail) {
         "\n    </trkseg>"
     )
     .join("\n");
+  const marks = trailMarks(trail);
+  const wptXml = marks
+    .map((m) => {
+      const k = ANNOT_KINDS[m.kind] ? m.kind : "note";
+      const label = annotKind(k).icon + " " + annotKind(k).label;
+      const ele = m.ele != null ? `<ele>${Math.round(m.ele)}</ele>` : "";
+      const desc = m.note ? `<desc>${xmlEsc(m.note)}</desc>` : "";
+      return `  <wpt lat="${m.lat}" lon="${m.lon}">${ele}<name>${xmlEsc(label)}</name>${desc}<sym>${k}</sym></wpt>`;
+    })
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Sancho Rossi" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>${trail.name}</name></metadata>
-  <trk>
-    <name>${trail.name}</name>
+  <metadata><name>${xmlEsc(trail.name)}</name></metadata>
+${wptXml ? wptXml + "\n" : ""}  <trk>
+    <name>${xmlEsc(trail.name)}</name>
 ${segXml}
   </trk>
 </gpx>`;
@@ -215,12 +236,46 @@ export function downloadGPX(trail) {
   const blob = new Blob([trailToGPX(trail)], { type: "application/gpx+xml" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `${trail.id}.gpx`;
+  // `trail.id` est absent pour un brouillon du planificateur non enregistré
+  // (S-V2-PARTAGE, `plannerDraft`) : repli sur un slug du nom.
+  a.download = `${trail.id || trail.name?.replace(/[^\w-]+/g, "_") || "itineraire"}.gpx`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
 // ---------- GPX : import ----------
+// Repères <wpt> → `pois` (S-V2-PARTAGE). Un GPX tiers n'a pas notre vocabulaire de
+// <sym> (🌙💧⚠️🛒📷📝) : le kind retombe sur "note" et rien n'est perdu, le libellé
+// original atterrit dans `note`. Le km le long du tracé est calculé après coup (une
+// fois `track`/`distance` connus) par `trackLocator`, même règle que le planificateur
+// et les repères de terrain : au-delà de `ANNOT_NEAR_M`, le repère est gardé mais
+// « hors itinéraire » (km null).
+function parseWpts(doc, track, distanceKm) {
+  const wpts = [...doc.querySelectorAll("wpt")];
+  if (!wpts.length) return [];
+  const locate = trackLocator(track, distanceKm);
+  return wpts.map((w) => {
+    const lat = parseFloat(w.getAttribute("lat"));
+    const lon = parseFloat(w.getAttribute("lon"));
+    const sym = w.querySelector("sym")?.textContent.trim();
+    const kind = sym && ANNOT_KINDS[sym] ? sym : "note";
+    const rawName = w.querySelector("name")?.textContent.trim() || "";
+    const desc = w.querySelector("desc")?.textContent.trim() || "";
+    // Un GPX tiers loge tout dans <name> (pas de <desc>) : on le récupère quand même.
+    const note = desc || (kind === "note" && rawName ? rawName : "");
+    const ele = parseFloat(w.querySelector("ele")?.textContent);
+    const p = locate?.(lat, lon);
+    return {
+      kind,
+      note,
+      lat,
+      lon,
+      ele: isNaN(ele) ? null : ele,
+      km: p && p.offM <= ANNOT_NEAR_M ? Math.round(p.km * 10) / 10 : null,
+    };
+  });
+}
+
 function parseGPX(xmlText, fileName) {
   const doc = new DOMParser().parseFromString(xmlText, "application/xml");
   if (doc.querySelector("parsererror")) throw new Error("XML invalide");
@@ -242,6 +297,9 @@ function parseGPX(xmlText, fileName) {
     doc.querySelector("metadata > name")?.textContent.trim() ||
     fileName.replace(/\.gpx$/i, "");
 
+  const distance = Math.round(trackDistanceKm(track) * 10) / 10;
+  const pois = parseWpts(doc, track, distance);
+
   return {
     id: `gpx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     imported: true,
@@ -252,18 +310,20 @@ function parseGPX(xmlText, fileName) {
     type: "importé",
     days: null,
     bivouac: false,
-    distance: Math.round(trackDistanceKm(track) * 10) / 10,
+    distance,
     elevationGain: Math.round(dPlus),
     altMax: eles.length ? Math.round(Math.max(...eles)) : null,
     duration: "—",
     center: track[Math.floor(track.length / 2)],
     gradient: "linear-gradient(135deg, #2d6a2f, #71b280)",
-    description: `Fichier « ${fileName} » importé le ${new Date().toLocaleDateString("fr-FR")} — ${track.length} points de trace.`,
+    description: `Fichier « ${fileName} » importé le ${new Date().toLocaleDateString("fr-FR")} — ${track.length} points de trace.` +
+      (pois.length ? ` · ${pois.length} repère${pois.length > 1 ? "s" : ""}.` : ""),
     eau: "—",
     bivouacSpot: "—",
     periode: "—",
     track,
     eles,
+    pois,
   };
 }
 
