@@ -2,12 +2,17 @@
 // Façon Google Maps / AllTrails : carte suivie et pivotée au CAP DE MARCHE (légère
 // inclinaison), métriques glissables (durée/distance restantes, distance totale,
 // D+ RÉALISÉ enfin tracké), profil altimétrique LIÉ à la carte, alerte d'écart (S6).
-// Le mode « éco » (ex-Survivor) garde la carte visible, figée sur le dernier ping mesuré.
+//
+// PRIMAL MODE (S-V2-CAVEMAN) : l'économie d'énergie pour de vrai. Le watchPosition
+// continu s'arrête au profit de relevés ponctuels à CADENCE ADAPTATIVE (~20 s en marche,
+// espacés jusqu'à 5 min à l'arrêt), l'écran est voilé de noir et STATIQUE (aucune
+// animation en boucle, aucune animation de caméra), et il ne reste que deux chiffres :
+// km parcourus / km restants.
 import { getTrail, trackOf, sampleTrack, haversineKm } from "./state.js";
-import { map, domMarker, makeIcon } from "./map.js";
+import { map, domMarker, makeIcon, is3D, set3D, setLayersDim } from "./map.js";
 import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
-import { savePos } from "./security.js";
+import { savePos, suspendPosWatch, resumePosWatch } from "./security.js";
 import { hasPack, packPoiLayer } from "./offline.js";
 import { toast } from "./toast.js";
 import { createProfile } from "./profile.js";
@@ -22,9 +27,27 @@ const NAV_PITCH = 50;        // inclinaison « cap de marche » (0 = vue du dess
 const HEADING_MIN_MS = 0.7;  // sous cette vitesse (m/s), le cap GPS n'est pas fiable
 const HYST_M = 4;            // même hystérésis que metrics.computeGain (D+ réalisé)
 
+// ---- Primal mode ----
+export const PRIMAL_FAST_MS = 20000;   // cadence en marche
+export const PRIMAL_SLOW_MS = 300000;  // plafond à l'arrêt (5 min)
+const PRIMAL_GROWTH = 1.6;             // espacement progressif : 20 → 32 → 51 → 82 s…
+const PRIMAL_MOVE_M = 25;              // en deçà de ce delta, on n'a pas bougé
+const PRIMAL_FIX_TIMEOUT_MS = 25000;
+// Zoom PROJET garanti hors-ligne : TOUS les packs (rando comme zone) embarquent les
+// 7 calques jusqu'à z15 → la vue primal reste lisible en mode avion, quel que soit le
+// calque affiché.
+const PRIMAL_ZOOM = 15;
+// La carte n'est éteinte QUE quand personne ne la regarde : elle revient à pleine lumière
+// dès qu'on rallume l'écran ou qu'on la tape — les deux seuls moments où on la consulte,
+// « de temps en temps ou à un tournant » (choix utilisateur). Le reste du temps l'écran est
+// éteint de toute façon ; l'assombrissement n'est que le filet pour l'écran resté allumé.
+const PRIMAL_DIM = 0.45;               // opacité des fonds quand personne ne regarde
+const LIT_MS = 30000;                  // durée de pleine lumière après un tap ou un réveil
+const PING_PULSE_MS = 2600;
+
 const nav = {
   active: false,
-  survivor: false,
+  primal: false,
   trail: null,
   watchId: null,
   samples: null,
@@ -52,6 +75,18 @@ const nav = {
   totalGain: null,
   profile: null,     // handle createProfile
   profMarker: null,  // marqueur temporaire posé en survolant le profil
+  // --- Primal mode (S-V2-CAVEMAN) ---
+  primalTimer: null,
+  primalBusy: false,   // un relevé est en cours : jamais deux acquisitions concurrentes
+  primalDelay: PRIMAL_FAST_MS,
+  primalPrev: null,    // position du relevé précédent (détection de mouvement)
+  primalNextAt: 0,     // horodatage du prochain relevé prévu (affiché, pas décompté)
+  primalSince: 0,
+  fixCount: 0,         // relevés depuis l'entrée : proxy honnête de consommation
+  veilTimer: null,
+  pingTimer: null,
+  batt: null,          // mesure %/h quand navigator.getBattery existe
+  was3D: false,
 };
 
 // La session en cours est persistée dans sr-nav pour qu'un rechargement de la page
@@ -59,7 +94,7 @@ const nav = {
 function persistNav() {
   if (!nav.active) return;
   localStorage.setItem("sr-nav", JSON.stringify({
-    id: nav.trail.id, startedAt: nav.startedAt, survivor: nav.survivor,
+    id: nav.trail.id, startedAt: nav.startedAt, primal: nav.primal,
   }));
 }
 
@@ -78,10 +113,14 @@ function releaseWakeLock() {
   nav.wakeLock = null;
 }
 
+// Retour au premier plan. En nav complète : on reprend le verrou d'écran. En primal :
+// l'écran a le droit de s'éteindre, et une page cachée est gelée (iOS) ou étranglée
+// (Android) — le relevé programmé n'a donc PAS eu lieu. On en prend un tout de suite et
+// on réarme la cadence rapide : l'utilisateur regarde son téléphone, il veut du frais.
 function onVisibility() {
-  if (document.visibilityState === "visible" && nav.active && !nav.survivor && !nav.wakeLock) {
-    requestWakeLock();
-  }
+  if (document.visibilityState !== "visible" || !nav.active) return;
+  if (nav.primal) { brighten(); primalNow(); return; }
+  if (!nav.wakeLock) requestWakeLock();
 }
 
 function bearingDeg([lat1, lon1], [lat2, lon2]) {
@@ -117,11 +156,11 @@ function navMetrics(lat, lon) {
   };
 }
 
-// État GPS partagé HUD avancé (#nav-gps) + éco (#surv-gps, visible seulement si perdu)
+// État GPS partagé HUD complet (#nav-gps) + primal (#primal-gps, visible si perdu)
 function setGps(text, stateName) {
   const el = document.getElementById("nav-gps");
   if (el) { el.textContent = text; el.dataset.state = stateName; }
-  const s = document.getElementById("surv-gps");
+  const s = document.getElementById("primal-gps");
   if (s) s.classList.toggle("hidden", stateName !== "lost");
 }
 
@@ -228,7 +267,7 @@ function cameraOpts(extra = {}) {
 }
 
 function followTick(lat, lon) {
-  if (!nav.follow || nav.survivor) return;
+  if (!nav.follow || nav.primal) return;
   const opts = cameraOpts({ center: [lon, lat], duration: nav.engaged ? 900 : 0 });
   if (!nav.engaged) { opts.zoom = NAV_ZOOM; nav.engaged = true; }
   map.easeTo(opts);
@@ -238,7 +277,7 @@ function followTick(lat, lon) {
 // easeTo programmatiques n'ont pas d'`originalEvent` → on les ignore, sinon le suivi
 // se couperait lui-même.
 function onUserGesture(e) {
-  if (!nav.active || nav.survivor || !nav.follow || !e.originalEvent) return;
+  if (!nav.active || nav.primal || !nav.follow || !e.originalEvent) return;
   nav.follow = false;
   document.getElementById("nav-recenter")?.classList.remove("hidden");
 }
@@ -281,8 +320,192 @@ function ensureMarker(lat, lon) {
   } else {
     nav.marker.setLngLat([lon, lat]);
   }
-  nav.marker.getElement().classList.toggle("is-ping", nav.survivor);
+  nav.marker.getElement().classList.toggle("is-ping", nav.primal);
   updatePosMarker();
+}
+
+// ================= PRIMAL MODE (S-V2-CAVEMAN) =================
+// Duty-cycle GPS : la puce ne tourne plus en continu, on prend un point, on la laisse
+// s'éteindre, on en reprend un plus tard. L'écart entre deux points s'adapte tout seul.
+
+// Cadence suivante, en fonction du déplacement observé depuis le relevé précédent.
+// Fonction PURE (aucun DOM, aucun état) — c'est elle qui porte toute la logique
+// d'économie, elle se teste donc directement en Node.
+// Le seuil de mouvement suit la précision annoncée par le GPS, comme le seuil hors-tracé
+// de S6 : à ±60 m, un point qui « saute » de 30 m n'est pas un pas, c'est du bruit.
+export function nextPrimalDelay(prevDelay, movedM, accM) {
+  const threshold = Math.max(PRIMAL_MOVE_M, accM || 0);
+  if (movedM > threshold) return PRIMAL_FAST_MS;
+  return Math.min(PRIMAL_SLOW_MS, Math.round((prevDelay || PRIMAL_FAST_MS) * PRIMAL_GROWTH));
+}
+
+function primalSchedule(delay) {
+  clearTimeout(nav.primalTimer);
+  nav.primalDelay = delay;
+  nav.primalNextAt = Date.now() + delay;
+  nav.primalTimer = setTimeout(primalRequestFix, delay);
+}
+
+// Le relevé suivant n'est armé QUE dans le callback (succès ou échec) : deux acquisitions
+// ne peuvent jamais se chevaucher, et une acquisition lente ne se fait pas doubler.
+function primalRequestFix() {
+  if (!nav.active || !nav.primal || nav.primalBusy) return;
+  nav.primalBusy = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { nav.primalBusy = false; onPrimalFix(pos); },
+    (err) => { nav.primalBusy = false; onPrimalError(err); },
+    {
+      enableHighAccuracy: true,
+      timeout: PRIMAL_FIX_TIMEOUT_MS,
+      // Un point tout frais relevé par un autre consommateur est bon à prendre : il est
+      // gratuit. Au-delà, on veut du neuf.
+      maximumAge: Math.min(15000, nav.primalDelay / 3),
+    }
+  );
+}
+
+// Relevé immédiat (tap sur la carte, retour au premier plan) + retour à la cadence rapide.
+function primalNow() {
+  if (!nav.active || !nav.primal) return;
+  clearTimeout(nav.primalTimer);
+  nav.primalDelay = PRIMAL_FAST_MS;
+  primalRequestFix();
+}
+
+function onPrimalFix(pos) {
+  if (!nav.primal) return;
+  savePos(pos); // dernière position connue + signe de vie pour la veille ntfy
+  const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+  const acc = accuracy != null ? Math.round(accuracy) : null;
+  nav.lastFixTs = Date.now();
+  nav.lastPos = { lat, lon };
+  nav.fixCount++;
+
+  const movedM = nav.primalPrev
+    ? haversineKm([nav.primalPrev.lat, nav.primalPrev.lon], [lat, lon]) * 1000
+    : Infinity; // premier point : on démarre en cadence rapide
+  nav.primalPrev = { lat, lon };
+
+  const m = navMetrics(lat, lon);
+  nav.lastM = m;
+  setGps(`◉ signal GPS ±${acc ?? "?"} m`, "ok");
+
+  // Alerte d'écart conservée (S6) : seuil adaptatif + une seule vibration au franchissement.
+  const off = m.offM > Math.max(OFF_BASE_M, acc || 0);
+  if (off && !nav.offAlerted) { navigator.vibrate?.([220, 90, 220]); nav.offAlerted = true; }
+  else if (!off) nav.offAlerted = false;
+
+  ensureMarker(lat, lon);
+  pulsePing();
+  keepPingInView(lat, lon);
+
+  primalSchedule(nextPrimalDelay(nav.primalDelay, movedM, acc));
+  renderPrimal(m, acc, off);
+}
+
+// Pas de fix : on n'insiste pas toutes les 20 s (c'est exactement là que la puce consomme
+// le plus, à chercher dans le vide) — on s'espace comme à l'arrêt.
+function onPrimalError(err) {
+  if (!nav.primal) return;
+  setGps(`⚠ GPS : ${err.message}`, "lost");
+  primalSchedule(nextPrimalDelay(nav.primalDelay, 0, null));
+  renderPrimal(nav.lastM, null, false);
+}
+
+// ---------- Rendu : deux chiffres, une ligne d'état, rien d'autre ----------
+const hhmm = (ms) => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+function renderPrimal(m, acc, off = false) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set("primal-done", m ? m.done.toFixed(1) : "—");
+  set("primal-remaining", m ? m.remaining.toFixed(1) : "—");
+  set("primal-status", primalStatus(acc));
+  document.getElementById("primal-off")?.classList.toggle("hidden", !off);
+}
+
+function primalStatus(acc) {
+  const parts = [];
+  if (nav.lastFixTs) parts.push(`point à ${hhmm(nav.lastFixTs)}${acc != null ? ` ±${acc} m` : ""}`);
+  if (nav.primalNextAt) parts.push(`prochain vers ${hhmm(nav.primalNextAt)}`);
+  parts.push(`${nav.fixCount} point${nav.fixCount > 1 ? "s" : ""} depuis ${hhmm(nav.primalSince)}`);
+  const drain = battDrain();
+  if (drain) parts.push(drain);
+  return parts.join(" · ");
+}
+
+// Consommation mesurée, quand le navigateur la donne (Chrome/Android ; absente d'iOS et
+// de Safari). C'est LE chiffre qui permet de comparer primal et mode complet — l'objet
+// même du sprint —, affiché seulement une fois la mesure significative.
+function initBattery() {
+  nav.batt = null;
+  navigator.getBattery?.().then((b) => {
+    if (nav.primal) nav.batt = { b, level0: b.level, t0: Date.now() };
+  }).catch(() => {});
+}
+
+function battDrain() {
+  if (!nav.batt) return null;
+  const h = (Date.now() - nav.batt.t0) / 3600e3;
+  if (h < 1 / 6) return null; // moins de 10 min : la mesure ne veut rien dire
+  const pct = ((nav.batt.level0 - nav.batt.b.level) * 100) / h;
+  return pct > 0 ? `−${pct.toFixed(1)} %/h` : null;
+}
+
+// ---------- Écran sombre et statique ----------
+// On éteint les TUILES, pas l'écran : un voile DOM posé sur toute la carte éteignait aussi
+// le tracé et le ping (constaté en capture), alors que ce sont les deux seules choses à
+// voir. `setLayersDim` (map.js) n'agit que sur les fonds raster.
+function dimRasters(on) {
+  setLayersDim(on ? PRIMAL_DIM : 1);
+}
+
+// Le ping ne pulse plus en boucle (une animation infinie réveille le compositeur à chaque
+// frame) : il pulse UNE fois à l'arrivée d'un point, puis c'est un point fixe.
+function pulsePing() {
+  const el = nav.marker?.getElement();
+  if (!el) return;
+  el.classList.remove("is-fresh");
+  void el.offsetWidth; // force le redémarrage de l'animation si deux points s'enchaînent
+  el.classList.add("is-fresh");
+  clearTimeout(nav.pingTimer);
+  nav.pingTimer = setTimeout(() => el.classList.remove("is-fresh"), PING_PULSE_MS);
+}
+
+// Tap ou réveil de l'écran : la carte revient à pleine lumière, puis s'éteint d'elle-même.
+function brighten() {
+  dimRasters(false);
+  clearTimeout(nav.veilTimer);
+  nav.veilTimer = setTimeout(() => { if (nav.primal) dimRasters(true); }, LIT_MS);
+}
+
+// Recadrage seulement quand le ping sort du rectangle intérieur (80 % de l'écran), et
+// toujours en jumpTo : une animation de caméra, c'est une seconde de rendu continu.
+function keepPingInView(lat, lon) {
+  const c = map.getCanvas();
+  const w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  const p = map.project([lon, lat]);
+  const mx = w * 0.1, my = h * 0.1;
+  if (p.x < mx || p.x > w - mx || p.y < my || p.y > h - my) map.jumpTo({ center: [lon, lat] });
+}
+
+// Le tap carte est le seul geste du mode : il rallume la carte ET relève un point.
+// (`click` MapLibre ne se déclenche pas après un glisser : la carte reste déplaçable.)
+function onPrimalMapClick() {
+  if (!nav.primal) return;
+  showPrimalInfo(false);
+  brighten();
+  primalNow();
+}
+
+// Mode d'emploi : rangé derrière le « i » pour que l'écran ne porte que les deux chiffres.
+function showPrimalInfo(on) {
+  const bubble = document.getElementById("primal-info-bubble");
+  const btn = document.getElementById("primal-info");
+  if (!bubble || !btn) return;
+  const open = on ?? bubble.classList.contains("hidden");
+  bubble.classList.toggle("hidden", !open);
+  btn.setAttribute("aria-expanded", String(open));
 }
 
 export function startNavigation(id, { resume = null } = {}) {
@@ -304,6 +527,8 @@ export function startNavigation(id, { resume = null } = {}) {
   nav.navBearing = null;
   nav.lastPos = null;
   nav.eles = nav.cumDist = nav.cumGain = nav.totalGain = null;
+  nav.primalPrev = null;
+  nav.primalDelay = PRIMAL_FAST_MS;
   nav.startedAt = resume?.startedAt || Date.now();
 
   const line = t.mainline || trackOf(t);
@@ -319,7 +544,7 @@ export function startNavigation(id, { resume = null } = {}) {
   document.body.classList.add("nav-active");
   document.getElementById("nav-hud").classList.remove("hidden");
   document.getElementById("nav-title").textContent = t.name;
-  document.getElementById("surv-title").textContent = t.name;
+  document.getElementById("primal-title").textContent = t.name;
   document.getElementById("nav-total").textContent = (t.distance || nav.total).toFixed(1);
   setGps("Recherche du signal GPS…", "search");
   document.getElementById("nav-sheet")?.classList.add("nav-sheet-collapsed");
@@ -334,6 +559,21 @@ export function startNavigation(id, { resume = null } = {}) {
     }).catch(() => {});
   }
 
+  // Reprise directement en primal : on n'allume pas la puce en continu pour l'éteindre
+  // dans la foulée (`primal` est le nom v2 ; `survivor` reste lu pour ne pas perdre une
+  // session en cours au moment de la mise à jour).
+  if (resume?.primal ?? resume?.survivor) {
+    setPrimal(true);
+  } else {
+    startWatch();
+    requestWakeLock();
+  }
+  persistNav(); // après le stopNavigation() d'entrée, qui purge sr-nav
+}
+
+// ---------- Suivi GPS continu (mode complet) ----------
+function startWatch() {
+  if (nav.watchId !== null) return;
   nav.watchId = navigator.geolocation.watchPosition(onNavFix, onNavError,
     { enableHighAccuracy: true, maximumAge: 5000, timeout: GPS_TIMEOUT_MS });
 
@@ -344,10 +584,13 @@ export function startNavigation(id, { resume = null } = {}) {
       setGps("⚠ signal GPS perdu", "lost");
     }
   }, 10000);
+}
 
-  requestWakeLock();
-  if (resume?.survivor) setSurvivor(true);
-  persistNav(); // après le stopNavigation() d'entrée, qui purge sr-nav
+function stopWatch() {
+  if (nav.watchId !== null) navigator.geolocation.clearWatch(nav.watchId);
+  nav.watchId = null;
+  if (nav.staleTimer !== null) clearInterval(nav.staleTimer);
+  nav.staleTimer = null;
 }
 
 function onNavError(err) {
@@ -355,14 +598,14 @@ function onNavError(err) {
 }
 
 function onNavFix(pos) {
+  if (nav.primal) return; // le suivi continu est coupé en primal ; un fix en vol l'ignore
   savePos(pos); // alimente la dernière position connue (volet Sécurité)
   nav.lastFixTs = Date.now();
   const { latitude: lat, longitude: lon, altitude, speed, accuracy, heading } = pos.coords;
   nav.lastPos = { lat, lon };
 
-  const throttle = nav.survivor ? 20000 : 2500; // éco : écran rafraîchi toutes les 20 s
   const now = Date.now();
-  if (now - nav.lastUi < throttle) return;
+  if (now - nav.lastUi < 2500) return;
   nav.lastUi = now;
 
   const m = navMetrics(lat, lon);
@@ -391,15 +634,6 @@ function onNavFix(pos) {
 
   ensureMarker(lat, lon);
 
-  if (nav.survivor) {
-    document.getElementById("surv-remaining").textContent = m.remaining.toFixed(1);
-    document.getElementById("surv-done").textContent = m.done.toFixed(1);
-    document.getElementById("surv-time").textContent =
-      new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-    document.getElementById("surv-off").classList.toggle("hidden", !off);
-    return; // pas de suivi caméra en éco : carte figée sur le ping (jumpTo à l'entrée)
-  }
-
   // Métriques de la feuille
   const remGain = nav.totalGain != null && gain != null ? Math.max(0, nav.totalGain - gain) : null;
   const etaH = remGain != null ? naismithHours(m.remaining, remGain) : null;
@@ -421,19 +655,54 @@ function onNavFix(pos) {
   followTick(lat, lon);
 }
 
-export function setSurvivor(on) {
-  nav.survivor = on;
-  document.getElementById("nav-survivor").classList.toggle("hidden", !on);
-  document.body.classList.toggle("survivor-active", on);
+export function setPrimal(on) {
+  if (nav.primal === on) return;
+  nav.primal = on;
+  document.getElementById("primal-hud").classList.toggle("hidden", !on);
+  document.body.classList.toggle("primal-active", on);
   nav.marker?.getElement().classList.toggle("is-ping", on);
+
   if (on) {
-    releaseWakeLock(); // écran libre de se mettre en veille : conso minimale
-    // Carte figée : on remet le nord en haut, à plat, centrée une fois sur le dernier ping.
-    if (nav.lastPos) map.jumpTo({ center: [nav.lastPos.lon, nav.lastPos.lat], bearing: 0, pitch: 0 });
-    else map.jumpTo({ bearing: 0, pitch: 0 });
+    // 1. Tout ce qui consomme en continu s'arrête : verrou d'écran, suivi GPS continu de
+    //    la nav, chien de garde, suivi GPS optionnel de Réglages, relief 3D (DEM en ligne).
+    releaseWakeLock();
+    stopWatch();
+    suspendPosWatch();
+    nav.was3D = is3D();
+    if (nav.was3D) set3D(false);
+
+    // 2. Vue de haut minimale : nord en haut, à plat, au zoom garanti par les packs.
+    const view = { bearing: 0, pitch: 0, zoom: PRIMAL_ZOOM - 1 }; // −1 : zoom PROJET → MapLibre
+    if (nav.lastPos) view.center = [nav.lastPos.lon, nav.lastPos.lat];
+    map.jumpTo(view);
+
+    // 3. Session de mesure + premier point tout de suite.
+    nav.primalSince = Date.now();
+    nav.fixCount = 0;
+    // Un relevé encore en vol au moment où l'on avait quitté le mode laisserait la garde
+    // levée et la boucle morte au retour : on repart toujours d'une garde propre.
+    nav.primalBusy = false;
+    // Pas de position de référence héritée de la nav complète : le mode démarre toujours
+    // en cadence rapide, l'espacement ne se mérite qu'entre deux relevés primal immobiles.
+    nav.primalPrev = null;
+    nav.primalDelay = PRIMAL_FAST_MS;
+    nav.primalNextAt = 0;
+    initBattery();
+    renderPrimal(nav.lastM, null, false);
+    brighten(); // on vient de taper : la carte reste lisible 12 s, puis s'éteint
+    primalNow();
   } else {
-    if (nav.active) { // ne pas ré-armer le verrou en quittant la nav
+    clearTimeout(nav.primalTimer);
+    clearTimeout(nav.veilTimer);
+    clearTimeout(nav.pingTimer);
+    nav.primalTimer = nav.veilTimer = nav.pingTimer = null;
+    nav.batt = null;
+    dimRasters(false); // la carte retrouve sa luminosité
+    resumePosWatch();
+    if (nav.was3D) { set3D(true); nav.was3D = false; }
+    if (nav.active) { // ne pas ré-armer le verrou ni le suivi en quittant la nav
       requestWakeLock();
+      startWatch();
       nav.engaged = false; // le prochain fix recadre proprement (zoom + cap + inclinaison)
       if (nav.follow && nav.lastPos) followTick(nav.lastPos.lat, nav.lastPos.lon);
     }
@@ -444,10 +713,7 @@ export function setSurvivor(on) {
 
 export function stopNavigation() {
   localStorage.removeItem("sr-nav");
-  if (nav.watchId !== null) navigator.geolocation.clearWatch(nav.watchId);
-  nav.watchId = null;
-  if (nav.staleTimer !== null) clearInterval(nav.staleTimer);
-  nav.staleTimer = null;
+  stopWatch();
   nav.active = false;
   nav.offAlerted = false;
   nav.marker?.remove();
@@ -458,7 +724,7 @@ export function stopNavigation() {
   nav.profile?.destroy();
   nav.profile = null;
   releaseWakeLock();
-  setSurvivor(false);
+  setPrimal(false);
   document.body.classList.remove("nav-active");
   document.getElementById("nav-hud").classList.add("hidden");
   document.getElementById("nav-recenter")?.classList.add("hidden");
@@ -472,7 +738,7 @@ export function navSession() {
   if (!nav.active) return null;
   return {
     id: nav.trail.id, name: nav.trail.name, startedAt: nav.startedAt,
-    total: nav.total, survivor: nav.survivor, lastM: nav.lastM,
+    total: nav.total, primal: nav.primal, lastM: nav.lastM,
   };
 }
 
@@ -531,12 +797,14 @@ function initNavSheet() {
 
 export function initNav() {
   document.getElementById("nav-stop").addEventListener("click", stopNavigation);
-  document.getElementById("surv-stop").addEventListener("click", stopNavigation);
-  document.getElementById("nav-mode").addEventListener("click", () => setSurvivor(true));
-  document.getElementById("surv-advanced").addEventListener("click", () => setSurvivor(false));
+  document.getElementById("primal-stop").addEventListener("click", stopNavigation);
+  document.getElementById("nav-mode").addEventListener("click", () => setPrimal(true));
+  document.getElementById("primal-full").addEventListener("click", () => setPrimal(false));
+  document.getElementById("primal-info").addEventListener("click", () => showPrimalInfo());
   document.getElementById("nav-recenter").addEventListener("click", recenter);
   document.getElementById("nav-heading").addEventListener("click", toggleHeading);
   document.addEventListener("visibilitychange", onVisibility);
+  map.on("click", onPrimalMapClick);
   map.on("dragstart", onUserGesture);
   map.on("rotatestart", onUserGesture);
   map.on("zoomstart", onUserGesture);

@@ -313,6 +313,18 @@ export const TRACK_CASING = "rgba(9, 9, 11, 0.62)";
 
 let trackSeq = 0;
 
+// `L.polyline` acceptait indifféremment une liste plate de points OU une liste de SEGMENTS
+// (multi-polyligne) ; le portage MapLibre n'avait gardé que la première forme. Or TOUS les
+// appelants passent `trail.segments || trail.track`, et `segments` est un tableau de
+// tableaux (state.trackOf le remet à plat) : chaque SEGMENT était alors mappé comme s'il
+// était un point, et un tracé OSM se réduisait à une ligne de deux points aberrants.
+// D'où cette normalisation : une géométrie MultiLineString, qui garde les segments
+// disjoints séparés au lieu de les relier par un trait qui n'existe pas sur le terrain.
+function toLines(latlngs) {
+  const multi = Array.isArray(latlngs[0]) && Array.isArray(latlngs[0][0]);
+  return (multi ? latlngs : [latlngs]).map((line) => line.map(toLngLat));
+}
+
 // Un tracé = une source GeoJSON + deux couches `line` superposées (liseré, puis cœur), posé
 // sur une INSTANCE de carte donnée : la carte principale (drawTrack) ou une carte de fiche
 // (drawTrackOn — mini-carte, plein écran). Renvoie une poignée au contrat stable
@@ -323,7 +335,7 @@ function buildTrack(mapInstance, latlngs, opts = {}) {
   const id = `trk-${++trackSeq}`;
   const casingId = `${id}-casing`;
   const coreId = `${id}-core`;
-  let coords = latlngs.map(toLngLat);
+  let coords = toLines(latlngs);
   let added = false;
   let removed = false;
   // Survols en attente d'installation : posés sur la couche de liseré (la plus large, elle
@@ -333,7 +345,7 @@ function buildTrack(mapInstance, latlngs, opts = {}) {
   const feature = () => ({
     type: "Feature",
     properties: {},
-    geometry: { type: "LineString", coordinates: coords },
+    geometry: { type: "MultiLineString", coordinates: coords },
   });
 
   // `dashArray` de Leaflet est en pixels ; `line-dasharray` de MapLibre est en multiples
@@ -376,11 +388,11 @@ function buildTrack(mapInstance, latlngs, opts = {}) {
     hitLayers: [casingId, coreId], // pour queryRenderedFeatures (insertion planificateur)
     _install: install,
     setData(next) {
-      coords = next.map(toLngLat);
+      coords = toLines(next);
       if (added) mapInstance.getSource(id)?.setData(feature());
     },
     getBounds() {
-      return boundsOfLngLat(coords); // `coords` est déjà en [lng, lat]
+      return boundsOfLngLat(coords.flat()); // `coords` est déjà en [lng, lat]
     },
     // Survol carte → profil : `mouseout` de Leaflet devient `mouseleave` de MapLibre. Les
     // écouteurs se posent sur la couche de liseré ; MapLibre passe `e.lngLat` (pas
@@ -479,13 +491,34 @@ export function updateZoomCap() {
   return cap;
 }
 
+// Assombrissement global des fonds (primal mode, S-V2-CAVEMAN). `raster-opacity` est la
+// propriété d'applyLayer : le facteur vit donc ICI, et tout repassage par applyLayer le
+// rejoue — sans quoi le moindre changement de calque rallumerait la carte en pleine nuit.
+// Sur le fond noir de la carte, réduire l'opacité revient exactement à éteindre les tuiles,
+// et le tracé (couches `line`) comme le ping (marqueur DOM) gardent tout leur éclat.
+// (`raster-brightness-max`, essayé d'abord, est accepté par le validateur mais n'a aucun
+// effet mesurable sous MapLibre 5.)
+let dimFactor = 1;
+
+function paintLayer(name) {
+  const cfg = layersConfig[name];
+  whenMapReady(() => {
+    map.setLayoutProperty(`lyr-${name}`, "visibility", cfg.on ? "visible" : "none");
+    map.setPaintProperty(`lyr-${name}`, "raster-opacity", (cfg.op / 100) * dimFactor);
+  });
+}
+
+export function setLayersDim(factor) {
+  dimFactor = factor;
+  Object.keys(layersConfig).forEach(paintLayer);
+}
+
 export function applyLayer(name) {
   const cfg = layersConfig[name];
   whenMapReady(() => {
     if (cfg.on && name === "rain") refreshRainLayer();
-    map.setLayoutProperty(`lyr-${name}`, "visibility", cfg.on ? "visible" : "none");
-    map.setPaintProperty(`lyr-${name}`, "raster-opacity", cfg.op / 100);
   });
+  paintLayer(name);
   // Toutes les présentations de ce calque restent en phase : cartes-aperçu + rangées de
   // surcouches du sélecteur refondu, ET la liste de calques de la bibliothèque (.layer-row).
   document.querySelectorAll(`[data-layer="${name}"]`).forEach((row) => {

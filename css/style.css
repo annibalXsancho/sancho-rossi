@@ -65,7 +65,7 @@ button { color: inherit; }
    de stats, titres de section). Les boutons, chips et onglets repassent en casse
    normale — c'était le premier marqueur du « sport » v1. */
 .label-sport, .bigstat-l, .stat-label, .layers-title, .nav-stat label,
-.surv-main label, .surv-cell label, .results-head, .tab-nav-btn {
+.primal-cell label, .results-head, .tab-nav-btn {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -2205,9 +2205,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   border-bottom: 10px solid var(--red);
   filter: drop-shadow(0 -1px 1px #fff);
 }
-/* Mode éco : la flèche devient un ping mesuré (pas de cap suivi) qui pulse doucement. */
+/* Primal mode : la flèche devient un ping mesuré (pas de cap suivi). Le pulse est
+   ONE-SHOT à l'arrivée d'un point (classe .is-fresh retirée après l'animation) — une
+   animation infinie réveillerait le compositeur à chaque frame pendant toute la sortie,
+   l'exact contraire d'un « écran statique ». Entre deux points : un point fixe. */
 .nav-pos.is-ping .nav-pos-arrow { display: none; }
-.nav-pos.is-ping::after { animation: nav-ping 2.4s ease-out infinite; }
+.nav-pos.is-ping.is-fresh::after { animation: nav-ping 2.4s ease-out 1; }
 @keyframes nav-ping {
   0% { box-shadow: 0 0 0 3px #fff, 0 0 0 0 color-mix(in srgb, var(--red) 55%, transparent); }
   100% { box-shadow: 0 0 0 3px #fff, 0 0 0 15px transparent; }
@@ -2218,8 +2221,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .nav-sheet, .nav-fabs, .nav-pos-arrow, .nav-compass-needle,
-  .nav-quit, .nav-fab, .surv-btn { transition: none; }
-  .nav-pos.is-ping::after { animation: none; }
+  .nav-quit, .nav-fab, .primal-btn { transition: none; }
+  .nav-pos.is-ping.is-fresh::after { animation: none; }
 }
 
 /* Chrome d'exploration masquée pendant la navigation (carte plein écran). `.header` porte
@@ -2231,10 +2234,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .nav-active .map-scale-bar, .nav-active .map-scale,
 .nav-active .maplibregl-ctrl-group { display: none; }
 
-/* ============ Mode éco (ex-Survivor) : carte visible + dernier ping ============ */
-/* La carte reste dessous ; seuls un bandeau haut et un panneau bas sombres flottent.
-   Le centre laisse passer les gestes (pointer-events:none) pour voir/déplacer la carte. */
-.nav-survivor {
+/* ============ Primal mode (S-V2-CAVEMAN) : vue de haut, sombre et statique ============ */
+/* La carte du pack reste dessous ; par-dessus, un nom discret et deux chiffres, rien
+   d'autre (le mode d'emploi est rangé derrière un « i »). Le centre laisse passer les
+   gestes (pointer-events:none) : la carte se déplace et se pince à travers, un tap
+   l'éclaircit et relève un point. */
+.primal-hud {
   position: fixed;
   inset: 0;
   z-index: 3000;
@@ -2243,19 +2248,35 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   flex-direction: column;
   justify-content: space-between;
 }
-.nav-survivor.hidden { display: none; }
-body.survivor-active .nav-hud { display: none; }
+.primal-hud.hidden { display: none; }
+body.primal-active .nav-hud { display: none; }
 
-.surv-top {
+/* L'assombrissement se fait sur les TUILES (`setLayersDim`, map.js), pas par un voile DOM :
+   un voile posé sur la carte éteignait aussi le tracé et le ping, les deux seules choses à
+   voir. Rien à styler ici — c'est du rendu carte. */
+
+/* Mobilier de carte : tout ce qui n'est ni le tracé ni le ping disparaît (le reste de la
+   chrome est déjà masqué par `.nav-active`, primal étant toujours dans la nav). */
+body.primal-active .trail-marker,
+body.primal-active .poi-marker,
+body.primal-active .maplibregl-popup,
+body.primal-active .nav-fabs { display: none; }
+
+.primal-top {
   pointer-events: auto;
   margin: max(12px, env(safe-area-inset-top, 0px)) 12px 0;
-  padding: 9px 16px;
-  text-align: center;
+  padding: 9px 10px 9px 16px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
   background: color-mix(in srgb, #000 78%, transparent);
   backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
 }
-.surv-title {
+.primal-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
   font-size: 14px;
   font-weight: 700;
   color: #f0f0f0;
@@ -2264,26 +2285,85 @@ body.survivor-active .nav-hud { display: none; }
   text-overflow: ellipsis;
 }
 
-.surv-panel {
+/* Mode d'emploi rangé derrière un « i » : à l'écran il ne reste que les deux chiffres. */
+.primal-info-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  color: #9a9a9a;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+.primal-info-btn:hover,
+.primal-info-btn[aria-expanded="true"] { color: #ededed; background: rgba(255, 255, 255, 0.16); }
+
+.primal-info-bubble {
   pointer-events: auto;
-  background: color-mix(in srgb, #000 82%, transparent);
+  margin: var(--sp-2) 12px 0;
+  padding: var(--sp-3);
+  font-size: 12px;
+  line-height: 1.55;
+  color: #b4b4b4;
+  background: color-mix(in srgb, #000 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+.primal-info-bubble.hidden { display: none; }
+.primal-info-bubble strong { color: #e6e6e6; }
+
+.primal-panel {
+  pointer-events: auto;
+  background: color-mix(in srgb, #000 88%, transparent);
   backdrop-filter: blur(10px);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: var(--sp-4) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+  padding: var(--sp-3) var(--sp-3) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
   color: #dedede;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   text-align: center;
 }
-.surv-metrics { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); }
-.surv-main span { font-size: 68px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; display: block; color: #fff; }
-.surv-main label, .surv-cell label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #8a8a8a; }
-.surv-sub { display: flex; gap: 40px; }
-.surv-cell span { font-size: 24px; font-weight: 800; display: block; font-variant-numeric: tabular-nums; }
 
-.surv-off {
+/* Les deux seuls chiffres du mode, à parité : parcourus / restants. */
+.primal-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  width: 100%;
+  max-width: 420px;
+}
+.primal-cell span {
+  display: block;
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.primal-cell label {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8a8a;
+}
+
+/* Ligne d'état : heures absolues, jamais de décompte — un compte à rebours voudrait dire
+   un timer qui tourne. Le nombre de points relevés est le proxy de consommation. */
+.primal-status { font-size: 11px; color: #7f7f7f; font-variant-numeric: tabular-nums; }
+
+.primal-off {
   font-size: 14px;
   font-weight: 700;
   color: #fff;
@@ -2291,12 +2371,12 @@ body.survivor-active .nav-hud { display: none; }
   padding: 7px 18px;
   border-radius: var(--radius-full);
 }
-.surv-off.hidden { display: none; }
-.surv-gps { font-size: 12px; font-weight: 700; color: var(--red); }
-.surv-gps.hidden { display: none; }
+.primal-off.hidden { display: none; }
+.primal-gps { font-size: 12px; font-weight: 700; color: var(--red); }
+.primal-gps.hidden { display: none; }
 
-.surv-actions { display: flex; gap: var(--sp-2); }
-.surv-btn {
+.primal-actions { display: flex; gap: var(--sp-2); margin-top: 2px; }
+.primal-btn {
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -2308,11 +2388,10 @@ body.survivor-active .nav-hud { display: none; }
   cursor: pointer;
   transition: background 150ms ease-out, transform 150ms ease-out;
 }
-.surv-btn:hover { background: rgba(255, 255, 255, 0.14); }
-.surv-btn:active { transform: scale(0.97); }
-.surv-btn-danger { color: #fff; background: var(--red); }
-.surv-btn-danger:hover { background: var(--red-dim); }
-.surv-note { max-width: 420px; font-size: 11px; line-height: 1.5; color: #7a7a7a; }
+.primal-btn:hover { background: rgba(255, 255, 255, 0.14); }
+.primal-btn:active { transform: scale(0.97); }
+.primal-btn-danger { color: #fff; background: var(--red); }
+.primal-btn-danger:hover { background: var(--red-dim); }
 
 /* ============ Pré-alerte de la veille automatique ============ */
 .prealert {
@@ -2842,7 +2921,7 @@ body.survivor-active .nav-hud { display: none; }
   .detail-hero { height: 240px; }
   .contact-form { grid-template-columns: 1fr; }
   .nav-stat span { font-size: 20px; }
-  .surv-main span { font-size: 64px; }
+  .primal-cell span { font-size: 46px; }
 }
 
 /* Téléphone : barre d'onglets en bas, grandes cibles tactiles */

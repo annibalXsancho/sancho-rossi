@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=555" />
+  <link rel="stylesheet" href="css/style.css?v=558" />
   <script type="importmap">
     {
       "imports": {
@@ -29,7 +29,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=535",
+        "./js/map.js": "./js/map.js?v=537",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=531",
         "./js/detail.js": "./js/detail.js?v=537",
@@ -42,9 +42,9 @@
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/loops.js": "./js/loops.js?v=525",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
-        "./js/nav.js": "./js/nav.js?v=510",
-        "./js/navview.js": "./js/navview.js?v=506",
-        "./js/security.js": "./js/security.js?v=516",
+        "./js/nav.js": "./js/nav.js?v=516",
+        "./js/navview.js": "./js/navview.js?v=507",
+        "./js/security.js": "./js/security.js?v=517",
         "./js/ui.js": "./js/ui.js?v=530",
         "./js/offline.js": "./js/offline.js?v=529",
         "./js/packdialog.js": "./js/packdialog.js?v=502",
@@ -283,7 +283,7 @@
               <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
             </div>
             <div class="nav-profile" id="nav-profile"></div>
-            <button id="nav-mode" class="btn btn-ghost nav-eco-btn">🪫 Mode éco (économie d'énergie)</button>
+            <button id="nav-mode" class="btn btn-ghost nav-eco-btn">🪨 Primal mode (économie d'énergie)</button>
           </div>
         </div>
       </div>
@@ -705,28 +705,38 @@
     <div class="prealert-links" id="prealert-links"></div>
   </section>
 
-  <!-- Mode Survivor : écran statique basse consommation -->
-  <!-- Mode éco : la carte reste VISIBLE (figée sur le dernier ping mesuré + tracé), seul un
-       bandeau haut et un panneau bas sombres s'y superposent. Focus économie d'énergie :
-       wake-lock relâché, rafraîchissement ~20 s, pas de suivi caméra continu (js/nav.js). -->
-  <section id="nav-survivor" class="nav-survivor hidden">
-    <div class="surv-top"><div class="surv-title" id="surv-title"></div></div>
-    <div class="surv-panel">
-      <div class="surv-metrics">
-        <div class="surv-main"><span id="surv-remaining">—</span><label>km restants</label></div>
-        <div class="surv-sub">
-          <div class="surv-cell"><span id="surv-done">—</span><label>km parcourus</label></div>
-          <div class="surv-cell"><span id="surv-time">—</span><label>dernière maj</label></div>
-        </div>
+  <!-- Primal mode (S-V2-CAVEMAN) : vue de haut minimale — carte du pack + tracé + ping de
+       position relevé à cadence adaptative (~20 s en marche, jusqu'à 5 min à l'arrêt).
+       Écran STATIQUE : ce sont les TUILES qui s'éteignent (setLayersDim, map.js), pas
+       l'écran — le tracé et le ping gardent tout leur éclat. La carte revient à pleine
+       lumière quand on rallume l'écran ou qu'on la tape, c'est-à-dire aux seuls moments
+       où on la regarde. Deux chiffres, rien d'autre : le mode d'emploi est derrière le
+       « i ». Le centre laisse passer les gestes, la carte reste déplaçable. -->
+  <section id="primal-hud" class="primal-hud hidden">
+    <div class="primal-head">
+      <div class="primal-top">
+        <div class="primal-title" id="primal-title"></div>
+        <button id="primal-info" class="primal-info-btn" aria-label="Comment marche le primal mode" aria-expanded="false">i</button>
       </div>
-      <div id="surv-off" class="surv-off hidden">⚠ Hors tracé</div>
-      <div id="surv-gps" class="surv-gps hidden">⚠ Signal GPS perdu</div>
-      <div class="surv-actions">
-        <button id="surv-advanced" class="surv-btn">Mode avancé</button>
-        <button id="surv-stop" class="surv-btn surv-btn-danger">Terminer</button>
+      <div id="primal-info-bubble" class="primal-info-bubble hidden">
+        Tapez la carte pour l'éclaircir et relever un point tout de suite.
+        La puce GPS s'éteint entre deux points, et s'espace d'elle-même quand vous ne bougez plus.<br />
+        Le suivi tourne <strong>écran allumé</strong> et reprend dès que vous le rallumez —
+        aucune application web ne relève le GPS écran éteint.
       </div>
-      <p class="surv-note">Carte figée sur votre dernière position, rafraîchie toutes les 20 s,
-      écran libre de s'éteindre : consommation minimale. Le GPS continue d'enregistrer votre position.</p>
+    </div>
+    <div class="primal-panel">
+      <div class="primal-metrics">
+        <div class="primal-cell"><span id="primal-done">—</span><label>km parcourus</label></div>
+        <div class="primal-cell"><span id="primal-remaining">—</span><label>km restants</label></div>
+      </div>
+      <div id="primal-status" class="primal-status"></div>
+      <div id="primal-off" class="primal-off hidden">⚠ Hors tracé</div>
+      <div id="primal-gps" class="primal-gps hidden">⚠ Signal GPS perdu</div>
+      <div class="primal-actions">
+        <button id="primal-full" class="primal-btn">Advanced mode</button>
+        <button id="primal-stop" class="primal-btn primal-btn-danger">Terminer</button>
+      </div>
     </div>
   </section>
 

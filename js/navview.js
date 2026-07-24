@@ -2,7 +2,7 @@
 // Re-rendu complet à chaque affichage de l'onglet (switchTab) : c'est aussi ce qui
 // resynchronise les calques si l'utilisateur les a changés depuis le panneau carte.
 import { state, gainOf } from "./state.js";
-import { startNavigation, stopNavigation, setSurvivor, navSession } from "./nav.js";
+import { startNavigation, stopNavigation, setPrimal, navSession } from "./nav.js";
 import { switchTab } from "./ui.js";
 import { layersConfig, applyLayer, LAYER_META } from "./map.js";
 import { renderDetail } from "./detail.js";
@@ -67,7 +67,7 @@ function renderSession() {
       </div>
       <div class="nav-session-actions">
         <button class="btn btn-primary" id="navview-map">Voir la carte</button>
-        <button class="btn" id="navview-survivor">Mode survie</button>
+        <button class="btn" id="navview-primal">Primal mode</button>
         <button class="btn btn-ghost btn-danger" id="navview-stop">Terminer</button>
       </div>
     </div>`;
@@ -82,9 +82,9 @@ function renderSession() {
   elapsedTimer = setInterval(tick, 30000);
 
   document.getElementById("navview-map").addEventListener("click", () => switchTab("carte"));
-  document.getElementById("navview-survivor").addEventListener("click", () => {
+  document.getElementById("navview-primal").addEventListener("click", () => {
     switchTab("carte");
-    setSurvivor(true);
+    setPrimal(true);
   });
   document.getElementById("navview-stop").addEventListener("click", () => {
     if (!confirm("Terminer la navigation en cours ?")) return;

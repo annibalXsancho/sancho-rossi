@@ -161,6 +161,53 @@ function renderContacts() {
 
 // Position
 let watchId = null;
+let watchSuspended = false; // suivi coupé le temps du primal mode, à rétablir en sortant
+
+function startPosWatch() {
+  if (watchId !== null || !navigator.geolocation) return false;
+  watchId = navigator.geolocation.watchPosition(savePos, (err) => {
+    const s = document.getElementById("pos-status");
+    if (s) s.textContent = `Erreur GPS : ${err.message}`;
+  }, { enableHighAccuracy: true, maximumAge: 30000 });
+  return true;
+}
+
+function stopPosWatch() {
+  if (watchId === null) return false;
+  navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  return true;
+}
+
+function renderPosWatch() {
+  const btn = document.getElementById("btn-track-pos");
+  const status = document.getElementById("pos-status");
+  if (btn) btn.textContent = watchId !== null ? "Désactiver le suivi" : "Activer le suivi";
+  if (status) {
+    status.textContent = watchId !== null
+      ? "Suivi GPS actif — la dernière position est enregistrée en continu."
+      : watchSuspended
+        ? "Suivi GPS en pause pendant le primal mode — rétabli en sortant."
+        : "Suivi GPS désactivé.";
+  }
+}
+
+// Le primal mode relève la position à cadence espacée (S-V2-CAVEMAN). Un watchPosition
+// continu resté ouvert depuis Réglages garderait la puce GPS allumée en permanence et
+// annulerait TOUTE l'économie du duty-cycle : on le met en pause, on le rétablit en
+// sortant. L'utilisateur n'a rien à faire, et son réglage n'est pas perdu.
+export function suspendPosWatch() {
+  watchSuspended = stopPosWatch();
+  if (watchSuspended) renderPosWatch();
+  return watchSuspended;
+}
+
+export function resumePosWatch() {
+  if (!watchSuspended) return;
+  watchSuspended = false;
+  startPosWatch();
+  renderPosWatch();
+}
 
 export function savePos(pos) {
   markActivity(); // une position GPS vaut signe de vie pour la veille
@@ -289,21 +336,14 @@ export function initSecurity() {
     renderSafety();
   });
 
-  document.getElementById("btn-track-pos").addEventListener("click", (e) => {
-    const status = document.getElementById("pos-status");
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      watchId = null;
-      status.textContent = "Suivi GPS désactivé.";
-      e.target.textContent = "Activer le suivi";
+  document.getElementById("btn-track-pos").addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      document.getElementById("pos-status").textContent = "Géolocalisation non supportée.";
       return;
     }
-    if (!navigator.geolocation) { status.textContent = "Géolocalisation non supportée."; return; }
-    watchId = navigator.geolocation.watchPosition(savePos,
-      (err) => (status.textContent = `Erreur GPS : ${err.message}`),
-      { enableHighAccuracy: true, maximumAge: 30000 });
-    status.textContent = "Suivi GPS actif — la dernière position est enregistrée en continu.";
-    e.target.textContent = "Désactiver le suivi";
+    watchSuspended = false; // un geste explicite prime sur la mise en pause du primal mode
+    if (watchId !== null) stopPosWatch(); else startPosWatch();
+    renderPosWatch();
   });
 
   document.getElementById("btn-refresh-pos").addEventListener("click", () => {
