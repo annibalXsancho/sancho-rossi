@@ -2256,7 +2256,11 @@ body.primal-active .nav-hud { display: none; }
    voir. Rien à styler ici — c'est du rendu carte. */
 
 /* Mobilier de carte : tout ce qui n'est ni le tracé ni le ping disparaît (le reste de la
-   chrome est déjà masqué par `.nav-active`, primal étant toujours dans la nav). */
+   chrome est déjà masqué par `.nav-active`, primal étant toujours dans la nav).
+   EXCEPTION assumée : les repères personnels (`.plan-annot`) restent visibles — ce ne sont
+   ni des données publiques ni de la chrome, c'est la connaissance de l'utilisateur, et ils
+   sont statiques (aucune animation, donc aucune consommation). C'est aussi la confirmation
+   visuelle d'un repère qu'on vient de poser en marchant. */
 body.primal-active .trail-marker,
 body.primal-active .poi-marker,
 body.primal-active .maplibregl-popup,
@@ -2397,6 +2401,99 @@ body.primal-active .nav-fabs { display: none; }
 .primal-btn:active { transform: scale(0.97); }
 .primal-btn-danger { color: #fff; background: var(--red); }
 .primal-btn-danger:hover { background: var(--red-dim); }
+
+/* ============ Repères de terrain (S-V2-ANNOT-TERRAIN) ============ */
+/* Poser un repère en marchant : le bouton, puis le type — et c'est posé. La note qui suit
+   est facultative. Feuille au-dessus de TOUT (primal compris), gros boutons au doigt. */
+.mark-sheet { position: fixed; inset: 0; z-index: 3200; }
+.mark-sheet.hidden { display: none; }
+.mark-scrim { position: absolute; inset: 0; background: rgba(6, 6, 7, 0.5); }
+
+.mark-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--sp-2) var(--sp-3) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-soft);
+  animation: mark-rise 200ms ease-out;
+}
+@keyframes mark-rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.mark-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.mark-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-soft);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+.mark-close:hover { background: var(--surface-3); color: var(--text); }
+
+/* Six types, deux colonnes, cibles au doigt : le geste doit passer sans regarder. */
+.mark-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.mark-kinds.hidden { display: none; }
+.mark-kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 150ms ease-out, background 150ms ease-out;
+}
+.mark-kind:hover { background: var(--surface-3); transform: translateY(-1px); }
+.mark-kind:active { transform: scale(0.97); }
+.mark-kind-ic { font-size: 20px; line-height: 1; }
+
+/* Confirmation : ce qui vient d'être posé, où, quand — puis la note, facultative. */
+.mark-saved { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mark-saved.hidden { display: none; }
+.mark-saved-head { display: flex; align-items: center; gap: 12px; }
+.mark-saved-ic { font-size: 26px; line-height: 1; }
+.mark-saved-body { min-width: 0; }
+.mark-saved-name { font-size: 15px; font-weight: 700; }
+.mark-saved-meta { font-size: 11.5px; font-weight: 600; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.mark-saved .annot-note { width: 100%; }
+.mark-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.mark-foot .btn { padding: 9px 22px; }
+
+/* Sur grand écran la feuille redevient un panneau posé en bas à gauche, à l'écart de la
+   feuille de métriques (bas droite). */
+@media (min-width: 700px) {
+  .mark-card { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: var(--radius-lg); }
+  /* Le voile sert surtout à fermer d'un tap à côté : sur grand écran il s'efface presque,
+     la feuille ne couvre qu'un coin et éteindre toute la carte serait disproportionné. */
+  .mark-scrim { background: rgba(6, 6, 7, 0.22); }
+}
+
+/* Bouton « marquer » : tonal comme les autres FAB — le plein rouge de l'écran de nav reste
+   réservé à la bannière hors-tracé. */
+.nav-fab-mark svg { width: 21px; height: 21px; }
+.primal-mark-btn { display: grid; place-items: center; }
+.primal-mark-btn svg { width: 14px; height: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-card { animation: none; }
+  .mark-kind, .mark-close { transition: none; }
+}
 
 /* ============ Pré-alerte de la veille automatique ============ */
 .prealert {

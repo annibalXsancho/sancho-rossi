@@ -9,7 +9,7 @@
 // animation en boucle, aucune animation de caméra), et il ne reste que deux chiffres :
 // km parcourus / km restants.
 import { getTrail, trackOf, sampleTrack, haversineKm } from "./state.js";
-import { map, domMarker, makeIcon, is3D, set3D, setLayersDim } from "./map.js";
+import { map, domMarker, makeIcon, is3D, set3D, setLayersDim, setLongPress } from "./map.js";
 import { selectTrail } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { savePos, suspendPosWatch, resumePosWatch } from "./security.js";
@@ -18,6 +18,8 @@ import { toast } from "./toast.js";
 import { createProfile } from "./profile.js";
 import { ensureElevation } from "./api.js";
 import { naismithHours, fmtDuration, cumulativeKm } from "./metrics.js";
+import { ANNOT_KINDS, annotKind } from "./annotations.js";
+import { addFieldMark, updateFieldMark, removeFieldMark, trailMarks } from "./fieldmarks.js";
 
 const OFF_BASE_M = 120;      // seuil de base « hors tracé » (m)
 const STALE_MS = 30000;      // au-delà : le fix GPS est considéré perdu
@@ -87,6 +89,12 @@ const nav = {
   pingTimer: null,
   batt: null,          // mesure %/h quand navigator.getBattery existe
   was3D: false,
+  // --- Repères de terrain (S-V2-ANNOT-TERRAIN) ---
+  markMarkers: new Map(), // id de repère → marqueur carte (repères de terrain seuls)
+  planMarkers: [],        // repères préparés au planificateur (champ `pois`), inertes
+  sheetMark: null,        // repère en cours d'édition dans la feuille
+  sheetPoint: null,       // point visé quand la feuille est ouverte avant de choisir un type
+  noteTimer: null,
 };
 
 // La session en cours est persistée dans sr-nav pour qu'un rechargement de la page
@@ -508,6 +516,168 @@ function showPrimalInfo(on) {
   btn.setAttribute("aria-expanded", String(open));
 }
 
+// ================= REPÈRES DE TERRAIN (S-V2-ANNOT-TERRAIN) =================
+// Poser un repère en marchant, en DEUX gestes : le bouton, puis le type. Le tap sur le
+// type pose le repère — la note qui suit est facultative, jamais une étape obligatoire.
+// Tout est local (IndexedDB via fieldmarks.js) : le mode avion ne change rien.
+
+const markEl = (id) => document.getElementById(id);
+
+// Pastille de repère sur la carte de nav — même dessin que la fiche et le planificateur.
+function markIconEl(m) {
+  return makeIcon("plan-annot", `<span class="plan-annot-i">${annotKind(m.kind).icon}</span>`);
+}
+
+// Repères déjà connus de l'itinéraire, posés à l'entrée en navigation : ceux préparés à la
+// maison (champ `pois`, inertes) ET ceux du terrain (cliquables → note / suppression).
+function renderNavMarks() {
+  clearNavMarks();
+  if (!nav.trail) return;
+  for (const m of trailMarks(nav.trail)) {
+    if (m.field) addMarkMarker(m);
+    else {
+      const el = markIconEl(m);
+      el.title = m.note || annotKind(m.kind).label;
+      el.style.pointerEvents = "none";
+      nav.planMarkers.push(domMarker(m.lat, m.lon, { element: el }).addTo(map));
+    }
+  }
+}
+
+function addMarkMarker(m) {
+  const el = markIconEl(m);
+  el.title = m.note || annotKind(m.kind).label;
+  el.addEventListener("click", (e) => {
+    e.stopPropagation(); // ne pas déclencher le tap carte du primal (relevé + éclaircissement)
+    openMarkSheet({ mark: m });
+  });
+  nav.markMarkers.set(m.id, domMarker(m.lat, m.lon, { element: el }).addTo(map));
+}
+
+function clearNavMarks() {
+  nav.markMarkers.forEach((mk) => mk.remove());
+  nav.markMarkers.clear();
+  nav.planMarkers.forEach((mk) => mk.remove());
+  nav.planMarkers = [];
+}
+
+// ---------- Feuille « repère » ----------
+function buildMarkKinds() {
+  const box = markEl("mark-kinds");
+  if (!box) return;
+  box.innerHTML = Object.entries(ANNOT_KINDS)
+    .map(([k, d]) => `<button type="button" class="mark-kind" data-kind="${k}"><span class="mark-kind-ic">${d.icon}</span>${d.label}</button>`)
+    .join("");
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest(".mark-kind");
+    if (b) createMark(b.dataset.kind);
+  });
+}
+
+// Ouverture : soit sur un point à marquer (bouton « marquer » = ma position, appui long =
+// le point pressé), soit sur un repère existant à retoucher.
+function openMarkSheet({ lat, lon, mark = null, label = null } = {}) {
+  const sheet = markEl("mark-sheet");
+  if (!sheet || !nav.active) return;
+  commitNote(); // une note en cours de saisie sur un autre repère n'est jamais perdue
+  nav.sheetMark = mark;
+  nav.sheetPoint = mark ? { lat: mark.lat, lon: mark.lon } : { lat, lon };
+  markEl("mark-eyebrow").textContent = mark ? "Mon repère" : label || "Marquer ici";
+  markEl("mark-kinds").classList.toggle("hidden", !!mark);
+  markEl("mark-saved").classList.toggle("hidden", !mark);
+  if (mark) fillSavedMark(mark);
+  sheet.classList.remove("hidden");
+}
+
+function closeMarkSheet() {
+  commitNote();
+  nav.sheetMark = null;
+  nav.sheetPoint = null;
+  markEl("mark-sheet")?.classList.add("hidden");
+}
+
+// Le geste qui compte : un tap sur un type ET C'EST POSÉ.
+function createMark(kind) {
+  const p = nav.sheetPoint;
+  if (!nav.trail || !p) return;
+  const m = addFieldMark(nav.trail, { kind, lat: p.lat, lon: p.lon });
+  // Altitude du profil (jamais celle du GPS, bruitée) quand elle est connue : gratuite,
+  // locale, et elle rend le repère lisible sur la fiche.
+  const ele = m.km != null ? eleDoneAt(m.km) : null;
+  if (ele != null) updateFieldMark(m.id, { ele });
+  addMarkMarker(m);
+  nav.sheetMark = m;
+  markEl("mark-kinds").classList.add("hidden");
+  markEl("mark-saved").classList.remove("hidden");
+  markEl("mark-eyebrow").textContent = "Repère posé";
+  fillSavedMark(m);
+  navigator.vibrate?.(30); // confirmation tactile : on marche, on ne regarde pas l'écran
+}
+
+function fillSavedMark(m) {
+  const d = annotKind(m.kind);
+  markEl("mark-saved-ic").textContent = d.icon;
+  markEl("mark-saved-name").textContent = d.label;
+  markEl("mark-saved-meta").textContent = [
+    m.km != null ? `km ${m.km.toLocaleString("fr-FR")}` : "hors itinéraire",
+    m.ele != null ? `${m.ele} m` : null,
+    hhmm(m.ts),
+  ].filter(Boolean).join(" · ");
+  const input = markEl("mark-note");
+  if (input) input.value = m.note || "";
+}
+
+// Note enregistrée au fil de la frappe (débouncée) ET à la fermeture : sur le terrain, on
+// peut ranger le téléphone à tout moment.
+function onNoteInput() {
+  clearTimeout(nav.noteTimer);
+  nav.noteTimer = setTimeout(commitNote, 500);
+}
+
+function commitNote() {
+  clearTimeout(nav.noteTimer);
+  const m = nav.sheetMark;
+  const input = markEl("mark-note");
+  if (!m || !input) return;
+  const note = input.value.trim();
+  if (note === (m.note || "")) return;
+  updateFieldMark(m.id, { note });
+  const el = nav.markMarkers.get(m.id)?.getElement();
+  if (el) el.title = note || annotKind(m.kind).label;
+}
+
+function deleteSheetMark() {
+  const m = nav.sheetMark;
+  if (!m) return;
+  clearTimeout(nav.noteTimer);
+  nav.sheetMark = null; // avant la fermeture : la note d'un repère supprimé ne se réécrit pas
+  removeFieldMark(m.id);
+  nav.markMarkers.get(m.id)?.remove();
+  nav.markMarkers.delete(m.id);
+  closeMarkSheet();
+  toast("Repère supprimé.", { type: "info" });
+}
+
+// Bouton « marquer » (nav complète et primal) : le repère se pose sur MA POSITION — en
+// primal on réutilise le dernier relevé, sans réveiller la puce GPS.
+function markHere() {
+  if (!nav.lastPos) {
+    toast("Position pas encore acquise — appuyez longuement sur la carte pour marquer un point.", { type: "info" });
+    return;
+  }
+  if (nav.primal) brighten(); // on regarde l'écran : il doit être lisible
+  openMarkSheet({ lat: nav.lastPos.lat, lon: nav.lastPos.lon });
+}
+
+// Appui long / clic droit sur la carte pendant la navigation : marquer AILLEURS que sur soi
+// (la source aperçue en contrebas, le passage délicat qu'on vient de franchir). Hors nav,
+// le geste garde son rôle d'origine — la bulle de coordonnées (map.js).
+function onNavLongPress(lngLat) {
+  if (!nav.active) return;
+  if (nav.primal) brighten();
+  openMarkSheet({ lat: lngLat.lat, lon: lngLat.lng, label: "Marquer ce point" });
+}
+
 export function startNavigation(id, { resume = null } = {}) {
   if (!navigator.geolocation) { toast("Géolocalisation non supportée sur cet appareil.", { type: "error" }); return; }
   stopNavigation();
@@ -548,6 +718,11 @@ export function startNavigation(id, { resume = null } = {}) {
   document.getElementById("nav-total").textContent = (t.distance || nav.total).toFixed(1);
   setGps("Recherche du signal GPS…", "search");
   document.getElementById("nav-sheet")?.classList.add("nav-sheet-collapsed");
+
+  // Repères de l'itinéraire (préparés + posés sur le terrain) + appui long détourné vers
+  // la pose de repère le temps de la navigation.
+  renderNavMarks();
+  setLongPress(onNavLongPress);
 
   loadElevation(id, t);
 
@@ -714,7 +889,10 @@ export function setPrimal(on) {
 export function stopNavigation() {
   localStorage.removeItem("sr-nav");
   stopWatch();
+  closeMarkSheet();   // avant `active = false` : la note en cours part en base
   nav.active = false;
+  clearNavMarks();
+  setLongPress(null); // la bulle de coordonnées retrouve l'appui long
   nav.offAlerted = false;
   nav.marker?.remove();
   nav.marker = null;
@@ -804,6 +982,21 @@ export function initNav() {
   document.getElementById("nav-recenter").addEventListener("click", recenter);
   document.getElementById("nav-heading").addEventListener("click", toggleHeading);
   document.addEventListener("visibilitychange", onVisibility);
+
+  // Repères de terrain : deux entrées (FAB de la nav, bouton de la barre primal), une
+  // seule feuille.
+  buildMarkKinds();
+  document.getElementById("nav-mark")?.addEventListener("click", markHere);
+  document.getElementById("primal-mark-btn")?.addEventListener("click", markHere);
+  document.getElementById("mark-close")?.addEventListener("click", closeMarkSheet);
+  document.getElementById("mark-scrim")?.addEventListener("click", closeMarkSheet);
+  document.getElementById("mark-ok")?.addEventListener("click", closeMarkSheet);
+  document.getElementById("mark-del")?.addEventListener("click", deleteSheetMark);
+  document.getElementById("mark-note")?.addEventListener("input", onNoteInput);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !document.getElementById("mark-sheet")?.classList.contains("hidden")) closeMarkSheet();
+  });
+
   map.on("click", onPrimalMapClick);
   map.on("dragstart", onUserGesture);
   map.on("rotatestart", onUserGesture);

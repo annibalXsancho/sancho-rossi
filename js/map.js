@@ -834,6 +834,13 @@ function toDMS(deg, [pos, neg]) {
   return `${d}°${String(m).padStart(2, "0")}′${s.padStart(4, "0")}″${deg >= 0 ? pos : neg}`;
 }
 
+// Le geste « appui long / clic droit » est prêté : en navigation, il pose un repère
+// (S-V2-ANNOT-TERRAIN) au lieu d'ouvrir la bulle de coordonnées. nav.js le rend en
+// quittant la nav — un seul geste, un rôle par contexte, aucune duplication du détecteur.
+let longPressHandler = null;
+export function setLongPress(fn) { longPressHandler = fn || null; }
+const onLongPressPoint = (lngLat) => (longPressHandler || showCoordPopup)(lngLat);
+
 function showCoordPopup(lngLat) {
   const dec = `${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}`;
   const html =
@@ -1189,8 +1196,8 @@ export function initMap() {
   });
 
   // Clic droit (desktop) / appui long (mobile) : bulle des coordonnées du point pointé
-  map.on("contextmenu", (e) => showCoordPopup(e.lngLat));
-  enableLongPress(showCoordPopup);
+  map.on("contextmenu", (e) => onLongPressPoint(e.lngLat));
+  enableLongPress(onLongPressPoint);
 
   document.getElementById("preview-close").addEventListener("click", () => {
     hidePreview();

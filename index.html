@@ -15,24 +15,24 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=559" />
+  <link rel="stylesheet" href="css/style.css?v=560" />
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
         "./js/state.js": "./js/state.js?v=505",
-        "./js/storage.js": "./js/storage.js?v=506",
+        "./js/storage.js": "./js/storage.js?v=507",
         "./js/net.js": "./js/net.js?v=501",
         "./js/toast.js": "./js/toast.js?v=502",
         "./js/api.js": "./js/api.js?v=502",
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=537",
+        "./js/map.js": "./js/map.js?v=538",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=531",
-        "./js/detail.js": "./js/detail.js?v=537",
+        "./js/detail.js": "./js/detail.js?v=538",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
         "./js/metrics.js": "./js/metrics.js?v=520",
@@ -40,9 +40,10 @@
         "./js/profile.js": "./js/profile.js?v=526",
         "./js/planner.js": "./js/planner.js?v=533",
         "./js/annotations.js": "./js/annotations.js?v=501",
+        "./js/fieldmarks.js": "./js/fieldmarks.js?v=501",
         "./js/loops.js": "./js/loops.js?v=525",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
-        "./js/nav.js": "./js/nav.js?v=516",
+        "./js/nav.js": "./js/nav.js?v=517",
         "./js/navview.js": "./js/navview.js?v=509",
         "./js/security.js": "./js/security.js?v=517",
         "./js/ui.js": "./js/ui.js?v=530",
@@ -254,8 +255,11 @@
 
         <div id="nav-offtrack" class="nav-offtrack hidden">⚠ Hors tracé — <span id="nav-offdist"></span> m</div>
 
-        <!-- Contrôles flottants : recentrer (si on a lâché le suivi) · orientation carte -->
+        <!-- Contrôles flottants : marquer · recentrer (si on a lâché le suivi) · orientation -->
         <div class="nav-fabs">
+          <button id="nav-mark" class="nav-fab nav-fab-mark" title="Marquer ce point (repère personnel)" aria-label="Marquer ce point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><path d="M12 7v6M9 10h6"/></svg>
+          </button>
           <button id="nav-recenter" class="nav-fab hidden" title="Recentrer sur ma position" aria-label="Recentrer sur ma position">
             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
           </button>
@@ -722,6 +726,10 @@
              plein écran, c'est lui qui dit où l'on est. -->
         <svg class="primal-icon primal-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.4" cy="5.6" r="3" fill="currentColor" stroke="none"/><path d="M4.5 4.4 5.6 2.4 7 3.6 8.2 1.9 9.4 3.7 10.7 3z" fill="currentColor" stroke="none"/><path d="M5.2 9h4.6l1 5.4H4.6z" fill="currentColor" stroke="none"/><path d="M6.2 14.6 5.2 20.2" stroke-width="2.4"/><path d="M9 14.6l1.4 5.6" stroke-width="2.4"/><path d="M10 10.9 11.6 12.3" stroke-width="2.2"/><path d="M10.8 12 16.9 3.7a2.4 2.4 0 0 1 3.2 3.1L12.1 13.2Z" fill="currentColor" stroke="none"/></svg>
         <div class="primal-title" id="primal-title"></div>
+        <!-- Marquer sans réveiller la puce : le repère se pose sur le DERNIER relevé. -->
+        <button id="primal-mark-btn" class="primal-info-btn primal-mark-btn" title="Marquer ce point" aria-label="Marquer ce point">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><path d="M12 7v6M9 10h6"/></svg>
+        </button>
         <button id="primal-info" class="primal-info-btn" aria-label="Comment marche le primal mode" aria-expanded="false">i</button>
       </div>
       <div id="primal-info-bubble" class="primal-info-bubble hidden">
@@ -742,6 +750,35 @@
       <div class="primal-actions">
         <button id="primal-full" class="primal-btn">Advanced mode</button>
         <button id="primal-stop" class="primal-btn primal-btn-danger">Terminer</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feuille « repère » (S-V2-ANNOT-TERRAIN) : poser un repère en marchant, en 2 gestes.
+       Le tap sur un type POSE le repère ; la note qui suit est facultative. -->
+  <section id="mark-sheet" class="mark-sheet hidden" aria-label="Poser un repère">
+    <div class="mark-scrim" id="mark-scrim"></div>
+    <div class="mark-card">
+      <div class="mark-head">
+        <span class="eyebrow" id="mark-eyebrow">Marquer ici</span>
+        <button id="mark-close" class="mark-close" title="Fermer" aria-label="Fermer">✕</button>
+      </div>
+      <!-- Étape 1 — le type (rempli par fieldmarks/annotations : un seul vocabulaire) -->
+      <div class="mark-kinds" id="mark-kinds"></div>
+      <!-- Étape 2 — c'est posé : on le dit, et on offre la note -->
+      <div class="mark-saved hidden" id="mark-saved">
+        <div class="mark-saved-head">
+          <span class="mark-saved-ic" id="mark-saved-ic"></span>
+          <div class="mark-saved-body">
+            <div class="mark-saved-name" id="mark-saved-name"></div>
+            <div class="mark-saved-meta" id="mark-saved-meta"></div>
+          </div>
+        </div>
+        <input id="mark-note" class="annot-note" type="text" maxlength="120" placeholder="Ajouter une note…" />
+        <div class="mark-foot">
+          <button type="button" class="btn-ghost btn-ghost-danger" id="mark-del">Supprimer</button>
+          <button type="button" class="btn" id="mark-ok">OK</button>
+        </div>
       </div>
     </div>
   </section>

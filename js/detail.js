@@ -13,6 +13,7 @@ import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
+import { trailMarks, removeFieldMark } from "./fieldmarks.js";
 
 import { toast } from "./toast.js";
 
@@ -39,14 +40,21 @@ export function isDetailOpen() {
   return !detailPanel.classList.contains("hidden");
 }
 
-// ---------- Repères personnels d'un tracé planifié (S-PLAN-C) ----------
+// ---------- Repères personnels (S-PLAN-C préparés + S-V2-ANNOT-TERRAIN posés en marchant) ----------
+// La fiche ne distingue pas deux listes : `trailMarks` fond les repères préparés au
+// planificateur (champ `pois` du tracé) et ceux posés sur le terrain (store IndexedDB
+// dédié). Seuls les seconds sont datés et supprimables ici.
 // Les notes sont de la saisie utilisateur : échappées (escapeHtml ci-dessus) avant
 // toute injection HTML.
+
+// Marqueurs de repères posés sur les cartes de la fiche (mini-carte + plein écran) :
+// gardés par id pour qu'une suppression les retire sans re-rendre toute la fiche.
+let markHandles = [];
 
 // Repères → marques du profil (uniquement ceux qui sont SUR l'itinéraire : un point
 // hors tracé n'a pas de km honnête à afficher sur une courbe).
 const poiProfileMarkers = (t) =>
-  (t.pois || [])
+  trailMarks(t)
     .filter((p) => p.km != null)
     .map((p) => ({ km: p.km, icon: annotKind(p.kind).icon, label: p.note || annotKind(p.kind).label }));
 
@@ -55,9 +63,10 @@ const poiProfileMarkers = (t) =>
 // ouvre au tap une bulle avec sa note ; inerte, il ne capte aucun événement (le survol du
 // tracé pour le profil doit passer au travers).
 function addPoiMarkers(mapInstance, t, { tooltips = false } = {}) {
-  (t.pois || []).forEach((p) => {
+  trailMarks(t).forEach((p) => {
     const element = makeIcon("plan-annot plan-annot-sm", `<span class="plan-annot-i">${annotKind(p.kind).icon}</span>`);
     const marker = domMarker(p.lat, p.lon, { element }).addTo(mapInstance);
+    if (p.id) markHandles.push({ id: p.id, marker });
     if (tooltips) {
       marker.setPopup(
         new maplibregl.Popup({ className: "map-popup", offset: 14, closeButton: false })
@@ -69,26 +78,59 @@ function addPoiMarkers(mapInstance, t, { tooltips = false } = {}) {
   });
 }
 
+const markDate = (ts) =>
+  new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
 function poisSectionHtml(t) {
-  if (!t.pois?.length) return "";
-  const rows = [...t.pois]
+  const marks = trailMarks(t);
+  if (!marks.length) return "";
+  const rows = [...marks]
     .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity))
     .map((p) => {
       const d = annotKind(p.kind);
       const meta = [
         p.note ? d.label : null,
         p.km != null ? `km ${p.km.toLocaleString("fr-FR")}` : "hors itinéraire",
+        p.ele != null ? `${p.ele} m` : null,
+        // Un repère de terrain porte l'heure de sa pose : c'est ce qui le rattache au
+        // souvenir de la sortie (« la source, juste avant le col »).
+        p.field ? `posé le ${markDate(p.ts)}` : null,
       ].filter(Boolean).join(" · ");
-      return `<div class="annot-row static">
+      return `<div class="annot-row static"${p.field ? ` data-mark="${p.id}"` : ""}>
         <span class="annot-ic">${d.icon}</span>
         <div class="annot-body">
           <span class="annot-name">${escapeHtml(p.note || d.label)}</span>
           <span class="annot-meta">${escapeHtml(meta)}</span>
         </div>
+        ${p.field ? `<button class="annot-rm" data-mark-rm="${p.id}" title="Supprimer ce repère" aria-label="Supprimer">✕</button>` : ""}
       </div>`;
     })
     .join("");
-  return `<h3 class="section-title">Mes repères</h3><div class="plan-annots annot-list-detail">${rows}</div>`;
+  return `<h3 class="section-title">Mes repères</h3><div class="plan-annots annot-list-detail" id="detail-pois">${rows}</div>`;
+}
+
+// Suppression depuis la fiche : la ligne, les marqueurs des deux cartes et la marque du
+// profil partent ensemble — sans re-rendre la fiche (qui rechargerait cartes et profil).
+function bindPoiSection(t) {
+  const box = document.getElementById("detail-pois");
+  if (!box) return;
+  box.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-mark-rm]");
+    if (!btn) return;
+    const id = btn.dataset.markRm;
+    removeFieldMark(id);
+    box.querySelector(`[data-mark="${id}"]`)?.remove();
+    markHandles = markHandles.filter((h) => {
+      if (h.id !== id) return true;
+      h.marker.remove();
+      return false;
+    });
+    profile?.setMarkers(poiProfileMarkers(t));
+    fullProfile?.setMarkers(poiProfileMarkers(t));
+    if (!box.children.length) box.previousElementSibling?.remove(); // titre « Mes repères »
+    if (!box.children.length) box.remove();
+    toast("Repère supprimé.", { type: "info" });
+  });
 }
 
 // Renommage en place : le titre devient éditable, Entrée/clic-ailleurs valide,
@@ -268,6 +310,7 @@ export function renderDetail(id) {
   // Entrée dans l'historique à l'ouverture : le bouton retour referme la fiche
   if (detailPanel.classList.contains("hidden")) history.pushState({ srDetail: true }, "");
   destroyMiniMap();
+  markHandles = []; // les marqueurs de l'ancienne fiche meurent avec sa carte
   window.SR3D?.dispose();
   viewer3dActive = false;
 
@@ -381,6 +424,7 @@ export function renderDetail(id) {
 
   detailPanel.classList.remove("hidden");
   detailPanel.scrollTop = 0;
+  bindPoiSection(t);
 
   // Mini-carte : aperçu figé (gestes coupés), mais événements gardés pour le survol.
   miniMap = createFicheMap("mini-map", { inert: true });

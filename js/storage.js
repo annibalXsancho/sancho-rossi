@@ -4,7 +4,7 @@
 // et à terme les tuiles offline. Feuille sans dépendance interne.
 
 const DB_NAME = "sancho-rossi";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise = null;
 function openDb() {
@@ -35,6 +35,11 @@ function openDb() {
         req.transaction.objectStore("catalog").clear();
         req.transaction.objectStore("zones").clear();
       }
+      // v4 — repères posés sur le terrain (S-V2-ANNOT-TERRAIN). Store à part et non
+      // champ du tracé : une rando OSM du catalogue n'est jamais réécrite (seuls les
+      // tracés importés/planifiés vont dans `traces`), un `pois` ajouté sur elle ne
+      // survivrait donc pas au rechargement. Ajout purement additif.
+      if (!db.objectStoreNames.contains("marks")) db.createObjectStore("marks", { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -92,6 +97,13 @@ export const putPackMeta = (key, value) => idbPut("tiles", value, key);
 export const getPackMeta = (key) => idbGet("tiles", key);
 export const delPackMeta = (key) => idbDelete("tiles", key);
 
+// ---------- Repères de terrain (S-V2-ANNOT-TERRAIN) ----------
+// Un enregistrement par repère posé en marchant (quelques dizaines d'objets minuscules) :
+// fieldmarks.js les charge tous au boot pour pouvoir les lire de façon synchrone.
+export const loadMarks = () => idbGetAll("marks");
+export const putMark = (m) => idbPut("marks", m);
+export const delMark = (id) => idbDelete("marks", id);
+
 // Efface toutes les données volumineuses (bouton « réinitialiser »).
 export function clearAll() {
   return Promise.all([
@@ -100,6 +112,7 @@ export function clearAll() {
     idbClear("tiles"),
     idbClear("catalog"),
     idbClear("zones"),
+    idbClear("marks"),
   ]);
 }
 

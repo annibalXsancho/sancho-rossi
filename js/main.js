@@ -15,6 +15,7 @@ import { initNav, startNavigation } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
+import { loadFieldMarks } from "./fieldmarks.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initToast, toast } from "./toast.js";
@@ -111,6 +112,10 @@ loadPersisted().then(async (persisted) => {
   // Manifeste des packs offline chargé avant tout rendu (le bouton « Terrain » de la
   // fiche et la liste des Réglages lisent hasPack/listPacks de façon synchrone).
   await initOffline();
+
+  // Repères posés sur le terrain : jeu minuscule chargé en entier avant les rendus, qui
+  // les lisent ensuite de façon synchrone (fiche, profil, navigation).
+  await loadFieldMarks();
 
   // Le catalogue OSM d'abord, puis la graine curatée et les tracés locaux : une copie
   // enregistrée (dans imported) reprend ainsi le marqueur de son homologue catalogue.
