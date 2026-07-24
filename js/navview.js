@@ -67,7 +67,7 @@ function renderSession() {
       </div>
       <div class="nav-session-actions">
         <button class="btn btn-primary" id="navview-map">Voir la carte</button>
-        <button class="btn" id="navview-primal">Primal mode</button>
+        <button class="btn" id="navview-primal">${ICON_PRIMAL} Primal mode</button>
         <button class="btn btn-ghost btn-danger" id="navview-stop">Terminer</button>
       </div>
     </div>`;
@@ -94,6 +94,8 @@ function renderSession() {
 }
 
 // ---------- Icônes (traits, remplis via currentColor) ----------
+// L'homme de Cro-Magnon à la massue : la signature du primal mode, partout où on y entre.
+const ICON_PRIMAL = `<svg class="primal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.4" cy="5.6" r="3" fill="currentColor" stroke="none"/><path d="M4.5 4.4 5.6 2.4 7 3.6 8.2 1.9 9.4 3.7 10.7 3z" fill="currentColor" stroke="none"/><path d="M5.2 9h4.6l1 5.4H4.6z" fill="currentColor" stroke="none"/><path d="M6.2 14.6 5.2 20.2" stroke-width="2.4"/><path d="M9 14.6l1.4 5.6" stroke-width="2.4"/><path d="M10 10.9 11.6 12.3" stroke-width="2.2"/><path d="M10.8 12 16.9 3.7a2.4 2.4 0 0 1 3.2 3.1L12.1 13.2Z" fill="currentColor" stroke="none"/></svg>`;
 const ICON_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><line x1="10" y1="11" x2="10" y2="16.5"/><line x1="14" y1="11" x2="14" y2="16.5"/></svg>`;
 const ICON_PENCIL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
 const ICON_ROUTE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18.5 9.5 11l5 3.5L20 6"/><circle cx="4" cy="18.5" r="1.7" fill="currentColor" stroke="none"/><circle cx="20" cy="6" r="1.7" fill="currentColor" stroke="none"/></svg>`;

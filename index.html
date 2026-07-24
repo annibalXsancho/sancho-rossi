@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=558" />
+  <link rel="stylesheet" href="css/style.css?v=559" />
   <script type="importmap">
     {
       "imports": {
@@ -43,7 +43,7 @@
         "./js/loops.js": "./js/loops.js?v=525",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
         "./js/nav.js": "./js/nav.js?v=516",
-        "./js/navview.js": "./js/navview.js?v=507",
+        "./js/navview.js": "./js/navview.js?v=509",
         "./js/security.js": "./js/security.js?v=517",
         "./js/ui.js": "./js/ui.js?v=530",
         "./js/offline.js": "./js/offline.js?v=529",
@@ -283,7 +283,10 @@
               <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
             </div>
             <div class="nav-profile" id="nav-profile"></div>
-            <button id="nav-mode" class="btn btn-ghost nav-eco-btn">🪨 Primal mode (économie d'énergie)</button>
+            <button id="nav-mode" class="btn btn-ghost nav-eco-btn">
+              <svg class="primal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.4" cy="5.6" r="3" fill="currentColor" stroke="none"/><path d="M4.5 4.4 5.6 2.4 7 3.6 8.2 1.9 9.4 3.7 10.7 3z" fill="currentColor" stroke="none"/><path d="M5.2 9h4.6l1 5.4H4.6z" fill="currentColor" stroke="none"/><path d="M6.2 14.6 5.2 20.2" stroke-width="2.4"/><path d="M9 14.6l1.4 5.6" stroke-width="2.4"/><path d="M10 10.9 11.6 12.3" stroke-width="2.2"/><path d="M10.8 12 16.9 3.7a2.4 2.4 0 0 1 3.2 3.1L12.1 13.2Z" fill="currentColor" stroke="none"/></svg>
+              Primal mode (économie d'énergie)
+            </button>
           </div>
         </div>
       </div>
@@ -715,6 +718,9 @@
   <section id="primal-hud" class="primal-hud hidden">
     <div class="primal-head">
       <div class="primal-top">
+        <!-- L'homme de Cro-Magnon signe le mode : la barre d'onglets étant masquée en
+             plein écran, c'est lui qui dit où l'on est. -->
+        <svg class="primal-icon primal-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.4" cy="5.6" r="3" fill="currentColor" stroke="none"/><path d="M4.5 4.4 5.6 2.4 7 3.6 8.2 1.9 9.4 3.7 10.7 3z" fill="currentColor" stroke="none"/><path d="M5.2 9h4.6l1 5.4H4.6z" fill="currentColor" stroke="none"/><path d="M6.2 14.6 5.2 20.2" stroke-width="2.4"/><path d="M9 14.6l1.4 5.6" stroke-width="2.4"/><path d="M10 10.9 11.6 12.3" stroke-width="2.2"/><path d="M10.8 12 16.9 3.7a2.4 2.4 0 0 1 3.2 3.1L12.1 13.2Z" fill="currentColor" stroke="none"/></svg>
         <div class="primal-title" id="primal-title"></div>
         <button id="primal-info" class="primal-info-btn" aria-label="Comment marche le primal mode" aria-expanded="false">i</button>
       </div>

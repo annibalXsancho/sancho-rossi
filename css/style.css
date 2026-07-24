@@ -2171,7 +2171,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .nav-stat span { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .nav-stat label { font-size: 9.5px; font-weight: 600; color: var(--text-soft); }
 .nav-profile { margin-bottom: var(--sp-3); min-height: 96px; }
-.nav-eco-btn { width: 100%; }
+.nav-eco-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); }
 
 @media (min-width: 700px) {
   .nav-grid { grid-template-columns: repeat(5, 1fr); }
@@ -2262,6 +2262,10 @@ body.primal-active .poi-marker,
 body.primal-active .maplibregl-popup,
 body.primal-active .nav-fabs { display: none; }
 
+/* Signature du mode : l'homme de Cro-Magnon à la massue, partout où l'on entre en primal
+   (feuille de métriques, onglet Itinéraires) et en tête de l'écran lui-même. */
+.primal-icon { width: 18px; height: 18px; flex: none; }
+
 .primal-top {
   pointer-events: auto;
   margin: max(12px, env(safe-area-inset-top, 0px)) 12px 0;
@@ -2273,6 +2277,7 @@ body.primal-active .nav-fabs { display: none; }
   backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
 }
+.primal-mark { width: 22px; height: 22px; color: var(--red); }
 .primal-title {
   flex: 1;
   min-width: 0;
@@ -2581,7 +2586,7 @@ body.primal-active .nav-fabs { display: none; }
   letter-spacing: 0.08em;
 }
 .nav-session-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.nav-session-actions .btn { flex: 1 1 auto; justify-content: center; }
+.nav-session-actions .btn { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 6px; }
 
 .navview-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .navview-info strong { font-size: 13.5px; }
