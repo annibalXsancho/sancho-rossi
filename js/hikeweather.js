@@ -30,6 +30,12 @@ const SNAPSHOT_DAYS = 7;   // horizon embarqué dans un pack offline
 // retrouve dans le planificateur (et inversement) sans la re-saisir.
 let departShared = null;
 
+// Lu par conditions.js (S-V2-VIGIE-A) pour raccrocher son bandeau à la même heure
+// de départ sans ajouter un second sélecteur de date à l'écran.
+export function getDepartShared() {
+  return departShared || defaultDepart();
+}
+
 // Cache de session par (points arrondis, horizon) : rouvrir une fiche ou changer
 // l'heure de départ dans la même fenêtre de prévision ne refait pas d'appel réseau.
 const fetchCache = new Map();
@@ -37,7 +43,7 @@ const fetchCache = new Map();
 const fmtHM = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 // Valeur par défaut du sélecteur : demain 8 h (heure locale, format datetime-local).
-function defaultDepart() {
+export function defaultDepart() {
   const d = new Date(Date.now() + 86400000);
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00`;
@@ -48,7 +54,7 @@ function defaultDepart() {
 // échantillon coupe les virages) + heures Naismith cumulées : dist/4,5 toujours, la
 // montée seulement quand elle dépasse l'hystérésis — cohérent avec computeGain, donc
 // le total colle à la durée affichée sur la fiche.
-function buildTimeline(track, eles, totalKm) {
+export function buildTimeline(track, eles, totalKm) {
   let pts = eles && track.length === eles.length ? track
     : eles ? sampleTrack(track, eles.length) : track;
   if (eles && pts.length !== eles.length) { pts = track; eles = null; }
@@ -87,7 +93,7 @@ function buildTimeline(track, eles, totalKm) {
 
 // N points d'échantillonnage au CENTRE de N tranches d'égale distance — chaque
 // cellule du bandeau parle de « ce tronçon-là », pas d'un point de bord.
-function buildSamples(tl, cells) {
+export function buildSamples(tl, cells) {
   const out = [];
   for (let c = 0; c < cells; c++) {
     const km = (tl.totalKm * (c + 0.5)) / cells;
@@ -105,7 +111,7 @@ function buildSamples(tl, cells) {
 }
 
 // Heure de marche au km donné, par interpolation sur la timeline décimée.
-function hourAtKm(pairs, km) {
+export function hourAtKm(pairs, km) {
   if (km <= pairs[0][0]) return pairs[0][1];
   for (let i = 1; i < pairs.length; i++) {
     if (km <= pairs[i][0]) {
@@ -260,6 +266,9 @@ export function createRouteWeather(container, trail, { eles = null, track = null
     // ré-indexe les mêmes données en local, zéro réseau.
     if (!st || (!st.snapshotAt && neededDays(departDate(), tl.totalH) > st.days)) load();
     else paint();
+    // Le bandeau Conditions (S-V2-VIGIE-A) partage ce même réglage : il se
+    // recalcule sur cet évènement plutôt que d'exposer son propre sélecteur.
+    document.dispatchEvent(new CustomEvent("sr:depart-changed"));
   });
 
   load();

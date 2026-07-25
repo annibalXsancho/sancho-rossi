@@ -98,6 +98,11 @@ button { color: inherit; }
 }
 .info-block-foot { font-size: 10.5px; margin-top: var(--sp-2); }
 
+/* Badges « Conditions & nuit » (S-V2-VIGIE-A) : réutilise .pill/.pill-warn/.pill-difficile,
+   juste un conteneur flex — aucune nouvelle famille de couleur. */
+.cond-badges { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.cond-foot.warn { color: var(--red); }
+
 /* ============ Écran de chargement (splash) ============ */
 /* Couvre tout l'écran au boot : fond noir plein, logo seul, nom + version en bas.
    Aucune barre rouge. Retiré par main.js une fois l'app prête (fondu doux). */

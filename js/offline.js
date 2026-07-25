@@ -12,6 +12,7 @@ import { TILE_TEMPLATES, POI_DEFS, domMarker, makeIcon, markerGroup } from "./ma
 import { ensureSavedCopy } from "./trails.js";
 import { saveWeatherSnapshot } from "./weather.js";
 import { saveHikeWeatherSnapshot } from "./hikeweather.js";
+import { saveConditionsSnapshot } from "./conditions.js";
 import { putPackMeta, getPackMeta, delPackMeta } from "./storage.js";
 
 // Calques embarqués (choix utilisateur : priorité terrain, hors mtb/ski/rain).
@@ -364,6 +365,8 @@ export async function buildPack(trail, depth = {}, onProgress) {
   // Météo à l'heure de passage (S-METEO) : mêmes garanties best-effort que le
   // snapshot météo classique — un échec ne condamne pas le pack.
   try { await saveHikeWeatherSnapshot(local); } catch { /* snapshot best-effort */ }
+  // Conditions & nuit (S-V2-VIGIE-A) : mêmes garanties best-effort, snapshot gelé.
+  try { await saveConditionsSnapshot(local); } catch { /* snapshot best-effort */ }
 
   manifest[local.id] = {
     id: local.id,
@@ -452,6 +455,7 @@ export async function deletePack(id) {
   await delPackMeta(`poi:${id}`).catch(() => {});
   await delPackMeta(`wx:${id}`).catch(() => {});
   await delPackMeta(`hw:${id}`).catch(() => {});
+  await delPackMeta(`cond:${id}`).catch(() => {});
   delete manifest[id];
   await putPackMeta("manifest", manifest);
   if (pending[id]) await clearPendingRecord(id);

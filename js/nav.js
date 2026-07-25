@@ -20,6 +20,7 @@ import { ensureElevation } from "./api.js";
 import { naismithHours, fmtDuration, cumulativeKm } from "./metrics.js";
 import { ANNOT_KINDS, annotKind } from "./annotations.js";
 import { addFieldMark, updateFieldMark, removeFieldMark, trailMarks } from "./fieldmarks.js";
+import { daylightRemainingMin } from "./astro.js";
 
 const OFF_BASE_M = 120;      // seuil de base « hors tracé » (m)
 const STALE_MS = 30000;      // au-delà : le fix GPS est considéré perdu
@@ -817,6 +818,9 @@ function onNavFix(pos) {
   document.getElementById("nav-gain").textContent = gain != null ? `${gain} m` : "—";
   document.getElementById("nav-alt").textContent = altText;
   document.getElementById("nav-speed").textContent = speed != null ? (speed * 3.6).toFixed(1) : "—";
+  const daylightMin = daylightRemainingMin(lat, lon, new Date(now));
+  document.getElementById("nav-daylight").textContent =
+    daylightMin == null ? "nuit" : daylightMin >= 60 ? fmtDuration(daylightMin / 60) : `${daylightMin} min`;
   document.getElementById("nav-remain-time").textContent = etaH != null ? fmtDuration(etaH) : "—";
   document.getElementById("nav-eta").textContent = etaH != null
     ? new Date(now + etaH * 3600e3).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })

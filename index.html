@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=562" />
+  <link rel="stylesheet" href="css/style.css?v=563" />
   <script type="importmap">
     {
       "imports": {
@@ -289,6 +289,7 @@
               <div class="nav-stat"><span id="nav-gain">—</span><label>D+ réalisé</label></div>
               <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
               <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
+              <div class="nav-stat"><span id="nav-daylight">—</span><label>avant la nuit</label></div>
             </div>
             <div class="nav-profile" id="nav-profile"></div>
             <button id="nav-mode" class="btn btn-ghost nav-eco-btn">
@@ -336,6 +337,7 @@
           <p class="plan-annot-hint muted hidden" id="plan-annot-hint">Cliquez sur la carte ou sur le tracé pour poser le repère — Échap pour annuler.</p>
           <div id="plan-annots" class="plan-annots"></div>
           <div id="plan-wx"></div>
+          <div id="plan-cond"></div>
         </div>
         <div id="plan-result" class="plan-dock hidden">
           <span id="plan-sac" class="plan-sac hidden"></span>
@@ -857,6 +859,6 @@
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=529"></script>
+  <script type="module" src="js/main.js?v=530"></script>
 </body>
 </html>

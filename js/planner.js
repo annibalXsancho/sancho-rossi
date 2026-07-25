@@ -25,6 +25,7 @@ import { brouterRoute } from "./brouter.js";
 import { createGeoSuggest } from "./geosearch.js";
 import { createProfile } from "./profile.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { createRouteConditions } from "./conditions.js";
 import { ANNOT_KINDS, annotKind, ANNOT_NEAR_M, trackLocator } from "./annotations.js";
 import {
   computeGain, computeLoss, naismithHours, fmtDuration, sacRating, SAC_LABEL,
@@ -554,6 +555,8 @@ function renderMetrics() {
     clearTimeout(planner.wxTimer);
     planner.wx?.destroy();
     planner.wx = null;
+    planner.cond?.destroy();
+    planner.cond = null;
     planner.cursor?.remove();
     planner.cursor = null;
     return;
@@ -594,14 +597,20 @@ function renderMetrics() {
   clearTimeout(planner.wxTimer);
   planner.wx?.destroy();
   planner.wx = null;
+  planner.cond?.destroy();
+  planner.cond = null;
   if (r.eles) {
     planner.wxTimer = setTimeout(() => {
       planner.wx = createRouteWeather(el("plan-wx"), { id: "plan-en-cours" }, {
         eles: r.eles, track: r.track, totalKm: r.distance, cells: 5,
       });
+      planner.cond = createRouteConditions(el("plan-cond"), { id: "plan-en-cours" }, {
+        eles: r.eles, track: r.track, totalKm: r.distance, cells: 5,
+      });
     }, 800);
   } else {
     el("plan-wx").innerHTML = "";
+    el("plan-cond").innerHTML = "";
   }
 
   const sac = sacRating({ ways: r.ways, eles: r.eles, track: r.track });

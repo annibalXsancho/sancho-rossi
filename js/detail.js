@@ -12,6 +12,8 @@ import { startNavigation } from "./nav.js";
 import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
+import { createRouteConditions } from "./conditions.js";
+import { moonPhase, sunTimes } from "./astro.js";
 import { annotKind } from "./annotations.js";
 import { SAC_LABEL } from "./metrics.js";
 import { openOutingForm, outingsSectionHtml } from "./outings.js";
@@ -28,6 +30,7 @@ let miniMap = null;
 let miniCursor = null;
 let profile = null;
 let routeWx = null; // bandeau météo à l'heure de passage (S-METEO)
+let routeCond = null; // bandeau conditions & nuit (S-V2-VIGIE-A)
 let viewer3dActive = false;
 // Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
@@ -84,6 +87,17 @@ function addPoiMarkers(mapInstance, t, { tooltips = false } = {}) {
 
 const markDate = (ts) =>
   new Date(ts).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+// Lune + coucher/lever du jour pour un tracé bivouac — calcul local instantané
+// (astro.js), pas d'écran « fiche bivouac » dédié : on greffe sur l'item existant.
+function bivouacNightHtml(t) {
+  if (!t.bivouac || !t.center) return "";
+  const now = new Date();
+  const moon = moonPhase(now);
+  const { sunset, sunrise } = sunTimes(t.center[0], t.center[1], now);
+  if (!sunset) return "";
+  return `<br><span class="muted">${moon.emoji} ${moon.name} · coucher ${sunset.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}${sunrise ? ` · lever ${sunrise.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>`;
+}
 
 function poisSectionHtml(t) {
   const marks = trailMarks(t);
@@ -188,6 +202,8 @@ function destroyMiniMap() {
   profile = null;
   routeWx?.destroy();
   routeWx = null;
+  routeCond?.destroy();
+  routeCond = null;
 }
 
 // Survol du profil → point sur la mini-carte. C'est ce qui rend le profil lisible :
@@ -357,6 +373,7 @@ export function renderDetail(id) {
           <p class="muted">Profil d'altitude réel — chargement…</p>
         </div>
         <div id="route-wx"></div>
+        <div id="route-cond"></div>
       </div>
     </div>
 
@@ -394,7 +411,7 @@ export function renderDetail(id) {
       <h3 class="section-title">Infos terrain</h3>
       <div class="terrain-list">
         <div class="terrain-item"><span class="terrain-icon">💧</span><div><strong>Eau</strong><br>${t.eau}</div></div>
-        <div class="terrain-item"><span class="terrain-icon">⛺</span><div><strong>Bivouac</strong><br>${t.bivouacSpot}</div></div>
+        <div class="terrain-item"><span class="terrain-icon">⛺</span><div><strong>Bivouac</strong><br>${t.bivouacSpot}${bivouacNightHtml(t)}</div></div>
         <div class="terrain-item"><span class="terrain-icon">🗓</span><div><strong>Période conseillée</strong><br>${t.periode}</div></div>
       </div>` : ""}
       ${poisSectionHtml(t)}
@@ -479,6 +496,9 @@ export function renderDetail(id) {
       routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
         eles, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
+      routeCond = createRouteConditions(document.getElementById("route-cond"), t, {
+        eles, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
       const e = state.elev[id];
       if (e) {
         document.getElementById("stat-gain").innerHTML = `${e.gain.toLocaleString("fr-FR")}<small> m</small>`;
@@ -493,6 +513,9 @@ export function renderDetail(id) {
       // se calcule sur la distance seule ; hors-ligne il retombe sur le snapshot du
       // pack (qui embarque ses propres heures de marche).
       routeWx = createRouteWeather(document.getElementById("route-wx"), t, {
+        eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
+      });
+      routeCond = createRouteConditions(document.getElementById("route-cond"), t, {
         eles: null, track: t.mainline || trackOf(t), totalKm: t.distance,
       });
       document.getElementById("stat-gain").textContent = gain ? Math.round(gain) : "—";
