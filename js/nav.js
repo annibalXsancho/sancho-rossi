@@ -306,11 +306,66 @@ function toggleHeading() {
   updatePosMarker();
 }
 
-// L'aiguille du bouton d'orientation pointe toujours vers le nord réel (contre-rotée au
-// cap de la carte) — repère constant quand la carte pivote.
-function updateHeadingNeedle() {
+// ---------- Boussole physique (S-V2-BOUSSOLE) ----------
+// L'aiguille du bouton d'orientation pointe toujours vers le nord réel. Source
+// préférée : le capteur d'orientation du téléphone (suit le nord même à l'arrêt) ;
+// repli sur la contre-rotation de la carte (comportement d'avant ce sprint) si le
+// capteur est absent/refusé — jamais d'erreur visible, juste une dégradation propre.
+let sensorHeading = null;    // dernier cap capteur (0-360°, nord réel) ; null = replié sur la carte
+let sensorAttached = false;
+let needleDeg = 0;           // angle d'affichage NON borné : évite un tour complet visible au wrap 359°→0°
+
+function onDeviceOrientation(e) {
+  let heading;
+  if (typeof e.webkitCompassHeading === "number") {
+    heading = e.webkitCompassHeading; // iOS : déjà horaire depuis le nord réel
+  } else if (e.absolute && e.alpha != null) {
+    // Approximation « téléphone à plat » standard + correction si l'écran n'est pas
+    // verrouillé portrait (screen.orientation absent sur certains navigateurs → 0).
+    heading = (360 - e.alpha + (screen.orientation?.angle ?? 0)) % 360;
+  } else {
+    return; // orientation relative non calibrée au nord : pas fiable, on ignore
+  }
+  sensorHeading = (heading + 360) % 360;
+  requestAnimationFrame(updateHeadingNeedle);
+}
+
+async function ensureCompassSensor() {
+  if (sensorAttached) return;
+  if (typeof DeviceOrientationEvent?.requestPermission === "function") {
+    try {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm !== "granted") return; // refusé : l'aiguille reste sur le cap carte
+    } catch {
+      return; // pas de geste utilisateur actif (ex. reprise auto après reload) : on abandonne
+    }
+  }
+  const evt = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
+  window.addEventListener(evt, onDeviceOrientation);
+  sensorAttached = true;
+}
+
+function releaseCompassSensor() {
+  if (!sensorAttached) return;
+  window.removeEventListener("deviceorientationabsolute", onDeviceOrientation);
+  window.removeEventListener("deviceorientation", onDeviceOrientation);
+  sensorAttached = false;
+  sensorHeading = null;
+}
+
+// Avance `needleDeg` de la plus courte distance angulaire vers `target` plutôt que
+// d'écraser l'angle affiché à chaque appel — sinon un passage 359°→0° du capteur (ou
+// du bearing carte) ferait visuellement un tour complet au lieu d'un petit pas.
+function rotateNeedleTo(target) {
   const n = document.querySelector(".nav-compass-needle");
-  if (n) n.style.transform = `rotate(${-map.getBearing()}deg)`;
+  if (!n) return;
+  const delta = (((target - needleDeg) % 360) + 540) % 360 - 180;
+  needleDeg += delta;
+  n.style.transform = `rotate(${needleDeg}deg)`;
+}
+
+function updateHeadingNeedle() {
+  rotateNeedleTo(sensorHeading != null ? -sensorHeading : -map.getBearing());
 }
 
 // Le marqueur de position est une flèche. En cap-de-marche la carte pivote (la marche est
@@ -701,6 +756,7 @@ export function startNavigation(id, { resume = null } = {}) {
   nav.primalPrev = null;
   nav.primalDelay = PRIMAL_FAST_MS;
   nav.startedAt = resume?.startedAt || Date.now();
+  ensureCompassSensor(); // tap utilisateur (btn-follow) ou reprise auto — repli propre si refusé
 
   const line = t.mainline || trackOf(t);
   nav.samples = sampleTrack(line, 400);
@@ -847,6 +903,7 @@ export function setPrimal(on) {
     releaseWakeLock();
     stopWatch();
     suspendPosWatch();
+    releaseCompassSensor(); // esprit primal : zéro animation en continu
     nav.was3D = is3D();
     if (nav.was3D) set3D(false);
 
@@ -882,6 +939,7 @@ export function setPrimal(on) {
     if (nav.active) { // ne pas ré-armer le verrou ni le suivi en quittant la nav
       requestWakeLock();
       startWatch();
+      ensureCompassSensor(); // tap utilisateur (quitter primal) — permission déjà accordée si iOS
       nav.engaged = false; // le prochain fix recadre proprement (zoom + cap + inclinaison)
       if (nav.follow && nav.lastPos) followTick(nav.lastPos.lat, nav.lastPos.lon);
     }
@@ -893,6 +951,7 @@ export function setPrimal(on) {
 export function stopNavigation() {
   localStorage.removeItem("sr-nav");
   stopWatch();
+  releaseCompassSensor();
   closeMarkSheet();   // avant `active = false` : la note en cours part en base
   nav.active = false;
   clearNavMarks();
