@@ -18,6 +18,7 @@ import { loadPersisted } from "./storage.js";
 import { loadFieldMarks } from "./fieldmarks.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
+import { initOutings, loadFieldOutings, renderOutingsBlock } from "./outings.js";
 import { initToast, toast } from "./toast.js";
 import { checkIncomingShare } from "./share.js";
 import { runSync } from "./sync.js";
@@ -50,6 +51,7 @@ initNav();
 initSecurity();
 initRecommend();
 initExplorer();
+initOutings();
 
 // ---------- Version affichée (Réglages) ----------
 const versionEl = document.getElementById("setting-version");
@@ -119,6 +121,9 @@ loadPersisted().then(async (persisted) => {
   // les lisent ensuite de façon synchrone (fiche, profil, navigation).
   await loadFieldMarks();
 
+  // Sorties prévues (S-V2-SORTIES) : même patron, jeu minuscule chargé en entier.
+  await loadFieldOutings();
+
   // Coffre GitHub (S-V2-SYNC) : tire le distant AVANT le premier rendu si configuré — un
   // itinéraire ajouté sur un autre appareil doit apparaître dès l'ouverture. No-op silencieux
   // si non configuré ; jamais bloquant (réseau capricieux → on continue avec le local).
@@ -132,6 +137,7 @@ loadPersisted().then(async (persisted) => {
   renderAll();
   renderFavCount();
   renderRecommendations(); // idées datées de l'accueil (saison/météo/favoris), après boot data
+  renderOutingsBlock();
   refreshTilesCount();
   checkWatch();
 

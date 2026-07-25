@@ -27,6 +27,7 @@ import { state } from "./state.js";
 import { fetchRetry } from "./net.js";
 import { idbGet, idbGetAll, idbClear, idbPut, idbDelete, putMeta, saveTraces } from "./storage.js";
 import { loadFieldMarks } from "./fieldmarks.js";
+import { loadFieldOutings } from "./outings.js";
 import { toast } from "./toast.js";
 
 const API = "https://api.github.com";
@@ -38,6 +39,8 @@ const MARKS_TOUCHED = "sr-sync-marks-touched";
 const MARKS_PUSHED = "sr-sync-marks-pushed";
 const PREFS_TOUCHED = "sr-sync-prefs-touched";
 const PREFS_PUSHED = "sr-sync-prefs-pushed";
+const OUTINGS_TOUCHED = "sr-sync-outings-touched";
+const OUTINGS_PUSHED = "sr-sync-outings-pushed";
 
 class SyncAuthError extends Error {}
 
@@ -59,6 +62,9 @@ export function touchMarks() {
 }
 export function touchPrefs() {
   localStorage.setItem(PREFS_TOUCHED, String(Date.now()));
+}
+export function touchOutings() {
+  localStorage.setItem(OUTINGS_TOUCHED, String(Date.now()));
 }
 
 function loadTombstones() {
@@ -292,6 +298,48 @@ async function syncMarks() {
   return changed;
 }
 
+// Sorties prévues (S-V2-SORTIES) : même patron que syncMarks — fichier unique, petite
+// liste, pas de granularité par objet (contrairement aux itinéraires, potentiellement
+// lourds, qui méritent un fichier chacun).
+async function syncOutings() {
+  let changed = false;
+  let remote = null;
+  try { remote = await ghGetFile("outings.json"); }
+  catch (err) { if (err instanceof SyncAuthError) throw err; }
+  let remoteObj = null;
+  if (remote) { try { remoteObj = JSON.parse(remote.content); } catch {} }
+
+  const localTouched = Number(localStorage.getItem(OUTINGS_TOUCHED) || 0);
+  const localPushed = Number(localStorage.getItem(OUTINGS_PUSHED) || 0);
+
+  if (remoteObj && (remoteObj.updatedAt || 0) > localTouched) {
+    await idbClear("outings");
+    await Promise.all((remoteObj.outings || []).map((o) => idbPut("outings", o)));
+    await loadFieldOutings();
+    localStorage.setItem(OUTINGS_TOUCHED, String(remoteObj.updatedAt));
+    localStorage.setItem(OUTINGS_PUSHED, String(remoteObj.updatedAt));
+    await putMeta("sync:sha:outings.json", remote.sha);
+    changed = true;
+  } else if (localTouched > localPushed) {
+    const outings = await idbGetAll("outings");
+    const sha = await idbGet("meta", "sync:sha:outings.json");
+    try {
+      const newSha = await ghPutFile(
+        "outings.json",
+        JSON.stringify({ updatedAt: localTouched, outings }),
+        sha ?? remote?.sha,
+        "sync : sorties prévues"
+      );
+      await putMeta("sync:sha:outings.json", newSha);
+      localStorage.setItem(OUTINGS_PUSHED, String(localTouched));
+    } catch (err) {
+      if (err instanceof SyncAuthError) throw err;
+      console.warn("Push sorties échoué :", err);
+    }
+  }
+  return changed;
+}
+
 async function syncPrefs() {
   let changed = false;
   let remote = null;
@@ -338,6 +386,7 @@ export async function runSync() {
   try {
     changed = (await syncItineraries()) || changed;
     changed = (await syncMarks()) || changed;
+    changed = (await syncOutings()) || changed;
     changed = (await syncPrefs()) || changed;
     authFailed = false;
     localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));

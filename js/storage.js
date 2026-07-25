@@ -4,7 +4,7 @@
 // et à terme les tuiles offline. Feuille sans dépendance interne.
 
 const DB_NAME = "sancho-rossi";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbPromise = null;
 function openDb() {
@@ -40,6 +40,12 @@ function openDb() {
       // tracés importés/planifiés vont dans `traces`), un `pois` ajouté sur elle ne
       // survivrait donc pas au rechargement. Ajout purement additif.
       if (!db.objectStoreNames.contains("marks")) db.createObjectStore("marks", { keyPath: "id" });
+      // v5 — sorties prévues (S-V2-SORTIES) : store à part, pas un champ du tracé — une
+      // sortie a son propre cycle de vie (annulable sans toucher le tracé, potentiellement
+      // plusieurs sorties sur le même tracé), et les alertes météo futures (S-V2-VIGIE-B,
+      // backlog) doivent pouvoir lister les sorties datées sans charger les tracés (lourds :
+      // track/eles/ways). Additif, même patron que `marks` en v4.
+      if (!db.objectStoreNames.contains("outings")) db.createObjectStore("outings", { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -104,6 +110,13 @@ export const loadMarks = () => idbGetAll("marks");
 export const putMark = (m) => idbPut("marks", m);
 export const delMark = (id) => idbDelete("marks", id);
 
+// ---------- Sorties prévues (S-V2-SORTIES) ----------
+// Un enregistrement par réservation (tracé + date + note + étapes) : liste courte,
+// chargée en bloc par outings.js, même patron que loadMarks/fieldmarks.js.
+export const loadOutings = () => idbGetAll("outings");
+export const putOuting = (o) => idbPut("outings", o);
+export const delOuting = (id) => idbDelete("outings", id);
+
 // Efface toutes les données volumineuses (bouton « réinitialiser »).
 export function clearAll() {
   return Promise.all([
@@ -113,6 +126,7 @@ export function clearAll() {
     idbClear("catalog"),
     idbClear("zones"),
     idbClear("marks"),
+    idbClear("outings"),
   ]);
 }
 

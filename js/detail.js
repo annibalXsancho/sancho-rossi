@@ -1,5 +1,5 @@
 // Sancho Rossi — fiche itinéraire (page plein écran, façon AllTrails) + vue 3D + profil
-import { state, catalogTrails, getTrail, trackOf, sampleTrack, haversineKm, saveNote } from "./state.js";
+import { state, catalogTrails, getTrail, trackOf, sampleTrack, haversineKm, saveNote, outingsFor } from "./state.js";
 import { ensureElevation } from "./api.js";
 import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
@@ -13,6 +13,8 @@ import { hasPack, buildPack } from "./offline.js";
 import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { annotKind } from "./annotations.js";
+import { SAC_LABEL } from "./metrics.js";
+import { openOutingForm, outingsSectionHtml } from "./outings.js";
 import { touchPrefs } from "./sync.js";
 import { shareTrail } from "./share.js";
 import { trailMarks, removeFieldMark } from "./fieldmarks.js";
@@ -340,6 +342,7 @@ export function renderDetail(id) {
         : `<span class="pill pill-${t.difficulty}">${t.difficulty}</span><span class="pill pill-warn">tracé indicatif</span>`}
       <span class="pill">${t.type}</span>
       ${t.bivouac ? `<span class="pill pill-bivouac">⛺ 2 jours · 1 nuit</span>` : ""}
+      ${t.sac?.level ? `<span class="pill pill-sac" title="${t.sac.estimated ? "Cotation estimée (pente)" : "Cotation OSM"} · ${SAC_LABEL[t.sac.level] || ""}">${t.sac.level}${t.sac.estimated ? " (est.)" : ""}</span>` : ""}
       <span class="detail-location">📍 ${t.location}</span>
     </div>
 
@@ -370,6 +373,7 @@ export function renderDetail(id) {
         <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
         <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
         <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
+        <button class="btn ${outingsFor(id).length ? "faved" : ""}" id="btn-plan-outing">${outingsFor(id).length ? "📅 Sortie planifiée" : "📅 Réserver une sortie"}</button>
       </div>
       <div class="action-row action-row-minor">
         <button class="btn-ghost" id="btn-gpx">⤓ GPX</button>
@@ -394,6 +398,7 @@ export function renderDetail(id) {
         <div class="terrain-item"><span class="terrain-icon">🗓</span><div><strong>Période conseillée</strong><br>${t.periode}</div></div>
       </div>` : ""}
       ${poisSectionHtml(t)}
+      ${outingsSectionHtml(t)}
       <h3 class="section-title">Description</h3>
       <p class="detail-description">${t.description}</p>
       ${!t.osm && !t.imported ? `
@@ -535,6 +540,10 @@ export function renderDetail(id) {
 
   document.getElementById("btn-detail-fav").addEventListener("click", () => toggleFavorite(id));
   document.getElementById("btn-offline").addEventListener("click", () => downloadPack(t, id));
+  document.getElementById("btn-plan-outing").addEventListener("click", () => {
+    const existing = outingsFor(id)[0] || null;
+    openOutingForm(t, { existing }).then((rec) => { if (rec || existing) renderDetail(id); });
+  });
   document.getElementById("btn-gpx").addEventListener("click", () => downloadGPX(t));
   document.getElementById("btn-share-link").addEventListener("click", () => shareTrail(t));
   document.getElementById("btn-itinerary").addEventListener("click", () => {

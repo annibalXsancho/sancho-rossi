@@ -1774,6 +1774,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .pill-bivouac { background: var(--surface-3); color: var(--text); }
 .pill-gpx { background: color-mix(in srgb, #8b9ac9 14%, transparent); color: #8b9ac9; }
 .pill-warn { background: color-mix(in srgb, #d99a3d 14%, transparent); color: #d99a3d; }
+.pill-sac { background: var(--surface-3); color: var(--text-soft); }
 
 /* Onglets fiche */
 .tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
@@ -3500,6 +3501,95 @@ body.primal-active .nav-fabs { display: none; }
   background: var(--surface-2); color: var(--text);
   border: none; border-radius: var(--radius); font: inherit; font-size: 14px;
 }
+
+/* ---------- Import GPX enrichi (S-V2-SORTIES) : choix brut/recalé ---------- */
+.import-choice { display: flex; flex-direction: column; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+
+.import-option {
+  text-align: left;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 150ms ease-out, box-shadow 150ms ease-out;
+}
+.import-option:hover { background: var(--surface-3); }
+.import-option.active { box-shadow: inset 0 0 0 2px var(--red); background: var(--surface-3); }
+
+.import-option-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: var(--sp-2); }
+.import-option-hint { margin: var(--sp-1) 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-soft); }
+
+.import-preview.hidden, .import-choice.hidden, #import-step1-actions.hidden { display: none; }
+
+.import-preview-map {
+  width: 100%;
+  height: 220px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: var(--sp-2);
+  background: var(--surface-2);
+}
+
+/* ---------- Sorties prévues (S-V2-SORTIES) ---------- */
+.outing-block { margin: 0 0 var(--sp-4); }
+.outing-block.hidden, .outing-steps-editor.hidden, .outing-steps-toggle.hidden { display: none; }
+
+.outing-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--radius);
+  transition: background 150ms ease-out;
+  cursor: pointer;
+}
+.outing-item:hover { background: var(--surface-2); }
+.outing-item + .outing-item { margin-top: 2px; }
+
+.outing-item-main { flex: 1; min-width: 0; }
+.outing-item-date { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--red); }
+.outing-item-name { font-size: 14px; font-weight: 700; margin-top: 2px; }
+.outing-item-note {
+  font-size: 12px; color: var(--text-soft); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.outing-item-del { flex: none; }
+
+.outing-datetime { display: flex; gap: var(--sp-2); margin-top: var(--sp-1); }
+.outing-datetime input {
+  flex: 1; padding: 10px 12px; background: var(--surface-2); color: var(--text);
+  border: none; border-radius: var(--radius); font: inherit; font-size: 14px;
+}
+
+.outing-note-input {
+  width: 100%; margin-top: var(--sp-1); padding: 10px 12px; font: inherit; font-size: 13.5px;
+  line-height: 1.5; color: var(--text); background: var(--surface-2);
+  border: none; border-radius: var(--radius); resize: vertical;
+}
+
+.outing-steps-editor { margin-top: var(--sp-3); }
+.outing-break-row {
+  display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2);
+}
+.outing-break-row .outing-break-label {
+  flex: 1; padding: 8px 10px; background: var(--surface-2); color: var(--text);
+  border: none; border-radius: var(--radius); font: inherit; font-size: 13px;
+}
+.outing-break-row .outing-break-km {
+  width: 64px; padding: 8px 10px; background: var(--surface-2); color: var(--text);
+  border: none; border-radius: var(--radius); font: inherit; font-size: 13px;
+}
+
+.outing-steps-list { list-style: none; padding: 0; margin: 0; }
+.outing-steps-list li {
+  display: flex; justify-content: space-between; gap: var(--sp-3);
+  padding: var(--sp-2) 0; font-size: 13px;
+}
+.outing-steps-list li + li { border-top: none; } /* pas de bordure — hiérarchie par surface, cf. charte */
+.outing-step-label { font-weight: 600; }
+.outing-step-stats { color: var(--text-soft); flex: none; }
 .pack-name-input:focus { outline: none; box-shadow: var(--focus-ring); }
 
 /* ---- Cadrage d'une zone à emporter (S-V2-PACKS-ZONE) ---- */

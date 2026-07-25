@@ -11,6 +11,7 @@ import { runZonePackJob } from "./zoneselect.js";
 import { toast } from "./toast.js";
 import { renderNavView } from "./navview.js";
 import { initSync, renderSyncStatus, scheduleSync } from "./sync.js";
+import { renderOutingsBlock } from "./outings.js";
 
 // Surface approximative d'une bbox, en km² (équirectangulaire — largement suffisant pour
 // une étiquette de pack de zone).
@@ -258,5 +259,6 @@ export function initUi() {
     state.imported.forEach(addMarker);
     renderAll();
     renderFavCount();
+    renderOutingsBlock();
   });
 }

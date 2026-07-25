@@ -36,7 +36,21 @@ export const state = {
   lastPos: JSON.parse(localStorage.getItem("sr-lastpos") || "null"),
   // Catalogue OSM chargé à la demande selon la zone (S3), dédup par id de relation.
   catalog: new Map(),
+  // Sorties prévues (S-V2-SORTIES) : chargées en bloc au boot par outings.js (même
+  // patron que les repères de terrain, fieldmarks.js).
+  outings: [],
 };
+
+// Sorties prévues pour un tracé donné, triées par date croissante.
+export function outingsFor(trailId) {
+  return state.outings.filter((o) => o.trailId === trailId).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+}
+
+// Toutes les sorties prévues, triées par date croissante — lu par le bloc Explorer
+// et, plus tard, par les alertes météo par sortie (S-V2-VIGIE-B, backlog).
+export function upcomingOutings() {
+  return [...state.outings].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+}
 
 // Tracés balisés actuellement chargés (Map id → trail).
 export function catalogTrails() {

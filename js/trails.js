@@ -1,5 +1,5 @@
 // Sancho Rossi — rendu des cartes d'itinéraires, favoris, sélection, GPX import/export
-import { state, getTrail, trackOf, trackDistanceKm } from "./state.js";
+import { state, getTrail, trackOf, trackDistanceKm, sampleTrack } from "./state.js";
 import { ensureElevation } from "./api.js";
 import { photoStyle } from "./photos.js";
 import { filteredTrails, updateFiltersBadge } from "./filters.js";
@@ -11,6 +11,8 @@ import { toast } from "./toast.js";
 import { trailMarks } from "./fieldmarks.js";
 import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 import { touchPrefs, tombstoneTrace } from "./sync.js";
+import { computeGain, computeLoss, naismithHours, fmtDuration, sacRating } from "./metrics.js";
+import { openImportChoice } from "./importgpx.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -288,13 +290,10 @@ function parseGPX(xmlText, fileName) {
   if (pts.length < 2) throw new Error("aucun point de trace (trkpt/rtept)");
 
   const track = pts.map((p) => [parseFloat(p.getAttribute("lat")), parseFloat(p.getAttribute("lon"))]);
-  const eles = pts.map((p) => parseFloat(p.querySelector("ele")?.textContent)).filter((v) => !isNaN(v));
-
-  let dPlus = 0;
-  for (let i = 1; i < eles.length; i++) {
-    const diff = eles[i] - eles[i - 1];
-    if (diff > 0) dPlus += diff;
-  }
+  // Tout ou rien : un seul <trkpt> sans <ele> désynchroniserait eles de track (index
+  // décalés par le filtre) — même politique que brouter.js, jamais un tableau partiel.
+  const rawEles = pts.map((p) => parseFloat(p.querySelector("ele")?.textContent));
+  const eles = rawEles.every((v) => !isNaN(v)) ? rawEles : null;
 
   const name =
     doc.querySelector("trk > name")?.textContent.trim() ||
@@ -304,6 +303,8 @@ function parseGPX(xmlText, fileName) {
   const distance = Math.round(trackDistanceKm(track) * 10) / 10;
   const pois = parseWpts(doc, track, distance);
 
+  // Élévations/durée/SAC/revêtements sont calculés après coup par `enrichTrail`, une
+  // fois le choix brut/recalé tranché (S-V2-SORTIES) — pas ici.
   return {
     id: `gpx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     imported: true,
@@ -315,9 +316,6 @@ function parseGPX(xmlText, fileName) {
     days: null,
     bivouac: false,
     distance,
-    elevationGain: Math.round(dPlus),
-    altMax: eles.length ? Math.round(Math.max(...eles)) : null,
-    duration: "—",
     center: track[Math.floor(track.length / 2)],
     gradient: "linear-gradient(135deg, #2d6a2f, #71b280)",
     description: `Fichier « ${fileName} » importé le ${new Date().toLocaleDateString("fr-FR")} — ${track.length} points de trace.` +
@@ -328,6 +326,59 @@ function parseGPX(xmlText, fileName) {
     track,
     eles,
     pois,
+  };
+}
+
+// ---------- Enrichissement (S-V2-SORTIES) ----------
+// Calcule élévations/D+/D−/durée/SAC pour un tracé brut (GPX importé) ou recalé
+// (BRouter, `ways` renseigné) — mutualisé avec le calcul déjà fait par `savePlan`
+// (planner.js) pour qu'une fiche importée soit aussi riche qu'une fiche planifiée.
+export async function enrichTrail(trail, ways = null) {
+  const track = trail.track;
+  // Invariant tenu ailleurs dans l'app (profil, 3D, export GPX) : eles.length ===
+  // track.length, sinon absent — jamais un tableau partiel ou mal aligné.
+  let eles = trail.eles && trail.eles.length === track.length ? trail.eles : null;
+  let gain, loss, altMax, sacEles, sacTrack;
+
+  if (eles) {
+    gain = computeGain(eles);
+    loss = computeLoss(eles);
+    altMax = Math.round(Math.max(...eles));
+    sacEles = eles;
+    sacTrack = track;
+  } else {
+    // Pas d'altitude point par point dans le fichier : on la relève (Open-Meteo,
+    // échantillonnée) — `ensureElevation` met en cache `state.elev[trail.id]`, la
+    // fiche (detail.js) le retrouvera instantanément sans second appel réseau.
+    try {
+      const sampled = await ensureElevation(trail);
+      const cached = state.elev[trail.id];
+      gain = cached?.gain ?? null;
+      altMax = cached?.max ?? null;
+      loss = null; // ensureElevation ne calcule pas le D− ; pas persisté avant ce sprint non plus
+      sacEles = sampled;
+      sacTrack = sampleTrack(trail.mainline || track);
+    } catch {
+      gain = trail.elevationGain ?? null;
+      altMax = trail.altMax ?? null;
+      loss = trail.elevationLoss ?? null;
+      sacEles = null;
+      sacTrack = null;
+    }
+  }
+
+  const hours = naismithHours(trail.distance, gain || 0);
+  const sac = sacRating({ ways: ways || [], eles: sacEles, track: sacTrack });
+
+  return {
+    ...trail,
+    eles: eles || undefined,
+    elevationGain: gain,
+    elevationLoss: loss,
+    altMax,
+    duration: fmtDuration(hours),
+    sac,
+    ways: ways || undefined,
   };
 }
 
@@ -379,7 +430,29 @@ export function initTrails() {
     let lastId = null;
     for (const file of gpxInput.files) {
       try {
-        const trail = parseGPX(await file.text(), file.name);
+        const raw = parseGPX(await file.text(), file.name);
+        // Choix brut/recalé (S-V2-SORTIES, absorbe S-RECALAGE) — un clic « Annuler »
+        // saute simplement ce fichier, sans erreur.
+        const choice = await openImportChoice(raw);
+        if (!choice) continue;
+
+        let trail = raw;
+        let ways = null;
+        if (choice.mode === "snapped" && choice.routed) {
+          const r = choice.routed;
+          // Les repères <wpt> (pois) gardent leurs coordonnées d'origine ; leur position
+          // « km le long du tracé » peut légèrement dériver après recalage — acceptable,
+          // ils restent localisés sur la carte.
+          trail = {
+            ...raw,
+            track: r.track,
+            eles: r.eles,
+            distance: Math.round(r.distance * 10) / 10,
+            center: r.track[Math.floor(r.track.length / 2)],
+          };
+          ways = r.ways;
+        }
+        trail = await enrichTrail(trail, ways);
         trail.updatedAt = Date.now();
         state.imported.unshift(trail);
         addMarker(trail);

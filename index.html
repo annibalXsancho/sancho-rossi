@@ -15,14 +15,14 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=560" />
+  <link rel="stylesheet" href="css/style.css?v=562" />
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "./js/state.js": "./js/state.js?v=505",
-        "./js/storage.js": "./js/storage.js?v=507",
+        "./js/state.js": "./js/state.js?v=506",
+        "./js/storage.js": "./js/storage.js?v=508",
         "./js/net.js": "./js/net.js?v=501",
         "./js/toast.js": "./js/toast.js?v=502",
         "./js/api.js": "./js/api.js?v=502",
@@ -31,8 +31,8 @@
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
         "./js/map.js": "./js/map.js?v=538",
         "./js/filters.js": "./js/filters.js?v=506",
-        "./js/trails.js": "./js/trails.js?v=533",
-        "./js/detail.js": "./js/detail.js?v=540",
+        "./js/trails.js": "./js/trails.js?v=534",
+        "./js/detail.js": "./js/detail.js?v=541",
         "./js/share.js": "./js/share.js?v=503",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
@@ -47,14 +47,16 @@
         "./js/nav.js": "./js/nav.js?v=517",
         "./js/navview.js": "./js/navview.js?v=509",
         "./js/security.js": "./js/security.js?v=518",
-        "./js/ui.js": "./js/ui.js?v=531",
+        "./js/ui.js": "./js/ui.js?v=532",
         "./js/offline.js": "./js/offline.js?v=529",
         "./js/packdialog.js": "./js/packdialog.js?v=502",
         "./js/zoneselect.js": "./js/zoneselect.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
         "./js/explorer.js": "./js/explorer.js?v=504",
         "./js/viewer3d.js": "./js/viewer3d.js?v=501",
-        "./js/sync.js": "./js/sync.js?v=501"
+        "./js/sync.js": "./js/sync.js?v=502",
+        "./js/outings.js": "./js/outings.js?v=501",
+        "./js/importgpx.js": "./js/importgpx.js?v=501"
       }
     }
   </script>
@@ -416,6 +418,10 @@
             <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection">🎲 Autre</button>
           </div>
           <div id="home-suggestions" class="cards-grid reco-grid"></div>
+          <div class="info-block outing-block hidden" id="outings-block">
+            <div class="info-block-head"><span class="eyebrow">Sorties prévues</span></div>
+            <div id="outings-list"></div>
+          </div>
           <button class="btn sheet-load" id="btn-load-trails" title="Charger les randos balisées de la zone affichée">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18c4 0 3-4 6-4s3-4 6-8" stroke-dasharray="1 3.2"/><circle cx="5" cy="18" r="1.5" fill="currentColor" stroke="none"/><circle cx="17" cy="6" r="1.5" fill="currentColor" stroke="none"/></svg>
             Charger les randos de cette zone
@@ -851,6 +857,6 @@
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=528"></script>
+  <script type="module" src="js/main.js?v=529"></script>
 </body>
 </html>
