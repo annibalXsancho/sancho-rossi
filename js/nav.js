@@ -21,6 +21,7 @@ import { naismithHours, fmtDuration, cumulativeKm } from "./metrics.js";
 import { ANNOT_KINDS, annotKind } from "./annotations.js";
 import { addFieldMark, updateFieldMark, removeFieldMark, trailMarks } from "./fieldmarks.js";
 import { daylightRemainingMin } from "./astro.js";
+import { startCompass, stopCompass, shortestRotate } from "./compass.js";
 
 const OFF_BASE_M = 120;      // seuil de base « hors tracé » (m)
 const STALE_MS = 30000;      // au-delà : le fix GPS est considéré perdu
@@ -308,64 +309,26 @@ function toggleHeading() {
 
 // ---------- Boussole physique (S-V2-BOUSSOLE) ----------
 // L'aiguille du bouton d'orientation pointe toujours vers le nord réel. Source
-// préférée : le capteur d'orientation du téléphone (suit le nord même à l'arrêt) ;
-// repli sur la contre-rotation de la carte (comportement d'avant ce sprint) si le
-// capteur est absent/refusé — jamais d'erreur visible, juste une dégradation propre.
-let sensorHeading = null;    // dernier cap capteur (0-360°, nord réel) ; null = replié sur la carte
-let sensorAttached = false;
+// préférée : le capteur d'orientation du téléphone (suit le nord même à l'arrêt, via
+// le module partagé compass.js — la vue carte s'y abonne aussi) ; repli sur la
+// contre-rotation de la carte si le capteur est absent/refusé — dégradation propre.
+let navSensorHeading = null; // dernier cap reçu de compass.js ; null = replié sur la carte
 let needleDeg = 0;           // angle d'affichage NON borné : évite un tour complet visible au wrap 359°→0°
 
-function onDeviceOrientation(e) {
-  let heading;
-  if (typeof e.webkitCompassHeading === "number") {
-    heading = e.webkitCompassHeading; // iOS : déjà horaire depuis le nord réel
-  } else if (e.absolute && e.alpha != null) {
-    // Approximation « téléphone à plat » standard + correction si l'écran n'est pas
-    // verrouillé portrait (screen.orientation absent sur certains navigateurs → 0).
-    heading = (360 - e.alpha + (screen.orientation?.angle ?? 0)) % 360;
-  } else {
-    return; // orientation relative non calibrée au nord : pas fiable, on ignore
-  }
-  sensorHeading = (heading + 360) % 360;
+function onNavHeading(h) {
+  navSensorHeading = h;
   requestAnimationFrame(updateHeadingNeedle);
 }
 
-async function ensureCompassSensor() {
-  if (sensorAttached) return;
-  if (typeof DeviceOrientationEvent?.requestPermission === "function") {
-    try {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if (perm !== "granted") return; // refusé : l'aiguille reste sur le cap carte
-    } catch {
-      return; // pas de geste utilisateur actif (ex. reprise auto après reload) : on abandonne
-    }
-  }
-  const evt = "ondeviceorientationabsolute" in window ? "deviceorientationabsolute" : "deviceorientation";
-  window.addEventListener(evt, onDeviceOrientation);
-  sensorAttached = true;
-}
-
-function releaseCompassSensor() {
-  if (!sensorAttached) return;
-  window.removeEventListener("deviceorientationabsolute", onDeviceOrientation);
-  window.removeEventListener("deviceorientation", onDeviceOrientation);
-  sensorAttached = false;
-  sensorHeading = null;
-}
-
-// Avance `needleDeg` de la plus courte distance angulaire vers `target` plutôt que
-// d'écraser l'angle affiché à chaque appel — sinon un passage 359°→0° du capteur (ou
-// du bearing carte) ferait visuellement un tour complet au lieu d'un petit pas.
 function rotateNeedleTo(target) {
   const n = document.querySelector(".nav-compass-needle");
   if (!n) return;
-  const delta = (((target - needleDeg) % 360) + 540) % 360 - 180;
-  needleDeg += delta;
+  needleDeg = shortestRotate(needleDeg, target);
   n.style.transform = `rotate(${needleDeg}deg)`;
 }
 
 function updateHeadingNeedle() {
-  rotateNeedleTo(sensorHeading != null ? -sensorHeading : -map.getBearing());
+  rotateNeedleTo(navSensorHeading != null ? -navSensorHeading : -map.getBearing());
 }
 
 // Le marqueur de position est une flèche. En cap-de-marche la carte pivote (la marche est
@@ -756,7 +719,7 @@ export function startNavigation(id, { resume = null } = {}) {
   nav.primalPrev = null;
   nav.primalDelay = PRIMAL_FAST_MS;
   nav.startedAt = resume?.startedAt || Date.now();
-  ensureCompassSensor(); // tap utilisateur (btn-follow) ou reprise auto — repli propre si refusé
+  startCompass(onNavHeading); // tap utilisateur (btn-follow) ou reprise auto — repli propre si refusé
 
   const line = t.mainline || trackOf(t);
   nav.samples = sampleTrack(line, 400);
@@ -903,7 +866,8 @@ export function setPrimal(on) {
     releaseWakeLock();
     stopWatch();
     suspendPosWatch();
-    releaseCompassSensor(); // esprit primal : zéro animation en continu
+    stopCompass(onNavHeading); // esprit primal : zéro animation en continu
+    navSensorHeading = null;
     nav.was3D = is3D();
     if (nav.was3D) set3D(false);
 
@@ -939,7 +903,7 @@ export function setPrimal(on) {
     if (nav.active) { // ne pas ré-armer le verrou ni le suivi en quittant la nav
       requestWakeLock();
       startWatch();
-      ensureCompassSensor(); // tap utilisateur (quitter primal) — permission déjà accordée si iOS
+      startCompass(onNavHeading); // tap utilisateur (quitter primal) — permission déjà accordée si iOS
       nav.engaged = false; // le prochain fix recadre proprement (zoom + cap + inclinaison)
       if (nav.follow && nav.lastPos) followTick(nav.lastPos.lat, nav.lastPos.lon);
     }
@@ -951,7 +915,8 @@ export function setPrimal(on) {
 export function stopNavigation() {
   localStorage.removeItem("sr-nav");
   stopWatch();
-  releaseCompassSensor();
+  stopCompass(onNavHeading);
+  navSensorHeading = null;
   closeMarkSheet();   // avant `active = false` : la note en cours part en base
   nav.active = false;
   clearNavMarks();
@@ -1044,6 +1009,8 @@ export function initNav() {
   document.getElementById("primal-info").addEventListener("click", () => showPrimalInfo());
   document.getElementById("nav-recenter").addEventListener("click", recenter);
   document.getElementById("nav-heading").addEventListener("click", toggleHeading);
+  document.getElementById("nav-layers")?.addEventListener("click", () =>
+    document.getElementById("layers-panel")?.classList.toggle("hidden"));
   document.addEventListener("visibilitychange", onVisibility);
 
   // Repères de terrain : deux entrées (FAB de la nav, bouton de la barre primal), une

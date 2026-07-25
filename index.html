@@ -29,7 +29,8 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=538",
+        "./js/map.js": "./js/map.js?v=539",
+        "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=534",
         "./js/detail.js": "./js/detail.js?v=541",
@@ -44,7 +45,7 @@
         "./js/fieldmarks.js": "./js/fieldmarks.js?v=502",
         "./js/loops.js": "./js/loops.js?v=526",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
-        "./js/nav.js": "./js/nav.js?v=518",
+        "./js/nav.js": "./js/nav.js?v=519",
         "./js/navview.js": "./js/navview.js?v=509",
         "./js/security.js": "./js/security.js?v=519",
         "./js/astro.js": "./js/astro.js?v=502",
@@ -153,9 +154,9 @@
         <button class="map-ctl" id="btn-locate" title="Ma position" aria-label="Ma position">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 3 3.6 10.3c-.9.4-.8 1.7.1 2l6.7 2.2 2.2 6.7c.3.9 1.6 1 2 .1L21 3Z"/></svg>
         </button>
-        <!-- Boussole : posée en fin de pile pour que son apparition ne décale aucun autre
-             bouton. Masquée tant que la carte n'est pas pivotée (js/map.js initCompass). -->
-        <button class="map-ctl hidden" id="btn-compass" title="Remettre le nord en haut" aria-label="Remettre le nord en haut">
+        <!-- Boussole : affichée en continu, suit l'orientation physique réelle du téléphone
+             (js/compass.js) ; le clic remet le nord de la carte si elle est pivotée. -->
+        <button class="map-ctl" id="btn-compass" title="Boussole — cliquer pour remettre le nord de la carte" aria-label="Boussole">
           <svg class="compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.2 8.8 10.4 10.4 8.8 15.2 13.6 13.6Z" fill="currentColor" stroke="none"/><path d="M12 1.8v2"/></svg>
         </button>
 
@@ -264,6 +265,9 @@
 
         <!-- Contrôles flottants : marquer · recentrer (si on a lâché le suivi) · orientation -->
         <div class="nav-fabs">
+          <button id="nav-layers" class="nav-fab" title="Calques de carte" aria-label="Calques de carte">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
+          </button>
           <button id="nav-mark" class="nav-fab nav-fab-mark" title="Marquer ce point (repère personnel)" aria-label="Marquer ce point">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><path d="M12 7v6M9 10h6"/></svg>
           </button>
@@ -287,8 +291,7 @@
           </div>
           <div class="nav-sheet-body">
             <div class="nav-grid">
-              <div class="nav-stat"><span id="nav-done">—</span><label>km parcourus</label></div>
-              <div class="nav-stat"><span id="nav-total">—</span><label>km total</label></div>
+              <div class="nav-stat nav-stat-progress"><span><span id="nav-done">—</span><small> / </small><span id="nav-total">—</span></span><label>km parcourus</label></div>
               <div class="nav-stat"><span id="nav-gain">—</span><label>D+ réalisé</label></div>
               <div class="nav-stat"><span id="nav-alt">—</span><label>altitude</label></div>
               <div class="nav-stat"><span id="nav-speed">—</span><label>km/h</label></div>
