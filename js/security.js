@@ -27,10 +27,12 @@ function markActivity() {
 
 function ntfyPush(title, body, priority = "default") {
   // Alerte sécurité : un 5xx/timeout transitoire ne doit pas perdre un SOS → retries généreux.
+  // Title percent-encodé : les en-têtes HTTP n'acceptent que ISO-8859-1, `fetch()` lève sinon
+  // une TypeError sur nos titres à emoji (🛡/🚨/⚠/🆘) — ntfy décode le pourcentage côté serveur.
   return fetchRetry(`https://ntfy.sh/${watchTopic}`, {
     method: "POST",
     body,
-    headers: { Title: title, Priority: priority, Tags: "sos,mountain" },
+    headers: { Title: encodeURIComponent(title), Priority: priority, Tags: "sos,mountain" },
     timeout: 12000,
     retries: 4,
   }).catch(() => {});
@@ -232,6 +234,102 @@ function renderPos() {
     (±${state.lastPos.acc} m) à ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+// ---------- SOS : partager ma position sans data (S-V2-SOS) ----------
+// Le SMS passe en GSM là où la data est morte — c'est le canal principal, il doit
+// toujours être tenté. ntfy (data/wifi) est un complément : direct si le réseau
+// répond, mis en file sinon (pas de Background Sync API dans cette PWA — un
+// listener `online` + le tick de la veille suffisent, l'app doit rester ouverte).
+let sosQueue = JSON.parse(localStorage.getItem("sr-sos-queue") || "[]");
+
+function saveSosQueue() {
+  localStorage.setItem("sr-sos-queue", JSON.stringify(sosQueue));
+  renderSosStatus();
+}
+
+function renderSosStatus() {
+  const el = document.getElementById("sos-queue-status");
+  if (!el) return;
+  el.classList.toggle("hidden", sosQueue.length === 0);
+  if (sosQueue.length) {
+    el.textContent = `${sosQueue.length} position${sosQueue.length > 1 ? "s" : ""} en attente d'envoi (réseau)`;
+  }
+}
+
+// Position la plus fraîche possible pour un SOS : un fix tout neuf si le GPS répond
+// vite, sinon la dernière connue plutôt que rien.
+function freshPosition() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(state.lastPos); return; }
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        savePos(pos);
+        finish(state.lastPos);
+      },
+      () => finish(state.lastPos),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+    setTimeout(() => finish(state.lastPos), 8500);
+  });
+}
+
+function sosMessage(p) {
+  const d = new Date(p.ts);
+  return `🆘 Ma position : https://maps.google.com/?q=${p.lat.toFixed(5)},${p.lon.toFixed(5)} ` +
+    `(±${p.acc} m, ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })})`;
+}
+
+// Sans destinataire présélectionné (geste spontané, pas un contact enregistré) —
+// iOS exige `sms:&body=` sans numéro, `?` casse l'ouverture du composeur.
+function smsHref(msg) {
+  const sep = /iPad|iPhone|iPod/.test(navigator.userAgent) ? "&" : "?";
+  return `sms:${sep}body=${encodeURIComponent(msg)}`;
+}
+
+export async function drainSosQueue() {
+  if (!sosQueue.length || !navigator.onLine) return;
+  const remaining = [];
+  let sent = 0;
+  for (const item of sosQueue) {
+    const res = await fetchRetry(`https://ntfy.sh/${watchTopic}`, {
+      method: "POST",
+      body: sosMessage(item),
+      headers: { Title: encodeURIComponent("🆘 Position partagée — Sancho Rossi"), Priority: "high", Tags: "sos,mountain" },
+      timeout: 12000,
+      retries: 2,
+    }).catch(() => null);
+    if (res?.ok) sent++; else remaining.push(item);
+  }
+  sosQueue = remaining;
+  saveSosQueue();
+  if (sent) toast(`Position${sent > 1 ? "s" : ""} envoyée${sent > 1 ? "s" : ""} (réseau rétabli).`, { type: "success" });
+}
+
+export async function shareSosPosition() {
+  const p = await freshPosition();
+  if (!p) { toast("Aucune position disponible.", { type: "error" }); return; }
+  const msg = sosMessage(p);
+
+  location.href = smsHref(msg);
+  navigator.clipboard?.writeText(msg).catch(() => {});
+
+  if (!navigator.onLine) {
+    sosQueue.push({ lat: p.lat, lon: p.lon, acc: p.acc, ts: p.ts });
+    saveSosQueue();
+    toast("Composeur SMS ouvert, position copiée — sera aussi envoyée sur ntfy au retour du réseau.", { type: "info" });
+    return;
+  }
+  const res = await ntfyPush("🆘 Position partagée — Sancho Rossi", msg, "high");
+  if (res?.ok) {
+    toast("Composeur SMS ouvert, position copiée et envoyée sur votre canal ntfy.", { type: "success" });
+  } else {
+    sosQueue.push({ lat: p.lat, lon: p.lon, acc: p.acc, ts: p.ts });
+    saveSosQueue();
+    toast("Composeur SMS ouvert, position copiée — ntfy réessaiera au retour du réseau.", { type: "info" });
+  }
+}
+
 // Plan de marche
 function planMessage() {
   const t = getTrail(document.getElementById("plan-trail").value);
@@ -286,6 +384,7 @@ function renderPlanPreview() {
 export function renderSafety() {
   renderContacts();
   renderPos();
+  renderSosStatus();
   renderWatchStatus();
   const sel = document.getElementById("plan-trail");
   const current = sel.value;
@@ -323,8 +422,11 @@ export function initSecurity() {
     setTimeout(() => (e.target.textContent = "Copier le lien"), 1600);
   });
 
-  setInterval(checkWatch, 60000);
+  setInterval(() => { checkWatch(); drainSosQueue(); }, 60000);
   document.addEventListener("visibilitychange", checkWatch);
+  window.addEventListener("online", drainSosQueue);
+
+  document.getElementById("btn-sos-position").addEventListener("click", shareSosPosition);
 
   document.getElementById("btn-add-contact").addEventListener("click", () => {
     const name = document.getElementById("contact-name").value.trim();
