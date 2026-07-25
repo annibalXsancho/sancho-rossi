@@ -1812,7 +1812,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* ============ Profil d'altitude interactif (S-PLAN-B) ============ */
 .prof { width: 100%; --surf-sentier: #ff2d20; --surf-chemin: #d99a2b; --surf-chemin-terre: #a9713c; --surf-route: #7d8590; --surf-asphalte: #4a4e57; --surf-autre: #3a3a40; }
 .prof-plot { position: relative; width: 100%; background: var(--surface-2); border-radius: var(--radius); overflow: hidden; }
-.prof-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+/* pan-y : le glisser horizontal parcourt la courbe, le vertical scrolle la page */
+.prof-svg { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: crosshair; }
 
 .prof-area { fill: rgba(255, 45, 32, 0.14); stroke: none; }
 .prof-line { fill: none; stroke: var(--red); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
