@@ -19,6 +19,7 @@ import { loadFieldMarks } from "./fieldmarks.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initOutings, loadFieldOutings, renderOutingsBlock } from "./outings.js";
+import { checkOutingsVigilance } from "./vigie.js";
 import { initToast, toast } from "./toast.js";
 import { checkIncomingShare } from "./share.js";
 import { runSync } from "./sync.js";
@@ -140,6 +141,11 @@ loadPersisted().then(async (persisted) => {
   renderOutingsBlock();
   refreshTilesCount();
   checkWatch();
+
+  // Alertes sur mes sorties prévues (S-V2-VIGIE-B) : best-effort, ne bloque jamais
+  // le boot — le bloc Sorties est déjà affiché, il se met juste à jour si une
+  // dégradation météo est détectée depuis la dernière consultation.
+  checkOutingsVigilance().then(renderOutingsBlock).catch(() => {});
 
   // Reprise après rechargement : une session de navigation interrompue (sr-nav)
   // redémarre d'elle-même — le tracé, le HUD et le GPS reviennent sans un geste.

@@ -5,11 +5,12 @@
 // futures alertes météo par sortie (S-V2-VIGIE-B, backlog) pourront lister les
 // sorties datées sans charger les tracés (potentiellement lourds).
 import { state, getTrail, outingsFor, upcomingOutings } from "./state.js";
-import { loadOutings, putOuting, delOuting } from "./storage.js";
+import { loadOutings, putOuting, delOuting, delPackMeta } from "./storage.js";
 import { cumulativeKm, naismithHours, fmtDuration } from "./metrics.js";
 import { touchOutings } from "./sync.js";
 import { toast } from "./toast.js";
 import { switchTab } from "./ui.js";
+import { getVigilance } from "./vigie.js";
 
 const escapeHtml = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -50,6 +51,7 @@ export function saveOuting(outing) {
 export function deleteOuting(id) {
   state.outings = state.outings.filter((o) => o.id !== id);
   delOuting(id).catch((err) => console.warn("Suppression de la sortie non persistée :", err));
+  delPackMeta(`vigie:${id}`).catch(() => {});
   touchOutings();
   renderOutingsBlock();
 }
@@ -131,11 +133,12 @@ export function renderOutingsBlock() {
     const dateLabel = isNaN(d.getTime())
       ? o.date
       : d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }) + (o.time ? ` · ${o.time}` : "");
+    const vigie = getVigilance(o.id);
     return `
       <div class="outing-item" data-id="${o.id}" data-trail="${o.trailId}">
         <div class="outing-item-main">
           <div class="outing-item-date">${dateLabel}</div>
-          <div class="outing-item-name">${escapeHtml(trail?.name || "Itinéraire supprimé")}</div>
+          <div class="outing-item-name">${escapeHtml(trail?.name || "Itinéraire supprimé")}${vigie ? ` <span class="pill pill-difficile outing-alert" title="${escapeHtml(vigie.reason)}">⚠ météo dégradée</span>` : ""}</div>
           ${o.note ? `<div class="outing-item-note">${escapeHtml(o.note.length > 80 ? o.note.slice(0, 80) + "…" : o.note)}</div>` : ""}
         </div>
         <button class="btn-ghost outing-item-del" data-del="${o.id}" title="Annuler la réservation" aria-label="Annuler la réservation">🗑</button>
