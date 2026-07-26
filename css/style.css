@@ -1631,6 +1631,55 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .detail-hero { height: 400px; border-radius: var(--radius-lg); background-size: cover; background-position: center; border: none; }
 .detail-side { display: flex; flex-direction: column; gap: 10px; }
 
+/* Photos de terrain sur le corridor du tracé (Mapillary, S-V2-PHOTOS) — absente
+   du DOM utile tant qu'aucune photo n'est trouvée (absence élégante). */
+.detail-photos-wrap.hidden { display: none; }
+.photo-strip {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+  margin: 0 0 var(--sp-2);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.photo-strip::-webkit-scrollbar { display: none; }
+.photo-thumb {
+  flex: 0 0 auto;
+  width: 128px;
+  height: 92px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  scroll-snap-align: start;
+  background: var(--surface-2);
+  box-shadow: var(--shadow-soft);
+  transition: transform 150ms ease-out;
+}
+.photo-thumb:hover, .photo-thumb:focus-visible { transform: translateY(-2px); }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.photo-lightbox {
+  position: fixed; inset: 0; z-index: 2600;
+  background: rgba(0, 0, 0, 0.86);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-5);
+  animation: photo-fade 150ms ease-out;
+}
+.photo-lightbox img { max-width: 100%; max-height: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); }
+.photo-lightbox-close {
+  position: absolute; top: var(--sp-3); right: var(--sp-3);
+  width: 40px; height: 40px; display: grid; place-items: center;
+  border: none; border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color: var(--text); font-size: 16px; line-height: 1; cursor: pointer;
+}
+@keyframes photo-fade { from { opacity: 0; } to { opacity: 1; } }
+
 #mini-map { height: 224px; border-radius: var(--radius-lg); z-index: 1; background: var(--surface-2); border: none; }
 
 /* La mini-carte est un bouton : clic → carte plein écran. L'icône ⤢ le dit sans mot. */
