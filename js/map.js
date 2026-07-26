@@ -12,7 +12,6 @@ import { planner, plannerMapClick, plannerCanvasClick } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
-import { startNavigation } from "./nav.js";
 import { startCompass, shortestRotate } from "./compass.js";
 import { savePos } from "./security.js";
 
@@ -161,6 +160,11 @@ function tileUrls(def) {
   if (!def.subdomains) return [def.url];
   return def.subdomains.map((s) => def.url.replace("{s}", s));
 }
+
+// URLs d'un calque par son nom — pour changer de fond à chaud sur une carte de fiche
+// (`source.setTiles`) sans lui faire connaître la table des gabarits.
+export const layerTiles = (name) =>
+  TILE_TEMPLATES[name] ? tileUrls(TILE_TEMPLATES[name]) : null;
 
 function buildStyle() {
   const sources = {};
@@ -433,25 +437,29 @@ export function drawTrackOn(mapInstance, latlngs, opts = {}) {
 // à fond topo unique. `inert` fige l'aperçu (mini-carte) SANS couper la répartition
 // d'événements — le survol du tracé pilote encore le curseur du profil, ce que
 // `interactive:false` (qui débranche tous les écouteurs) interdirait.
-export function createFicheMap(container, { inert = false, attribution = false } = {}) {
-  const topo = TILE_TEMPLATES.topo;
+export function createFicheMap(container, { inert = false, attribution = false, layer = "topo", maxPitch } = {}) {
+  const def = TILE_TEMPLATES[layer] || TILE_TEMPLATES.topo;
   const m = new maplibregl.Map({
     container,
     attributionControl: attribution ? { compact: false } : false,
     maxZoom: 17 + OVERZOOM - ZOOM_OFFSET,
+    ...(maxPitch != null ? { maxPitch } : {}),
     refreshExpiredTiles: false,
     style: {
       version: 8,
       sources: {
-        topo: {
+        // Identifiant de source/couche fixe (`base`) quel que soit le calque : la vue 3D
+        // de fiche remplace le fond à chaud (satellite ↔ topo) sans toucher au reste du
+        // style — tracé et marqueurs restent en place.
+        base: {
           type: "raster",
-          tiles: tileUrls(topo),
+          tiles: tileUrls(def),
           tileSize: 256,
-          maxzoom: topo.maxZoom,
-          attribution: topo.attribution,
+          maxzoom: def.maxZoom,
+          attribution: def.attribution,
         },
       },
-      layers: [{ id: "topo", type: "raster", source: "topo" }],
+      layers: [{ id: "base", type: "raster", source: "base" }],
     },
   });
   if (inert) {
@@ -1006,9 +1014,9 @@ const DEM_EXAGGERATION = 1.4;
 const PITCH_3D = 65;
 let terrain3d = false;
 
-function ensureDem() {
-  if (!map.getSource(DEM_SOURCE)) {
-    map.addSource(DEM_SOURCE, {
+function ensureDemOn(mapInstance) {
+  if (!mapInstance.getSource(DEM_SOURCE)) {
+    mapInstance.addSource(DEM_SOURCE, {
       type: "raster-dem",
       tiles: [DEM_TILES],
       tileSize: 256,
@@ -1016,6 +1024,23 @@ function ensureDem() {
       maxzoom: 15, // zoom natif du jeu Terrarium ; MapLibre sur-échantillonne au-delà
     });
   }
+}
+
+// Relief + ciel sur une INSTANCE quelconque : la carte principale (set3D) comme la vue 3D
+// de fiche (fiche3d.js). C'est ce partage qui a permis de retirer le moteur Three.js — un
+// seul rendu de relief dans le projet, celui de MapLibre.
+export function enableTerrainOn(mapInstance, { exaggeration = DEM_EXAGGERATION } = {}) {
+  ensureDemOn(mapInstance);
+  mapInstance.setTerrain({ source: DEM_SOURCE, exaggeration });
+  // Ciel atmosphérique : donne l'horizon qui fait tout le rendu « 3D » façon AllTrails.
+  // Enveloppé : la propriété `sky` a bougé entre versions de MapLibre, un échec ne doit
+  // pas empêcher l'inclinaison (le cœur du rendu).
+  try {
+    mapInstance.setSky({
+      "sky-color": "#a7c7e8", "horizon-color": "#e6eef6", "fog-color": "#eef3f8",
+      "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.25,
+    });
+  } catch { /* ciel indisponible : le relief reste incliné, sans dégradé d'horizon */ }
 }
 
 export const is3D = () => terrain3d;
@@ -1050,17 +1075,7 @@ export function set3D(on) {
   terrain3d = on;
   whenMapReady(() => {
     if (on) {
-      ensureDem();
-      map.setTerrain({ source: DEM_SOURCE, exaggeration: DEM_EXAGGERATION });
-      // Ciel atmosphérique : donne l'horizon qui fait tout le rendu « 3D » façon AllTrails.
-      // Enveloppé : la propriété `sky` a bougé entre versions de MapLibre, un échec ne doit
-      // pas empêcher l'inclinaison (le cœur du sprint).
-      try {
-        map.setSky({
-          "sky-color": "#a7c7e8", "horizon-color": "#e6eef6", "fog-color": "#eef3f8",
-          "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.25,
-        });
-      } catch { /* ciel indisponible : le relief reste incliné, sans dégradé d'horizon */ }
+      enableTerrainOn(map);
       if (map.getPitch() < 40) map.easeTo({ pitch: PITCH_3D, duration: 700 });
     } else {
       map.setTerrain(null);
@@ -1231,7 +1246,10 @@ export function initMap() {
     if (state.selectedId) renderDetail(state.selectedId);
   });
 
-  document.getElementById("preview-follow").addEventListener("click", () => {
-    if (state.selectedId) startNavigation(state.selectedId);
+  document.getElementById("preview-follow").addEventListener("click", async () => {
+    if (!state.selectedId) return;
+    const { initNav, startNavigation } = await import("./nav.js");
+    initNav();
+    startNavigation(state.selectedId);
   });
 }

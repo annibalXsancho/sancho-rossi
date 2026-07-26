@@ -6,8 +6,6 @@
 // c'est un panneau docké repliable. La mécanique reprend celle du planificateur (S-PLAN-C).
 import { openFilters } from "./filters.js";
 import { switchTab } from "./ui.js";
-import { selectZone, runZonePackJob } from "./zoneselect.js";
-import { askZonePackOptions } from "./packdialog.js";
 import { buildZonePack } from "./offline.js";
 import { toast } from "./toast.js";
 
@@ -16,6 +14,12 @@ const el = (id) => document.getElementById(id);
 // Télécharger une ZONE hors-ligne (S-V2-PACKS-ZONE) : cadrage rectangle → choix
 // calques/zoom → build avec chip de progression. Lancé depuis la feuille Explorer.
 async function startZoneDownload() {
+  // zoneselect.js + packdialog.js (~20 ko) chargés à la demande (S11) : cet écran n'est
+  // atteint qu'après un tap explicite sur « Télécharger une zone ».
+  const [{ selectZone, runZonePackJob }, { askZonePackOptions }] = await Promise.all([
+    import("./zoneselect.js"),
+    import("./packdialog.js"),
+  ]);
   const bbox = await selectZone();
   if (!bbox) return;
   const opts = await askZonePackOptions(bbox);

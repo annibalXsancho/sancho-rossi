@@ -2,7 +2,7 @@
 // Re-rendu complet à chaque affichage de l'onglet (switchTab) : c'est aussi ce qui
 // resynchronise les calques si l'utilisateur les a changés depuis le panneau carte.
 import { state, gainOf } from "./state.js";
-import { startNavigation, stopNavigation, setPrimal, navSession } from "./nav.js";
+import { initNav, startNavigation, stopNavigation, setPrimal, navSession } from "./nav.js";
 import { switchTab } from "./ui.js";
 import { layersConfig, applyLayer, LAYER_META } from "./map.js";
 import { renderDetail } from "./detail.js";
@@ -150,6 +150,10 @@ function renderTrails() {
   host.querySelectorAll(".navview-go").forEach((b) =>
     b.addEventListener("click", (e) => {
       e.stopPropagation();
+      // nav.js est chargé (import statique de ce module), mais son câblage HUD (S11,
+      // lazy-load) ne l'est peut-être pas encore si on n'est jamais passé par le boot
+      // resume / « Suivre ce tracé » de la fiche.
+      initNav();
       startNavigation(b.dataset.go);
     })
   );

@@ -257,7 +257,11 @@ export function createProfile(container, {
   }
 
   // ---------- Survol + glisser pour zoomer ----------
-  let dragFrom = null, dragged = false;
+  let dragFrom = null, dragged = false, scrubbing = false;
+
+  // Au doigt il n'y a pas de survol : le glisser parcourt la courbe (le geste que la
+  // souris fait en survolant), il ne sélectionne pas une plage à zoomer.
+  const isTouch = (e) => e.pointerType === "touch" || e.pointerType === "pen";
 
   const localX = (e) => {
     const r = svg.getBoundingClientRect();
@@ -266,13 +270,23 @@ export function createProfile(container, {
 
   svg.addEventListener("pointerdown", (e) => {
     if (e.button != null && e.button !== 0) return;
-    dragFrom = localX(e);
-    dragged = false;
+    if (isTouch(e)) {
+      scrubbing = true;
+      showCursor(kmAtX(localX(e)));
+    } else {
+      dragFrom = localX(e);
+      dragged = false;
+    }
     svg.setPointerCapture?.(e.pointerId);
   });
 
   svg.addEventListener("pointermove", (e) => {
     const x = localX(e);
+    if (scrubbing) {
+      e.preventDefault(); // `touch-action: pan-y` laisse passer le glisser horizontal
+      showCursor(kmAtX(x));
+      return;
+    }
     if (dragFrom != null) {
       if (Math.abs(x - dragFrom) >= DRAG_MIN_PX) dragged = true;
       if (dragged) {
@@ -289,6 +303,9 @@ export function createProfile(container, {
 
   const endDrag = (e) => {
     selRect.classList.add("hidden");
+    // Le curseur reste où le doigt l'a laissé : au tactile, le relever ne doit pas
+    // effacer l'altitude qu'on venait de lire (ni le repère posé sur la carte).
+    if (scrubbing) { scrubbing = false; return; }
     if (dragFrom == null) return;
     const x = localX(e);
     const from = dragFrom;
@@ -305,8 +322,8 @@ export function createProfile(container, {
     paint();
   };
   svg.addEventListener("pointerup", endDrag);
-  svg.addEventListener("pointercancel", () => { dragFrom = null; dragged = false; selRect.classList.add("hidden"); });
-  svg.addEventListener("pointerleave", () => { if (dragFrom == null) hideCursor(); });
+  svg.addEventListener("pointercancel", () => { dragFrom = null; dragged = false; scrubbing = false; selRect.classList.add("hidden"); });
+  svg.addEventListener("pointerleave", (e) => { if (!isTouch(e) && dragFrom == null) hideCursor(); });
 
   function resetZoom() {
     view = [0, total];

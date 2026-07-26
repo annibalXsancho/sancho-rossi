@@ -8,9 +8,7 @@ import { putMeta } from "./storage.js";
 import { hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
-import { startNavigation } from "./nav.js";
 import { hasPack, buildPack } from "./offline.js";
-import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { createRouteConditions } from "./conditions.js";
 import { moonPhase, sunTimes } from "./astro.js";
@@ -31,7 +29,6 @@ let miniCursor = null;
 let profile = null;
 let routeWx = null; // bandeau météo à l'heure de passage (S-METEO)
 let routeCond = null; // bandeau conditions & nuit (S-V2-VIGIE-A)
-let viewer3dActive = false;
 // Jeton de rendu : `ensureElevation` peut répondre après qu'on a ouvert une AUTRE
 // fiche, et le profil de la précédente s'installerait alors dans la nouvelle.
 let renderSeq = 0;
@@ -331,8 +328,8 @@ export function renderDetail(id) {
   if (detailPanel.classList.contains("hidden")) history.pushState({ srDetail: true }, "");
   destroyMiniMap();
   markHandles = []; // les marqueurs de l'ancienne fiche meurent avec sa carte
-  window.SR3D?.dispose();
-  viewer3dActive = false;
+  window.SR3D?.destroy();
+  window.SR3D = null;
 
   breadcrumbEl.innerHTML =
     `<button class="bc-link" data-bc="all">Europe</button> / ` +
@@ -435,15 +432,20 @@ export function renderDetail(id) {
 
     <div class="tab-content hidden" id="tab-3d">
       <div class="viewer3d-intro">
-        <p class="muted">Relief réel drapé d'imagerie satellite. Molette pour zoomer, glisser pour orbiter,
-        puis déplacez le curseur pour suivre un point le long du tracé.</p>
-        <button class="btn btn-primary" id="btn-load-3d">▶ Charger la vue 3D</button>
+        <p class="muted">Le tracé posé sur le relief réel. Deux doigts (ou clic droit) pour incliner et
+        pivoter, pincer pour zoomer — ou laissez le survol vous emmener d'un bout à l'autre.</p>
+        <button class="btn btn-primary" id="btn-load-3d">▶ Afficher le relief</button>
       </div>
       <div id="viewer3d" class="viewer3d hidden"></div>
       <div id="progress-row" class="progress-row hidden">
-        <span class="progress-label">Position sur le tracé</span>
-        <input type="range" id="track-progress" min="0" max="1000" value="0" />
+        <button class="btn f3d-play" id="btn-flyover" type="button">▶ Survol</button>
+        <input type="range" id="track-progress" min="0" max="1000" value="0"
+               aria-label="Position sur le tracé" />
         <span id="progress-info" class="progress-info">départ</span>
+        <div class="f3d-layers" role="group" aria-label="Fond de carte">
+          <button class="btn-ghost f3d-layer active" data-layer="satellite" type="button">Satellite</button>
+          <button class="btn-ghost f3d-layer" data-layer="topo" type="button">Topo</button>
+        </div>
       </div>
     </div>`;
 
@@ -577,7 +579,11 @@ export function renderDetail(id) {
     // Sur la carte uniquement : la fiche ne doit pas se rouvrir par-dessus
     setTimeout(() => selectTrail(id, { openDetail: false }), 100);
   });
-  document.getElementById("btn-follow").addEventListener("click", () => startNavigation(id));
+  document.getElementById("btn-follow").addEventListener("click", async () => {
+    const { initNav, startNavigation } = await import("./nav.js");
+    initNav();
+    startNavigation(id);
+  });
   document.getElementById("btn-safety").addEventListener("click", () => {
     closeDetail();
     switchTab("reglages"); // la Sécurité (plan de marche) est fusionnée dans les Réglages
@@ -625,25 +631,45 @@ async function load3D(trail) {
   intro.querySelector("#btn-load-3d").textContent = "⏳ Chargement du relief…";
   try {
     const eles = await ensureElevation(trail).catch(() => null);
-    const mod = await import("./viewer3d.js");
+    const { open } = await import("./fiche3d.js");
     container.classList.remove("hidden");
-    await mod.open(container, trail, sampleTrack(trail.mainline || trackOf(trail), 300), eles);
-    window.SR3D = mod;
-    viewer3dActive = true;
-    intro.classList.add("hidden");
 
-    // Jauge : suit un point le long du tracé dans la vue 3D
     const row = document.getElementById("progress-row");
     const slider = document.getElementById("track-progress");
     const info = document.getElementById("progress-info");
+    const playBtn = document.getElementById("btn-flyover");
+    const show = (r) => {
+      if (!r) return;
+      info.textContent = `${r.km.toFixed(1)} km${r.alt != null ? ` · ${Math.round(r.alt)} m` : ""}`;
+    };
+
+    const view = await open(container, trail, sampleTrack(trail.mainline || trackOf(trail), 300), eles, {
+      // Pendant le survol c'est la vue qui mène : la jauge et le libellé la suivent.
+      onFrame: (r) => {
+        slider.value = Math.round(r.f * 1000);
+        show(r);
+        if (!r.playing) playBtn.textContent = "▶ Survol";
+      },
+    });
+    window.SR3D = view;
+    intro.classList.add("hidden");
+
     row.classList.remove("hidden");
     slider.value = 0;
-    const update = () => {
-      const r = mod.setProgress(Number(slider.value) / 1000);
-      if (r) info.textContent = `${r.km.toFixed(1)} km · ${Math.round(r.alt)} m`;
-    };
-    slider.addEventListener("input", update);
-    update();
+    slider.addEventListener("input", () => {
+      playBtn.textContent = "▶ Survol";
+      show(view.setProgress(Number(slider.value) / 1000));
+    });
+    playBtn.addEventListener("click", () => {
+      playBtn.textContent = view.toggle() ? "⏸ Pause" : "▶ Survol";
+    });
+    row.querySelectorAll(".f3d-layer").forEach((b) => {
+      b.addEventListener("click", () => {
+        row.querySelectorAll(".f3d-layer").forEach((o) => o.classList.toggle("active", o === b));
+        view.setLayer(b.dataset.layer);
+      });
+    });
+    show(view.setProgress(0));
   } catch (err) {
     intro.querySelector("#btn-load-3d").textContent = "▶ Réessayer";
     toast(`Vue 3D indisponible : ${err.message}`, { type: "error" });
@@ -655,6 +681,7 @@ async function load3D(trail) {
 // toujours le bouton par son id pour refléter la progression sur l'élément visible.
 async function downloadPack(t, id) {
   if (hasPack(id)) { closeDetail(); switchTab("reglages"); return; }
+  const { askPackOptions } = await import("./packdialog.js");
   const depth = await askPackOptions(t);
   if (!depth) return;
 
@@ -683,7 +710,8 @@ export function closeDetail(fromPopstate = false) {
   closeFullMap(fromPopstate); // une fiche fermée ne laisse pas sa carte plein écran orpheline
   detailPanel.classList.add("hidden");
   destroyMiniMap();
-  window.SR3D?.dispose();
+  window.SR3D?.destroy();
+  window.SR3D = null;
   hidePreview();
   state.selectedId = null;
   clearActiveTrack();
