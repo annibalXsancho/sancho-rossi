@@ -4,6 +4,7 @@ import { ensureElevation } from "./api.js";
 import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
 import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
+import { trailPhotos } from "./mapillary.js";
 import { putMeta } from "./storage.js";
 import { hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
@@ -146,6 +147,30 @@ function bindPoiSection(t) {
     if (!box.children.length) box.remove();
     toast("Repère supprimé.", { type: "info" });
   });
+}
+
+// Photos de terrain (Mapillary) : délégation posée une fois sur le conteneur — la
+// bande se remplit plus tard (async), pas besoin de rebrancher à ce moment-là.
+function bindPhotoSection() {
+  const strip = document.getElementById("detail-photos");
+  if (!strip) return;
+  strip.addEventListener("click", (e) => {
+    const btn = e.target.closest(".photo-thumb");
+    if (btn) openPhotoLightbox(btn.dataset.full);
+  });
+}
+
+function openPhotoLightbox(url) {
+  const box = document.createElement("div");
+  box.className = "photo-lightbox";
+  box.innerHTML = `<img src="${url}" alt="Photo du sentier en plein écran">
+    <button class="photo-lightbox-close" aria-label="Fermer">✕</button>`;
+  const close = () => box.remove();
+  box.addEventListener("click", (e) => { if (e.target === box || e.target.closest(".photo-lightbox-close")) close(); });
+  document.addEventListener("keydown", function onEsc(e) {
+    if (e.key === "Escape") { close(); document.removeEventListener("keydown", onEsc); }
+  });
+  document.body.appendChild(box);
 }
 
 // Renommage en place : le titre devient éditable, Entrée/clic-ailleurs valide,
@@ -404,6 +429,10 @@ export function renderDetail(id) {
     </div>
 
     <div class="tab-content" id="tab-apercu">
+      <div class="detail-photos-wrap hidden" id="detail-photos-wrap">
+        <h3 class="section-title">Photos du sentier</h3>
+        <div class="photo-strip" id="detail-photos"></div>
+      </div>
       ${t.eau !== "—" ? `
       <h3 class="section-title">Infos terrain</h3>
       <div class="terrain-list">
@@ -452,6 +481,7 @@ export function renderDetail(id) {
   detailPanel.classList.remove("hidden");
   detailPanel.scrollTop = 0;
   bindPoiSection(t);
+  bindPhotoSection();
 
   // Mini-carte : aperçu figé (gestes coupés), mais événements gardés pour le survol.
   miniMap = createFicheMap("mini-map", { inert: true });
@@ -562,6 +592,25 @@ export function renderDetail(id) {
       })
       .catch(() => {});
   }
+
+  // Photos de terrain sur le corridor (Mapillary) — la section reste absente si le
+  // tracé n'a pas de géométrie exploitable, si hors-ligne, ou si rien n'est trouvé.
+  trailPhotos(t)
+    .then((photos) => {
+      if (!photos.length || seq !== renderSeq) return;
+      const wrap = document.getElementById("detail-photos-wrap");
+      const strip = document.getElementById("detail-photos");
+      if (!wrap || !strip) return;
+      strip.innerHTML = photos
+        .map(
+          (p) => `<button class="photo-thumb" data-full="${p.full}" aria-label="Agrandir la photo">
+            <img src="${p.thumb}" alt="Photo du sentier" loading="lazy">
+          </button>`
+        )
+        .join("");
+      wrap.classList.remove("hidden");
+    })
+    .catch(() => {});
 
   document.getElementById("btn-detail-fav").addEventListener("click", () => toggleFavorite(id));
   document.getElementById("btn-offline").addEventListener("click", () => downloadPack(t, id));

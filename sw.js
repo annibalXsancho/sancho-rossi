@@ -24,6 +24,7 @@ const SHELL_FILES = [
   "js/toast.js",
   "js/api.js",
   "js/photos.js",
+  "js/mapillary.js",
   "js/weather.js",
   "js/hikeweather.js",
   "js/conditions.js",
