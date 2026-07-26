@@ -437,30 +437,69 @@ export function drawTrackOn(mapInstance, latlngs, opts = {}) {
 // à fond topo unique. `inert` fige l'aperçu (mini-carte) SANS couper la répartition
 // d'événements — le survol du tracé pilote encore le curseur du profil, ce que
 // `interactive:false` (qui débranche tous les écouteurs) interdirait.
-export function createFicheMap(container, { inert = false, attribution = false, layer = "topo", maxPitch } = {}) {
-  const def = TILE_TEMPLATES[layer] || TILE_TEMPLATES.topo;
+// Calques offerts par le sélecteur des cartes de fiche (`stack: true`, vue plein écran).
+// Sous-ensemble volontaire de la carte principale : les fonds utiles à la lecture d'un
+// tracé, et les deux surcouches qui le documentent. Radar, VTT et ski n'ont rien à dire
+// sur un itinéraire déjà tracé — ils resteraient du bruit sur une vue de consultation.
+export const FICHE_BASES = ["plan", "topo", "satellite", "sombre", "terrainhd"];
+export const FICHE_OVERLAYS = ["hillshade", "trails"];
+
+const rasterSpec = (name) => {
+  const def = TILE_TEMPLATES[name];
+  return {
+    type: "raster",
+    tiles: tileUrls(def),
+    tileSize: 256,
+    maxzoom: def.maxZoom,
+    attribution: def.attribution,
+  };
+};
+
+export function createFicheMap(container, { inert = false, attribution = false, layer = "topo", maxPitch, stack = false } = {}) {
+  const base = TILE_TEMPLATES[layer] ? layer : "topo";
+  const sources = {};
+  const layers = [];
+  if (stack) {
+    // Vue plein écran : TOUS les fonds sont déclarés d'emblée, un seul visible. Comme sur
+    // la carte principale, changer de calque n'est alors qu'une bascule de visibilité —
+    // le style n'est pas reconstruit, donc le tracé, les repères et le relief 3D posés
+    // par-dessus survivent au changement. Les surcouches sont déclarées APRÈS les fonds
+    // (l'ordre du style est le z-index) et avant le tracé, ajouté au chargement.
+    for (const n of FICHE_BASES) {
+      sources[`fb-${n}`] = rasterSpec(n);
+      layers.push({
+        id: `fb-${n}`,
+        type: "raster",
+        source: `fb-${n}`,
+        layout: { visibility: n === base ? "visible" : "none" },
+      });
+    }
+    for (const n of FICHE_OVERLAYS) {
+      sources[`fo-${n}`] = rasterSpec(n);
+      layers.push({
+        id: `fo-${n}`,
+        type: "raster",
+        source: `fo-${n}`,
+        layout: { visibility: "none" },
+        paint: { "raster-opacity": TILE_TEMPLATES[n].op / 100 },
+      });
+    }
+  } else {
+    // Identifiant de source/couche fixe (`base`) quel que soit le calque : la vue 3D
+    // de fiche remplace le fond à chaud (satellite ↔ topo) sans toucher au reste du
+    // style — tracé et marqueurs restent en place.
+    sources.base = rasterSpec(base);
+    layers.push({ id: "base", type: "raster", source: "base" });
+  }
   const m = new maplibregl.Map({
     container,
     attributionControl: attribution ? { compact: false } : false,
-    maxZoom: 17 + OVERZOOM - ZOOM_OFFSET,
+    // Avec la pile complète, le plafond suit le calque le plus fin (satellite/plan, natif
+    // 19) ; le `maxzoom` de chaque source fait le sur-agrandissement pour les autres.
+    maxZoom: (stack ? 19 : 17) + OVERZOOM - ZOOM_OFFSET,
     ...(maxPitch != null ? { maxPitch } : {}),
     refreshExpiredTiles: false,
-    style: {
-      version: 8,
-      sources: {
-        // Identifiant de source/couche fixe (`base`) quel que soit le calque : la vue 3D
-        // de fiche remplace le fond à chaud (satellite ↔ topo) sans toucher au reste du
-        // style — tracé et marqueurs restent en place.
-        base: {
-          type: "raster",
-          tiles: tileUrls(def),
-          tileSize: 256,
-          maxzoom: def.maxZoom,
-          attribution: def.attribution,
-        },
-      },
-      layers: [{ id: "base", type: "raster", source: "base" }],
-    },
+    style: { version: 8, sources, layers },
   });
   if (inert) {
     m.dragPan.disable();
@@ -473,6 +512,17 @@ export function createFicheMap(container, { inert = false, attribution = false, 
     m.touchPitch?.disable();
   }
   return m;
+}
+
+// Fond actif d'une carte de fiche montée avec `stack: true` — un seul à la fois.
+export function setFicheBase(m, name) {
+  for (const n of FICHE_BASES) {
+    if (m.getLayer(`fb-${n}`)) m.setLayoutProperty(`fb-${n}`, "visibility", n === name ? "visible" : "none");
+  }
+}
+
+export function setFicheOverlay(m, name, on) {
+  if (m.getLayer(`fo-${name}`)) m.setLayoutProperty(`fo-${name}`, "visibility", on ? "visible" : "none");
 }
 
 // ---------- Radar de précipitations ----------

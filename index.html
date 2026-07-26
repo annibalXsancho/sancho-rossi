@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=573" />
+  <link rel="stylesheet" href="css/style.css?v=574" />
   <script type="importmap">
     {
       "imports": {
@@ -28,11 +28,11 @@
         "./js/mapillary.js": "./js/mapillary.js?v=502",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=543",
+        "./js/map.js": "./js/map.js?v=545",
         "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=535",
-        "./js/detail.js": "./js/detail.js?v=544",
+        "./js/detail.js": "./js/detail.js?v=549",
         "./js/share.js": "./js/share.js?v=503",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
@@ -865,16 +865,81 @@
     </div>
   </section>
 
-  <!-- Carte plein écran de la fiche (clic sur la mini-carte) : tracé + profil synchronisé -->
+  <!-- Carte plein écran de la fiche (clic sur la carte de la fiche) : vue de consultation
+       complète — calques, relief 3D, boussole, modification du tracé, et bandeau bas
+       métriques + profil altimétrique dépliable. -->
   <section id="fullmap-overlay" class="fullmap-overlay hidden" aria-label="Carte plein écran">
     <div id="fullmap"></div>
     <button id="fullmap-close" class="fullmap-close" title="Fermer (Échap)" aria-label="Fermer">✕</button>
-    <div class="fullmap-panel">
-      <div class="fullmap-head">
-        <span id="fullmap-title" class="fullmap-title"></span>
-        <div id="fullmap-stats" class="fullmap-stats"></div>
+    <div class="fullmap-topbar"><span id="fullmap-title" class="fullmap-title"></span></div>
+
+    <div class="map-stack fullmap-stack">
+      <button class="map-ctl" id="fm-layers" title="Calques de carte" aria-label="Calques de carte" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
+      </button>
+      <button class="map-ctl" id="fm-3d" title="Relief 3D" aria-label="Basculer le relief 3D" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5h18"/><path d="m5 19.5 5.2-10.5 3.1 6 2-3.4 3.7 7.9"/></svg>
+      </button>
+      <button class="map-ctl" id="fm-compass" title="Boussole — cliquer pour remettre le nord" aria-label="Boussole">
+        <span class="compass-ring hidden"><span class="compass-ring-tick"></span></span>
+        <svg class="compass-needle" viewBox="0 0 24 24" fill="none"><path d="M12 3 8.4 12 12 10.4 15.6 12Z" fill="var(--red)"/><path d="M12 10.4 15.6 12 12 21 8.4 12Z" fill="currentColor" opacity="0.5"/></svg>
+      </button>
+      <button class="map-ctl" id="fm-edit" title="Modifier l'itinéraire" aria-label="Modifier l'itinéraire">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5l3 3"/></svg>
+      </button>
+
+      <!-- Sélecteur de calques de la vue plein écran : fonds en aperçus + surcouches.
+           Distinct de celui de la carte principale — il ne pilote que cette instance. -->
+      <div class="layers-panel hidden" id="fm-layers-panel">
+        <div class="layers-title">Fond de carte</div>
+        <div class="layer-cards">
+          <div class="layer-card" data-fmbase="plan">
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Plan" style="background-image:url('assets/layer-previews/plan.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-card-name">Plan</div>
+          </div>
+          <div class="layer-card" data-fmbase="topo">
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Topographique" style="background-image:url('assets/layer-previews/topo.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-card-name">Topo</div>
+          </div>
+          <div class="layer-card" data-fmbase="satellite">
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Satellite" style="background-image:url('assets/layer-previews/satellite.jpg')"><span class="layer-check">✓</span></div>
+            <div class="layer-card-name">Satellite</div>
+          </div>
+          <div class="layer-card" data-fmbase="sombre">
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Sombre" style="background-image:url('assets/layer-previews/sombre.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-card-name">Sombre</div>
+          </div>
+          <div class="layer-card" data-fmbase="terrainhd">
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Terrain" style="background-image:url('assets/layer-previews/terrainhd.jpg')"><span class="layer-check">✓</span></div>
+            <div class="layer-card-name">Terrain</div>
+          </div>
+        </div>
+        <div class="layers-title">Surcouches</div>
+        <div class="overlay-list">
+          <div class="overlay-row" data-fmov="hillshade">
+            <span class="overlay-ic">⛰️</span>
+            <span class="overlay-name">Relief (ombrage)</span>
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+          </div>
+          <div class="overlay-row" data-fmov="trails">
+            <span class="overlay-ic">🥾</span>
+            <span class="overlay-name">Sentiers balisés</span>
+            <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
+          </div>
+        </div>
       </div>
-      <div id="fullmap-profile"></div>
+    </div>
+
+    <div class="fullmap-panel" id="fullmap-panel">
+      <div class="fullmap-bar">
+        <div id="fullmap-stats" class="fullmap-stats"></div>
+        <button class="fullmap-toggle" id="fullmap-toggle" aria-expanded="false" aria-controls="fullmap-profile">
+          <span>Profil altimétrique</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>
+        </button>
+      </div>
+      <div id="fullmap-profile" class="fullmap-profile" title="Cliquer pour agrandir le profil"></div>
+      <div id="fullmap-detail" class="fullmap-detail hidden"></div>
     </div>
   </section>
 
@@ -909,6 +974,6 @@
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=532"></script>
+  <script type="module" src="js/main.js?v=546"></script>
 </body>
 </html>

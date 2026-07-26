@@ -3,10 +3,14 @@ import { state, catalogTrails, getTrail, trackOf, sampleTrack, haversineKm, save
 import { ensureElevation } from "./api.js";
 import { createProfile } from "./profile.js";
 import { loadWeatherTab } from "./weather.js";
-import { photoStyle, geoPhoto, updateCardPhotos } from "./photos.js";
+import { geoPhoto, updateCardPhotos } from "./photos.js";
 import { trailPhotos } from "./mapillary.js";
 import { putMeta } from "./storage.js";
-import { hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon } from "./map.js";
+import {
+  hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon,
+  FICHE_BASES, FICHE_OVERLAYS, setFicheBase, setFicheOverlay, enableTerrainOn,
+} from "./map.js";
+import { startCompass, stopCompass, shortestRotate } from "./compass.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
 import { hasPack, buildPack } from "./offline.js";
@@ -14,7 +18,7 @@ import { createRouteWeather } from "./hikeweather.js";
 import { createRouteConditions } from "./conditions.js";
 import { moonPhase, sunTimes } from "./astro.js";
 import { annotKind } from "./annotations.js";
-import { SAC_LABEL } from "./metrics.js";
+import { SAC_LABEL, computeLoss } from "./metrics.js";
 import { openOutingForm, outingsSectionHtml } from "./outings.js";
 import { touchPrefs } from "./sync.js";
 import { shareTrail } from "./share.js";
@@ -240,13 +244,44 @@ function showOnMiniMap(p) {
   }
 }
 
-// ---------- Carte plein écran (clic sur la mini-carte) ----------
-// La mini-carte est volontairement inerte (aperçu) ; l'explorer se fait ici : carte
-// entière et interactive + le même profil en bandeau bas, synchronisés dans les deux
-// sens. Même contrat d'historique que la fiche : Échap, ✕ et le bouton retour ferment.
+// ---------- Carte plein écran (clic sur la carte de la fiche) ----------
+// La carte de la fiche est volontairement inerte (aperçu) ; l'exploration se fait ici :
+// vue de consultation complète (référence Outdooractive) — calques, relief 3D, boussole,
+// modification du tracé, et bandeau bas métriques + profil dépliable, synchronisé avec la
+// carte dans les deux sens. Même contrat d'historique que la fiche : Échap, ✕ et le bouton
+// retour ferment.
 let fullMap = null;
 let fullProfile = null;
 let fullCursor = null;
+let fullTrail = null;
+let fullBounds = null;
+let fullEles = null;
+let full3D = false;
+let profileOpen = false;
+let fmNeedleDeg = 0;
+let fmHeading = null;
+
+// Le fond et les surcouches choisis ici survivent d'une fiche à l'autre : c'est une
+// préférence de lecture (« je lis mes tracés en satellite »), pas un réglage par tracé.
+// Lus à l'ouverture et non au chargement du module : map.js et detail.js s'importent en
+// cercle (via ui.js), et toucher une constante de map.js pendant l'évaluation de ce
+// module-ci la trouverait encore non initialisée.
+const BASE_KEY = "sr-fiche-base";
+const OVERLAY_KEY = "sr-fiche-overlays";
+let fullBase = null;
+let fullOverlays = null;
+
+function readLayerPrefs() {
+  if (fullBase == null) {
+    const saved = localStorage.getItem(BASE_KEY);
+    fullBase = FICHE_BASES.includes(saved) ? saved : "topo";
+  }
+  if (fullOverlays == null) {
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(OVERLAY_KEY) || "[]") || []; } catch { saved = []; }
+    fullOverlays = new Set(saved.filter((n) => FICHE_OVERLAYS.includes(n)));
+  }
+}
 
 const fullmapEl = document.getElementById("fullmap-overlay");
 
@@ -281,65 +316,215 @@ function showOnFullMap(p) {
   }
 }
 
+// Recadre le tracé en tenant compte du bandeau bas, qui recouvre la carte : sans cette
+// marge, le départ ou l'arrivée se retrouve caché dessous. Rejoué à chaque dépliage du
+// profil, puisque la hauteur du bandeau change.
+function fitFullMap({ animate = false } = {}) {
+  if (!fullMap || !fullBounds) return;
+  const panel = document.getElementById("fullmap-panel");
+  fullMap.fitBounds(fullBounds, {
+    padding: { top: 70, left: 40, right: 40, bottom: (panel?.offsetHeight || 150) + 30 },
+    duration: animate ? 350 : 0,
+  });
+}
+
+// Le profil se re-crée à chaque changement de hauteur : `createProfile` fixe sa géométrie
+// au montage. Peu coûteux (un SVG), et cela garde le module sans état de repli.
+function paintFullProfile() {
+  const box = document.getElementById("fullmap-profile");
+  if (!box || !fullEles) return;
+  fullProfile?.destroy();
+  const mobile = window.innerWidth < 700;
+  fullProfile = createProfile(box, {
+    eles: fullEles,
+    track: fullTrail.mainline || trackOf(fullTrail),
+    ways: fullTrail.ways,
+    totalKm: fullTrail.distance,
+    height: profileOpen ? (mobile ? 150 : 210) : (mobile ? 70 : 88),
+    onHover: showOnFullMap,
+    markers: poiProfileMarkers(fullTrail),
+  });
+}
+
+// Détail chiffré qui n'apparaît qu'une fois le profil déplié : ce que la courbe montre
+// sans le dire (altitudes extrêmes, D−, amplitude, cotation). Replié, le bandeau garde
+// les quatre métriques qui décident d'y aller ou non.
+function fullDetailHtml() {
+  if (!fullEles?.length) return "";
+  const fr = (v) => Math.round(v).toLocaleString("fr-FR");
+  const min = Math.min(...fullEles);
+  const max = Math.max(...fullEles);
+  const loss = fullTrail.elevationLoss ?? computeLoss(fullEles);
+  const sac = fullTrail.sac;
+  const rows = [
+    ["Altitude min", `${fr(min)} m`, null],
+    ["Altitude max", `${fr(max)} m`, null],
+    ["Dénivelé négatif", `${fr(loss)} m`, null],
+    ["Amplitude", `${fr(max - min)} m`, null],
+    // Le libellé complet de la cote irait à la ligne dans une cellule de grille : il passe
+    // en infobulle, la cellule ne montre que le niveau — qui est ce qu'on lit d'un coup d'œil.
+    sac?.level ? ["Cotation", `${sac.level}${sac.estimated ? " (est.)" : ""}`, SAC_LABEL[sac.level] || ""] : null,
+  ].filter(Boolean);
+  return rows
+    .map(([k, v, hint]) =>
+      `<div class="fm-detail-row"${hint ? ` title="${escapeHtml(hint)}"` : ""}><span>${k}</span><b>${escapeHtml(v)}</b></div>`
+    )
+    .join("");
+}
+
+function setProfileOpen(on) {
+  profileOpen = on;
+  const panel = document.getElementById("fullmap-panel");
+  const toggle = document.getElementById("fullmap-toggle");
+  const detail = document.getElementById("fullmap-detail");
+  panel?.classList.toggle("expanded", on);
+  toggle?.setAttribute("aria-expanded", on ? "true" : "false");
+  if (detail) {
+    detail.innerHTML = on ? fullDetailHtml() : "";
+    detail.classList.toggle("hidden", !on || !fullEles);
+  }
+  paintFullProfile();
+  // Le bandeau a changé de hauteur : laisser le layout se poser avant de recadrer.
+  requestAnimationFrame(() => fitFullMap({ animate: true }));
+}
+
+// ---------- Boussole de la vue plein écran ----------
+// Même contrat que celle de la carte principale (js/map.js) : l'aiguille suit le capteur
+// physique du téléphone, l'anneau pointillé n'apparaît que si la carte est pivotée et
+// montre où est son nord ; le clic remet le nord.
+function paintFmCompass() {
+  const btn = document.getElementById("fm-compass");
+  if (!btn || !fullMap) return;
+  const needle = btn.querySelector(".compass-needle");
+  const ring = btn.querySelector(".compass-ring");
+  const target = fmHeading != null ? -fmHeading : -fullMap.getBearing();
+  fmNeedleDeg = shortestRotate(fmNeedleDeg, target);
+  if (needle) needle.style.transform = `rotate(${fmNeedleDeg}deg)`;
+  const bearing = fullMap.getBearing();
+  const rotated = Math.abs(bearing) > 0.5;
+  if (ring) {
+    ring.classList.toggle("hidden", !rotated);
+    if (rotated) ring.style.transform = `rotate(${-bearing}deg)`;
+  }
+}
+
+const onFmHeading = (h) => { fmHeading = h; requestAnimationFrame(paintFmCompass); };
+
+// Bascule du relief. Même moteur que la carte principale (`enableTerrainOn`) : un seul
+// rendu de relief dans le projet.
+function setFull3D(on) {
+  full3D = on;
+  const btn = document.getElementById("fm-3d");
+  btn?.classList.toggle("active", on);
+  btn?.setAttribute("aria-pressed", on ? "true" : "false");
+  if (!fullMap) return;
+  if (on) {
+    enableTerrainOn(fullMap);
+    if (fullMap.getPitch() < 40) fullMap.easeTo({ pitch: 62, duration: 700 });
+  } else {
+    fullMap.setTerrain(null);
+    try { fullMap.setSky({}); } catch { /* rien à retirer */ }
+    if (fullMap.getPitch() > 0) fullMap.easeTo({ pitch: 0, duration: 500 });
+  }
+}
+
+function paintFmLayerPanel() {
+  document.querySelectorAll("[data-fmbase]").forEach((card) =>
+    card.classList.toggle("active", card.dataset.fmbase === fullBase)
+  );
+  document.querySelectorAll("[data-fmov]").forEach((row) => {
+    const on = fullOverlays.has(row.dataset.fmov);
+    row.classList.toggle("active", on);
+    const cb = row.querySelector("input[type=checkbox]");
+    if (cb) cb.checked = on;
+  });
+}
+
 function openFullMap(t) {
   if (isFullMapOpen()) return;
   fullmapEl.classList.remove("hidden");
   history.pushState({ srDetail: true, srFullmap: true }, "");
 
+  readLayerPrefs();
+  fullTrail = t;
+  fullEles = null;
+  fullBounds = null;
+  full3D = false;
+  profileOpen = false;
+  fmHeading = null;
   document.getElementById("fullmap-title").textContent = t.name;
+
   const gain = t.elevationGain ?? state.elev[t.id]?.gain;
   const amax = t.altMax ?? state.elev[t.id]?.max;
   const fr = (v) => Math.round(v).toLocaleString("fr-FR");
   document.getElementById("fullmap-stats").innerHTML =
-    `<span class="fullmap-stat"><b>${t.distance}</b> km</span>` +
-    (gain ? `<span class="fullmap-stat"><b>${fr(gain)}</b> m D+</span>` : "") +
-    (amax ? `<span class="fullmap-stat"><b>${fr(amax)}</b> m max</span>` : "") +
-    `<span class="fullmap-stat"><b>${t.duration}</b></span>`;
+    `<div class="dock-stat big"><span>${t.distance}<small> km</small></span><label>Distance</label></div>` +
+    `<div class="dock-stat big"><span>${t.duration}</span><label>Durée est.</label></div>` +
+    `<div class="dock-stat"><span id="fm-gain">${gain != null ? fr(gain) : "—"}<small> m</small></span><label>Dénivelé +</label></div>` +
+    `<div class="dock-stat"><span id="fm-amax">${amax != null ? fr(amax) : "—"}<small> m</small></span><label>Altitude max</label></div>`;
 
-  const panel = fullmapEl.querySelector(".fullmap-panel");
-  // `attribution:true` affiche le crédit OSM (obligatoire) sans le badge « Leaflet » que
-  // l'ancienne carte s'attribuait à tort. MapLibre lit l'attribution de la source topo.
-  fullMap = createFicheMap("fullmap", { attribution: true });
+  setProfileOpen(false);
+  paintFmLayerPanel();
+  document.getElementById("fm-3d")?.classList.remove("active");
+  document.getElementById("fm-3d")?.setAttribute("aria-pressed", "false");
+  document.getElementById("fm-layers-panel")?.classList.add("hidden");
+  document.getElementById("fm-layers")?.setAttribute("aria-expanded", "false");
+
+  // `attribution:true` affiche le crédit OSM (obligatoire). `stack:true` déclare tous les
+  // fonds d'un coup : le sélecteur de calques bascule ensuite des visibilités, sans jamais
+  // reconstruire le style (donc sans perdre tracé, repères ni relief).
+  fullMap = createFicheMap("fullmap", { attribution: true, stack: true, layer: fullBase, maxPitch: 80 });
   fullMap.on("load", () => {
     if (!isFullMapOpen()) return; // fermé pendant le chargement du style
+    fullOverlays.forEach((n) => setFicheOverlay(fullMap, n, true));
     const line = drawTrackOn(fullMap, t.segments || t.track);
     addPoiMarkers(fullMap, t, { tooltips: true });
-    // Le bandeau bas recouvre la carte : le cadrage doit en tenir compte, sinon le
-    // départ ou l'arrivée se retrouve caché dessous.
-    fullMap.fitBounds(line.getBounds(), {
-      padding: { top: 60, left: 40, right: 40, bottom: (panel?.offsetHeight || 150) + 30 },
-    });
+    fullBounds = line.getBounds();
+    fitFullMap();
     line.on("mousemove", (e) => {
       const km = fullProfile?.kmNear(e.lngLat.lat, e.lngLat.lng);
       if (km != null) fullProfile.setCursorKm(km);
     });
     line.on("mouseout", () => fullProfile?.setCursorKm(null));
   });
+  fullMap.on("rotate", paintFmCompass);
+  fullMap.on("rotateend", paintFmCompass);
+  paintFmCompass();
+  startCompass(onFmHeading); // marche directement sur Android, sans geste requis
 
   ensureElevation(t)
     .then((eles) => {
       if (!isFullMapOpen()) return; // fermé pendant la requête
-      fullProfile = createProfile(document.getElementById("fullmap-profile"), {
-        eles,
-        track: t.mainline || trackOf(t),
-        ways: t.ways,
-        totalKm: t.distance,
-        height: window.innerWidth < 700 ? 84 : 110,
-        onHover: showOnFullMap,
-        markers: poiProfileMarkers(t),
-      });
+      fullEles = eles;
+      paintFullProfile();
+      const e = state.elev[t.id];
+      const gEl = document.getElementById("fm-gain");
+      const aEl = document.getElementById("fm-amax");
+      if (e && gEl) gEl.innerHTML = `${e.gain.toLocaleString("fr-FR")}<small> m</small>`;
+      if (e && aEl) aEl.innerHTML = `${e.max.toLocaleString("fr-FR")}<small> m</small>`;
     })
-    .catch(() => {}); // hors-ligne : la carte et les stats suffisent, pas de bandeau vide
+    .catch(() => {
+      // Hors-ligne : la carte et les métriques suffisent — le bandeau ne montre pas un
+      // cadre vide, il dit pourquoi il est vide.
+      const box = document.getElementById("fullmap-profile");
+      if (box) box.innerHTML = `<p class="muted fm-profile-empty">Profil indisponible hors connexion.</p>`;
+    });
 }
 
 export function closeFullMap(fromPopstate = false) {
   if (!isFullMapOpen()) return;
   fullmapEl.classList.add("hidden");
+  stopCompass(onFmHeading);
   fullProfile?.destroy();
   fullProfile = null;
   fullCursor = null;
+  fullTrail = null;
+  fullEles = null;
+  fullBounds = null;
   if (fullMap) { fullMap.remove(); fullMap = null; }
   document.getElementById("fullmap-profile").innerHTML = "";
+  document.getElementById("fullmap-detail").innerHTML = "";
+  document.getElementById("fm-layers-panel")?.classList.add("hidden");
   if (!fromPopstate && history.state?.srFullmap) selfBack();
 }
 
@@ -385,12 +570,11 @@ export function renderDetail(id) {
     </div>
 
     <div class="detail-media">
-      <div class="detail-hero" style="${photoStyle(t)}"></div>
+      <div class="mini-map-wrap" id="mini-map-wrap" title="Agrandir la carte" role="button" tabindex="0" aria-label="Ouvrir la carte en plein écran">
+        <div id="mini-map"></div>
+        <span class="mini-map-expand" aria-hidden="true">⤢</span>
+      </div>
       <div class="detail-side">
-        <div class="mini-map-wrap" id="mini-map-wrap" title="Agrandir la carte" role="button" tabindex="0" aria-label="Ouvrir la carte en plein écran">
-          <div id="mini-map"></div>
-          <span class="mini-map-expand" aria-hidden="true">⤢</span>
-        </div>
         <div class="side-profile" id="side-profile">
           <p class="muted">Profil d'altitude réel — chargement…</p>
         </div>
@@ -579,16 +763,16 @@ export function renderDetail(id) {
     );
   }
 
-  // Photo réelle du lieu pour les itinéraires du catalogue (article Wikipédia le plus proche)
+  // Photo réelle du lieu pour les itinéraires du catalogue (article Wikipédia le plus
+  // proche). La fiche n'a plus de bandeau photo — la carte a pris sa place — mais les
+  // vignettes de la liste, elles, s'en servent : on continue donc de la relever et de la
+  // mettre en cache, sans rien afficher ici.
   if (t.osm && state.photos[t.id] === undefined) {
     geoPhoto(t)
       .then((url) => {
         state.photos[t.id] = url;
         putMeta("photos", state.photos);
-        if (url && state.selectedId === id) {
-          document.querySelector(".detail-hero").style.cssText = photoStyle(t);
-          updateCardPhotos(t);
-        }
+        if (url) updateCardPhotos(t);
       })
       .catch(() => {});
   }
@@ -772,4 +956,69 @@ export function initDetail() {
   // closeDetail passé tel quel (l'event truthy évite le history.back), comme l'original
   document.getElementById("detail-close").addEventListener("click", closeDetail);
   document.getElementById("fullmap-close").addEventListener("click", () => closeFullMap());
+
+  // ---------- Contrôles de la vue plein écran ----------
+  // Câblés une fois pour toutes sur des éléments statiques : ouvrir une autre fiche ne
+  // rebranche rien, les poignées lisent `fullMap`/`fullTrail` au moment du clic.
+  const layersBtn = document.getElementById("fm-layers");
+  const layersPanel = document.getElementById("fm-layers-panel");
+  layersBtn?.addEventListener("click", () => {
+    const open = layersPanel.classList.toggle("hidden") === false;
+    layersBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  // Un clic sur la carte referme le sélecteur : pas de panneau qui traîne au-dessus du
+  // tracé qu'on cherche justement à regarder.
+  document.getElementById("fullmap")?.addEventListener("pointerdown", () => {
+    layersPanel?.classList.add("hidden");
+    layersBtn?.setAttribute("aria-expanded", "false");
+  });
+
+  const pickBase = (name) => {
+    readLayerPrefs();
+    fullBase = name;
+    localStorage.setItem(BASE_KEY, name);
+    if (fullMap) setFicheBase(fullMap, name);
+    paintFmLayerPanel();
+  };
+  document.querySelectorAll("[data-fmbase]").forEach((card) => {
+    const thumb = card.querySelector(".layer-thumb");
+    thumb?.addEventListener("click", () => pickBase(card.dataset.fmbase));
+    thumb?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickBase(card.dataset.fmbase); }
+    });
+  });
+  document.querySelectorAll("[data-fmov]").forEach((row) => {
+    row.querySelector("input[type=checkbox]")?.addEventListener("change", (e) => {
+      readLayerPrefs();
+      const name = row.dataset.fmov;
+      if (e.target.checked) fullOverlays.add(name); else fullOverlays.delete(name);
+      localStorage.setItem(OVERLAY_KEY, JSON.stringify([...fullOverlays]));
+      if (fullMap) setFicheOverlay(fullMap, name, e.target.checked);
+      paintFmLayerPanel();
+    });
+  });
+
+  document.getElementById("fm-3d")?.addEventListener("click", () => setFull3D(!full3D));
+
+  document.getElementById("fm-compass")?.addEventListener("click", () => {
+    if (!fullMap) return;
+    startCompass(onFmHeading); // geste utilisateur : couvre la demande de permission iOS
+    if (Math.abs(fullMap.getBearing()) > 0.5 || fullMap.getPitch() > 0.5) {
+      fullMap.easeTo({ bearing: 0, pitch: full3D ? 62 : 0, duration: 300 });
+    }
+  });
+
+  document.getElementById("fm-edit")?.addEventListener("click", async () => {
+    if (!fullTrail) return;
+    const t = fullTrail;
+    const { openPlannerForEdit } = await import("./planner.js");
+    openPlannerForEdit(t); // referme fiche et carte, puis ouvre le planificateur
+  });
+
+  // Profil : le bouton du bandeau et le profil lui-même déplient. Replié il reste
+  // survolable (curseur lié à la carte) ; c'est le clic qui l'agrandit.
+  document.getElementById("fullmap-toggle")?.addEventListener("click", () => setProfileOpen(!profileOpen));
+  document.getElementById("fullmap-profile")?.addEventListener("click", () => {
+    if (!profileOpen) setProfileOpen(true);
+  });
 }
