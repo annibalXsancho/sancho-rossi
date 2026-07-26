@@ -556,7 +556,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 /* Boussole affichée en continu (js/map.js initCompass) : en fin de pile pour ne
    décaler aucun autre bouton. */
-.compass-needle { transition: transform 120ms linear; }
+.compass-needle { width: 30px; height: 30px; transition: transform 120ms linear; }
 
 /* Deux indicateurs superposés dans le même bouton rond (carte + HUD nav) : l'aiguille
    suit le nord de la carte, la barre fine suit l'orientation physique du téléphone
