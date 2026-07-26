@@ -12,8 +12,8 @@ import { planner, plannerMapClick, plannerCanvasClick } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
-import { startCompass, shortestRotate } from "./compass.js";
-import { savePos } from "./security.js";
+import { startCompass, stopCompass, shortestRotate } from "./compass.js";
+import { savePos, shareSosPosition } from "./security.js";
 
 // ---------- Description des calques (source unique) ----------
 // Une entrée décrit tout ce qu'un calque a besoin d'exposer : URL modèle, sous-domaines,
@@ -959,42 +959,104 @@ function initScale() {
 }
 
 // ---------- Boussole ----------
-// Affichée en continu (demande utilisateur du 26/07/2026, après retour terrain).
-// Deux indicateurs distincts et indépendants : l'aiguille pointe le nord de la
-// CARTE (contre-rotée au bearing, comme à l'origine) ; une barre fine superposée
-// suit en plus l'orientation PHYSIQUE du téléphone (capteur, compass.js — partagé
-// avec le HUD de nav), visible seulement quand le capteur répond. Le clic garde son
-// rôle d'origine : remettre le nord de la carte, et retente au passage la permission
-// capteur (geste utilisateur — nécessaire côté iOS).
-let mapBarDeg = 0;
+// Révisée le 26/07/2026 (référence : boussole OsmAnd). Affichée en continu. L'aiguille
+// suit l'orientation PHYSIQUE réelle du téléphone (capteur, compass.js — repli sur le
+// bearing carte si le capteur est indisponible). Un anneau pointillé apparaît AUTOUR du
+// bouton seulement quand la carte est pivotée, avec un repère rouge qui indique où est
+// le nord de la carte sur cet anneau. Le clic : remet le nord si la carte est pivotée ;
+// sinon (déjà au nord) ouvre la vue boussole plein écran avec partage de position.
+let mapNeedleDeg = 0;
 let mapSensorHeading = null;
 
 function initCompass() {
   const btn = document.getElementById("btn-compass");
   if (!btn) return;
   const needle = btn.querySelector(".compass-needle");
-  const bar = btn.querySelector(".compass-device-bar");
+  const ring = btn.querySelector(".compass-ring");
   btn.classList.remove("hidden");
 
   const paintNeedle = () => {
-    if (needle) needle.style.transform = `rotate(${-map.getBearing()}deg)`;
+    if (!needle) return;
+    const target = mapSensorHeading != null ? -mapSensorHeading : -map.getBearing();
+    mapNeedleDeg = shortestRotate(mapNeedleDeg, target);
+    needle.style.transform = `rotate(${mapNeedleDeg}deg)`;
   };
-  const paintBar = () => {
-    if (!bar || mapSensorHeading == null) return;
-    bar.classList.remove("hidden");
-    mapBarDeg = shortestRotate(mapBarDeg, -mapSensorHeading);
-    bar.style.transform = `rotate(${mapBarDeg}deg)`;
+  const paintRing = () => {
+    if (!ring) return;
+    const bearing = map.getBearing();
+    const rotated = Math.abs(bearing) > 0.5;
+    ring.classList.toggle("hidden", !rotated);
+    if (rotated) ring.style.transform = `rotate(${-bearing}deg)`;
   };
-  const onMapHeading = (h) => { mapSensorHeading = h; requestAnimationFrame(paintBar); };
+  const onMapHeading = (h) => { mapSensorHeading = h; requestAnimationFrame(paintNeedle); };
 
-  map.on("rotate", paintNeedle);
-  map.on("rotateend", paintNeedle);
+  map.on("rotate", () => { paintNeedle(); paintRing(); });
+  map.on("rotateend", () => { paintNeedle(); paintRing(); });
   btn.addEventListener("click", () => {
-    startCompass(onMapHeading); // geste utilisateur : couvre la permission iOS
-    map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
+    if (Math.abs(map.getBearing()) > 0.5) {
+      map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
+    } else {
+      startCompass(onMapHeading); // geste utilisateur : couvre la permission iOS
+      openCompassView();
+    }
   });
   startCompass(onMapHeading); // marche directement sur Android, sans geste requis
   paintNeedle();
+  paintRing();
+}
+
+// ---------- Vue boussole plein écran ----------
+// Cadran fixe (N en haut) + aiguille rotative au cap capteur, position actuelle et
+// partage (réutilise le flux SOS de security.js — même message, mêmes canaux).
+let viewSensorHeading = null;
+let viewNeedleDeg = 0;
+
+const CARDINALS_FR = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
+const cardinalFr = (deg) => CARDINALS_FR[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+
+function onCompassViewHeading(h) {
+  viewSensorHeading = h;
+  requestAnimationFrame(paintCompassView);
+}
+
+function paintCompassView() {
+  if (viewSensorHeading == null) return;
+  const needle = document.getElementById("compass-view-needle");
+  if (needle) {
+    viewNeedleDeg = shortestRotate(viewNeedleDeg, viewSensorHeading);
+    needle.style.transform = `rotate(${viewNeedleDeg}deg)`;
+  }
+  const deg = Math.round(viewSensorHeading);
+  document.getElementById("compass-view-deg").textContent = `${deg}°`;
+  document.getElementById("compass-view-card").textContent = cardinalFr(viewSensorHeading);
+}
+
+function renderCompassViewPos() {
+  const el = document.getElementById("compass-view-pos");
+  if (!el) return;
+  if (!state.lastPos) { el.textContent = "Position inconnue pour l'instant."; return; }
+  const p = state.lastPos;
+  el.textContent = `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)} · ±${p.acc} m`;
+}
+
+function openCompassView() {
+  const view = document.getElementById("compass-view");
+  if (!view) return;
+  view.classList.remove("hidden");
+  renderCompassViewPos();
+  startCompass(onCompassViewHeading);
+}
+
+function closeCompassView() {
+  document.getElementById("compass-view")?.classList.add("hidden");
+  stopCompass(onCompassViewHeading);
+}
+
+function initCompassView() {
+  document.getElementById("compass-view-close")?.addEventListener("click", closeCompassView);
+  document.getElementById("compass-view-share")?.addEventListener("click", () => {
+    shareSosPosition();
+  });
 }
 
 // ---------- Relief 3D (S-V2-CARTE-C) ----------
@@ -1100,6 +1162,7 @@ export function initMap() {
   map.setMaxPitch(80);
   initScale();
   initCompass();
+  initCompassView();
 
   document.getElementById("btn-3d")?.addEventListener("click", () => set3D(!terrain3d));
 

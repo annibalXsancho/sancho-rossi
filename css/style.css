@@ -576,8 +576,32 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   transition: transform 120ms linear;
 }
 .compass-device-bar.hidden { display: none; }
+
+/* Vue carte (26/07/2026, révision) : l'aiguille suit le capteur du téléphone (comme
+   une vraie boussole) ; un anneau pointillé apparaît autour SEULEMENT quand la carte
+   est pivotée, avec un repère rouge qui indique où est le nord de la carte. 1 clic
+   remet le nord si pivotée ; sinon ouvre la vue boussole plein écran (+ partage position). */
+.compass-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 40%, transparent);
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+.compass-ring.hidden { display: none; }
+.compass-ring-tick {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 4px;
+  height: 8px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--red);
+}
 @media (prefers-reduced-motion: reduce) {
-  .compass-needle, .compass-device-bar { transition: none; }
+  .compass-needle, .compass-device-bar, .compass-ring { transition: none; }
 }
 
 /* ---- Contrôles natifs MapLibre alignés sur le style v2 ---- */
@@ -1688,6 +1712,29 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .fullmap-title { max-width: 100%; }
   .fullmap-stats { gap: 12px; font-size: 11px; }
 }
+
+/* Boussole plein écran (js/map.js openCompassView) */
+.compass-view {
+  position: fixed; inset: 0; z-index: 1400; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 64px var(--sp-4) var(--sp-5);
+}
+.compass-view.hidden { display: none; }
+.compass-view-heading { text-align: center; margin-bottom: var(--sp-4); }
+.compass-view-heading #compass-view-deg { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.compass-view-card { font-size: 22px; font-weight: 700; color: var(--text-soft); margin-left: var(--sp-2); }
+.compass-dial { width: min(78vw, 320px); margin: 0 auto; }
+.compass-dial-svg { width: 100%; height: auto; color: var(--text); }
+#compass-view-needle { transition: transform 120ms linear; }
+@media (prefers-reduced-motion: reduce) { #compass-view-needle { transition: none; } }
+.compass-view-pos {
+  margin-top: var(--sp-4);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.compass-view-share { margin-top: var(--sp-4); }
 
 .side-profile {
   flex: 1;

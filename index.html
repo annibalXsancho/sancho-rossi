@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=567" />
+  <link rel="stylesheet" href="css/style.css?v=568" />
   <script type="importmap">
     {
       "imports": {
@@ -27,7 +27,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=542",
+        "./js/map.js": "./js/map.js?v=543",
         "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=535",
@@ -155,8 +155,8 @@
         <!-- Boussole : affichée en continu, suit l'orientation physique réelle du téléphone
              (js/compass.js) ; le clic remet le nord de la carte si elle est pivotée. -->
         <button class="map-ctl" id="btn-compass" title="Boussole — cliquer pour remettre le nord de la carte" aria-label="Boussole">
+          <span class="compass-ring hidden"><span class="compass-ring-tick"></span></span>
           <svg class="compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.2 8.8 10.4 10.4 8.8 15.2 13.6 13.6Z" fill="currentColor" stroke="none"/><path d="M12 1.8v2"/></svg>
-          <span class="compass-device-bar hidden" title="Orientation réelle du téléphone"></span>
         </button>
 
         <!-- Sélecteur de calques refondu : cartes-aperçu (fonds) + pastilles (surcouches, POI). -->
@@ -866,6 +866,36 @@
       </div>
       <div id="fullmap-profile"></div>
     </div>
+  </section>
+
+  <!-- Boussole plein écran (clic sur #btn-compass quand la carte est déjà au nord) :
+       cadran fixe + aiguille au cap capteur, position actuelle, partage (S-V2-SOS). -->
+  <section id="compass-view" class="compass-view hidden" aria-label="Boussole">
+    <button id="compass-view-close" class="fullmap-close" title="Fermer" aria-label="Fermer">✕</button>
+    <div class="compass-view-heading">
+      <span id="compass-view-deg">—</span><span id="compass-view-card" class="compass-view-card"></span>
+    </div>
+    <div class="compass-dial">
+      <svg viewBox="0 0 240 240" class="compass-dial-svg">
+        <circle cx="120" cy="120" r="104" fill="none" stroke="var(--border)" stroke-width="1.5" />
+        <g stroke="var(--text-soft)" stroke-width="1.5">
+          <line x1="120" y1="16" x2="120" y2="28" />
+          <line x1="224" y1="120" x2="212" y2="120" />
+          <line x1="120" y1="224" x2="120" y2="212" />
+          <line x1="16" y1="120" x2="28" y2="120" />
+        </g>
+        <text x="120" y="40" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="800">N</text>
+        <text x="204" y="126" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-weight="700">E</text>
+        <text x="120" y="208" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-weight="700">S</text>
+        <text x="36" y="126" text-anchor="middle" fill="var(--text-soft)" font-size="13" font-weight="700">O</text>
+        <g id="compass-view-needle" style="transform-origin: 120px 120px;">
+          <path d="M120 40 108 128 120 118 132 128Z" fill="var(--red)" />
+          <path d="M120 118 132 128 120 200 108 128Z" fill="currentColor" opacity="0.5" />
+        </g>
+      </svg>
+    </div>
+    <p class="compass-view-pos" id="compass-view-pos">Position inconnue pour l'instant.</p>
+    <button id="compass-view-share" class="btn btn-primary compass-view-share">🆘 Partager ma position</button>
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
