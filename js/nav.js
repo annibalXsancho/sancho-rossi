@@ -1001,7 +1001,12 @@ function initNavSheet() {
   });
 }
 
+// Chargé à la demande (S11) depuis plusieurs points d'entrée (reprise au boot, bouton
+// « Suivre », onglet Itinéraires…) : le garde évite de câbler les écouteurs deux fois.
+let navInited = false;
 export function initNav() {
+  if (navInited) return;
+  navInited = true;
   document.getElementById("nav-stop").addEventListener("click", stopNavigation);
   document.getElementById("primal-stop").addEventListener("click", stopNavigation);
   document.getElementById("nav-mode").addEventListener("click", () => setPrimal(true));

@@ -12,7 +12,6 @@ import { trailMarks } from "./fieldmarks.js";
 import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 import { touchPrefs, tombstoneTrace } from "./sync.js";
 import { computeGain, computeLoss, naismithHours, fmtDuration, sacRating } from "./metrics.js";
-import { openImportChoice } from "./importgpx.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -432,7 +431,8 @@ export function initTrails() {
       try {
         const raw = parseGPX(await file.text(), file.name);
         // Choix brut/recalé (S-V2-SORTIES, absorbe S-RECALAGE) — un clic « Annuler »
-        // saute simplement ce fichier, sans erreur.
+        // saute simplement ce fichier, sans erreur. Chargé à la demande (S11).
+        const { openImportChoice } = await import("./importgpx.js");
         const choice = await openImportChoice(raw);
         if (!choice) continue;
 

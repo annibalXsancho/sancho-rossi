@@ -8,9 +8,7 @@ import { putMeta } from "./storage.js";
 import { hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon } from "./map.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
 import { switchTab } from "./ui.js";
-import { startNavigation } from "./nav.js";
 import { hasPack, buildPack } from "./offline.js";
-import { askPackOptions } from "./packdialog.js";
 import { createRouteWeather } from "./hikeweather.js";
 import { createRouteConditions } from "./conditions.js";
 import { moonPhase, sunTimes } from "./astro.js";
@@ -581,7 +579,11 @@ export function renderDetail(id) {
     // Sur la carte uniquement : la fiche ne doit pas se rouvrir par-dessus
     setTimeout(() => selectTrail(id, { openDetail: false }), 100);
   });
-  document.getElementById("btn-follow").addEventListener("click", () => startNavigation(id));
+  document.getElementById("btn-follow").addEventListener("click", async () => {
+    const { initNav, startNavigation } = await import("./nav.js");
+    initNav();
+    startNavigation(id);
+  });
   document.getElementById("btn-safety").addEventListener("click", () => {
     closeDetail();
     switchTab("reglages"); // la Sécurité (plan de marche) est fusionnée dans les Réglages
@@ -679,6 +681,7 @@ async function load3D(trail) {
 // toujours le bouton par son id pour refléter la progression sur l'élément visible.
 async function downloadPack(t, id) {
   if (hasPack(id)) { closeDetail(); switchTab("reglages"); return; }
+  const { askPackOptions } = await import("./packdialog.js");
   const depth = await askPackOptions(t);
   if (!depth) return;
 

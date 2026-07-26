@@ -1,5 +1,5 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v60";
+const SHELL_CACHE = "sr-shell-v61";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
@@ -51,11 +51,13 @@ const SHELL_FILES = [
   "js/offline.js",
   "js/packdialog.js",
   "js/zoneselect.js",
+  "js/importgpx.js",
   "js/recommend.js",
   "js/explorer.js",
   "js/fiche3d.js",
   "js/share.js",
   "js/sync.js",
+  "js/outings.js",
   "manifest.json",
   "assets/logo-t.png",
   "assets/icon-512.png",

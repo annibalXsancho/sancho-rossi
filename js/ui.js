@@ -7,9 +7,7 @@ import { renderSafety, saveContacts } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { saveTraces, putMeta, clearAll } from "./storage.js";
 import { listPacks, deletePack, deleteAllPacks, storageEstimate, listPending, delPending, resumeZonePack } from "./offline.js";
-import { runZonePackJob } from "./zoneselect.js";
 import { toast } from "./toast.js";
-import { renderNavView } from "./navview.js";
 import { initSync, renderSyncStatus, scheduleSync } from "./sync.js";
 import { renderOutingsBlock } from "./outings.js";
 
@@ -47,7 +45,10 @@ export function switchTab(name) {
     // moment, refus mémorisé — jamais de relance). Voir map.js promptGeolocation.
     promptGeolocation();
   }
-  if (name === "itineraires") renderNavView();
+  // navview.js (+ nav.js, ~59 ko) n'est chargé qu'à la première ouverture de l'onglet
+  // (S11 — poids au chargement) : le module est mis en cache par le navigateur, les
+  // ouvertures suivantes sont instantanées.
+  if (name === "itineraires") import("./navview.js").then((m) => m.renderNavView());
   if (name === "reglages") { renderOffline(); renderSafety(); renderSyncStatus(); }
   scheduleSync(); // no-op si non configuré (S-V2-SYNC) — quasi tous les parcours passent par un changement d'onglet
 }
@@ -80,6 +81,7 @@ export async function renderOffline() {
       b.addEventListener("click", async () => {
         const id = b.dataset.resumePack;
         const label = listPending().find((x) => x.id === id)?.name || "Zone";
+        const { runZonePackJob } = await import("./zoneselect.js");
         const { result, err } = await runZonePackJob({
           label,
           job: (onProgress, shouldStop) => resumeZonePack(id, onProgress, shouldStop),

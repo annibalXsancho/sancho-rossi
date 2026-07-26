@@ -12,7 +12,6 @@ import { planner, plannerMapClick, plannerCanvasClick } from "./planner.js";
 import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
-import { startNavigation } from "./nav.js";
 import { startCompass, shortestRotate } from "./compass.js";
 import { savePos } from "./security.js";
 
@@ -1242,7 +1241,10 @@ export function initMap() {
     if (state.selectedId) renderDetail(state.selectedId);
   });
 
-  document.getElementById("preview-follow").addEventListener("click", () => {
-    if (state.selectedId) startNavigation(state.selectedId);
+  document.getElementById("preview-follow").addEventListener("click", async () => {
+    if (!state.selectedId) return;
+    const { initNav, startNavigation } = await import("./nav.js");
+    initNav();
+    startNavigation(state.selectedId);
   });
 }

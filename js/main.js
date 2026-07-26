@@ -11,7 +11,6 @@ import { initDetail } from "./detail.js";
 import { initCatalog, hydrateCatalog } from "./catalog.js";
 import { initPlanner } from "./planner.js";
 import { initLoops } from "./loops.js";
-import { initNav, startNavigation } from "./nav.js";
 import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
@@ -48,7 +47,6 @@ initDetail();
 initCatalog();
 initPlanner();
 initLoops();
-initNav();
 initSecurity();
 initRecommend();
 initExplorer();
@@ -154,7 +152,12 @@ loadPersisted().then(async (persisted) => {
   let savedNav = null;
   try { savedNav = JSON.parse(localStorage.getItem("sr-nav") || "null"); } catch {}
   if (savedNav?.id && Date.now() - savedNav.startedAt < NAV_MAX_AGE && getTrail(savedNav.id)) {
-    startNavigation(savedNav.id, { resume: savedNav });
+    // nav.js (~59 ko avec navview.js) n'est chargé qu'à la demande (S11) — ici la
+    // demande existe dès le boot (session interrompue à reprendre).
+    import("./nav.js").then(({ initNav, startNavigation }) => {
+      initNav();
+      startNavigation(savedNav.id, { resume: savedNav });
+    });
     toast("Navigation reprise — votre session a été restaurée.", { type: "success" });
   } else {
     if (savedNav) localStorage.removeItem("sr-nav");
