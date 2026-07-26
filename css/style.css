@@ -1559,12 +1559,14 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .coord-dec { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; font-weight: 700; }
 .coord-dms { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #5c625c; margin-top: 2px; }
 .coord-copy {
-  margin-top: 8px; width: 100%; padding: 5px 8px;
-  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
-  background: transparent; color: inherit;
-  border: 1px solid #ff2d20; border-radius: 2px; transition: background 0.15s ease;
+  margin-top: 8px; width: 100%; padding: 6px 8px;
+  font: inherit; font-weight: 700; font-size: 11.5px; cursor: pointer;
+  background: var(--surface-2); color: var(--text);
+  border: none; border-radius: var(--radius);
+  transition: background 0.15s ease-out, transform 0.15s ease-out;
 }
-.coord-copy:hover { background: rgba(255, 45, 32, 0.12); }
+.coord-copy:hover { background: var(--surface-3); transform: translateY(-1px); }
+.coord-copy:active { transform: translateY(0) scale(0.98); }
 [data-theme="dark"] .coord-dms,
 :root:not([data-theme="light"]) .coord-dms { color: #8f938f; }
 
@@ -1884,7 +1886,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   color: var(--text-soft);
 }
 
-.pill-facile { background: color-mix(in srgb, #58b05d 14%, transparent); color: #58b05d; }
+.pill-facile { background: color-mix(in srgb, #7a9b6e 14%, transparent); color: #7a9b6e; }
 .pill-modéré { background: color-mix(in srgb, #d99a3d 14%, transparent); color: #d99a3d; }
 .pill-difficile { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 .pill-bivouac { background: var(--surface-3); color: var(--text); }
@@ -2659,7 +2661,6 @@ body.primal-active .nav-fabs { display: none; }
   gap: 24px;
   padding: 26px;
   text-align: center;
-  border: 3px solid var(--red);
 }
 
 .prealert.hidden { display: none; }
@@ -2677,16 +2678,18 @@ body.primal-active .nav-fabs { display: none; }
   font: inherit;
   font-size: 16px;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #0b0b0c;
-  background: #fff;
+  color: #fff;
+  background: var(--red);
   border: none;
+  border-radius: var(--radius);
   padding: 18px 34px;
   cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: background 0.15s ease-out, transform 0.15s ease-out;
 }
 
-.prealert-ok:hover { background: var(--red); color: #fff; }
+.prealert-ok:hover { background: var(--red-dim); transform: translateY(-1px); }
+.prealert-ok:active { transform: translateY(0) scale(0.98); }
 .prealert-links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
 /* ============ Sécurité / Réglages ============ */
@@ -2932,40 +2935,15 @@ body.primal-active .nav-fabs { display: none; }
 }
 
 /* ============ Panneau de filtres partagé ============ */
-.btn-filters {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 10px 16px;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-}
-
-.btn-filters:hover { border-color: var(--red); color: var(--red); }
-.btn-filters.active { border-color: var(--red); color: var(--red); }
-.btn-filters svg { width: 16px; height: 16px; flex-shrink: 0; }
-.btn-filters-icon { padding: 10px 12px; }
-
 .filters-badge {
   background: var(--red);
   color: #fff;
   font-size: 10.5px;
   padding: 1px 7px;
+  border-radius: var(--radius-full);
 }
 
 .filters-badge.hidden { display: none; }
-
-/* Bouton « Liste » visible partout : seul moyen de rouvrir le panneau replié */
-.map-list-btn { display: inline-flex; }
 
 .view-title-row {
   display: flex;
