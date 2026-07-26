@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=563" />
+  <link rel="stylesheet" href="css/style.css?v=564" />
   <script type="importmap">
     {
       "imports": {
@@ -29,7 +29,7 @@
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=539",
+        "./js/map.js": "./js/map.js?v=540",
         "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=534",
@@ -45,7 +45,7 @@
         "./js/fieldmarks.js": "./js/fieldmarks.js?v=502",
         "./js/loops.js": "./js/loops.js?v=526",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
-        "./js/nav.js": "./js/nav.js?v=519",
+        "./js/nav.js": "./js/nav.js?v=520",
         "./js/navview.js": "./js/navview.js?v=509",
         "./js/security.js": "./js/security.js?v=519",
         "./js/astro.js": "./js/astro.js?v=502",
@@ -158,6 +158,7 @@
              (js/compass.js) ; le clic remet le nord de la carte si elle est pivotée. -->
         <button class="map-ctl" id="btn-compass" title="Boussole — cliquer pour remettre le nord de la carte" aria-label="Boussole">
           <svg class="compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.2 8.8 10.4 10.4 8.8 15.2 13.6 13.6Z" fill="currentColor" stroke="none"/><path d="M12 1.8v2"/></svg>
+          <span class="compass-device-bar hidden" title="Orientation réelle du téléphone"></span>
         </button>
 
         <!-- Sélecteur de calques refondu : cartes-aperçu (fonds) + pastilles (surcouches, POI). -->
@@ -276,6 +277,7 @@
           </button>
           <button id="nav-heading" class="nav-fab nav-fab-compass" title="Orientation : cap de marche / nord en haut" aria-label="Orientation de la carte" aria-pressed="true">
             <svg class="nav-compass-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 8.4 12 12 10.4 15.6 12Z" fill="var(--red)" stroke="none"/><path d="M12 10.4 15.6 12 12 21 8.4 12Z" fill="currentColor" stroke="none" opacity="0.5"/></svg>
+            <span class="compass-device-bar hidden" title="Orientation réelle du téléphone"></span>
           </button>
         </div>
 

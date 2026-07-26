@@ -307,28 +307,31 @@ function toggleHeading() {
   updatePosMarker();
 }
 
-// ---------- Boussole physique (S-V2-BOUSSOLE) ----------
-// L'aiguille du bouton d'orientation pointe toujours vers le nord réel. Source
-// préférée : le capteur d'orientation du téléphone (suit le nord même à l'arrêt, via
-// le module partagé compass.js — la vue carte s'y abonne aussi) ; repli sur la
-// contre-rotation de la carte si le capteur est absent/refusé — dégradation propre.
-let navSensorHeading = null; // dernier cap reçu de compass.js ; null = replié sur la carte
-let needleDeg = 0;           // angle d'affichage NON borné : évite un tour complet visible au wrap 359°→0°
+// ---------- Boussole physique (S-V2-BOUSSOLE, révisée le 26/07/2026) ----------
+// Deux indicateurs distincts et indépendants, demandés après retour terrain :
+// l'aiguille pointe toujours vers le nord réel de la CARTE (contre-rotée au bearing,
+// comme avant l'ajout du capteur) ; une barre fine superposée suit en plus
+// l'orientation PHYSIQUE du téléphone (capteur, via compass.js) — visible seulement
+// quand le capteur répond (mobile), les deux peuvent diverger en marchant/pivotant.
+let navSensorHeading = null; // dernier cap capteur reçu ; null = capteur muet, barre masquée
+let navBarDeg = 0;           // angle d'affichage NON borné : évite un tour complet visible au wrap 359°→0°
 
 function onNavHeading(h) {
   navSensorHeading = h;
-  requestAnimationFrame(updateHeadingNeedle);
+  requestAnimationFrame(paintNavCompassBar);
 }
 
-function rotateNeedleTo(target) {
-  const n = document.querySelector(".nav-compass-needle");
-  if (!n) return;
-  needleDeg = shortestRotate(needleDeg, target);
-  n.style.transform = `rotate(${needleDeg}deg)`;
+function paintNavCompassBar() {
+  const bar = document.querySelector("#nav-heading .compass-device-bar");
+  if (!bar || navSensorHeading == null) return;
+  bar.classList.remove("hidden");
+  navBarDeg = shortestRotate(navBarDeg, -navSensorHeading);
+  bar.style.transform = `rotate(${navBarDeg}deg)`;
 }
 
 function updateHeadingNeedle() {
-  rotateNeedleTo(navSensorHeading != null ? -navSensorHeading : -map.getBearing());
+  const n = document.querySelector(".nav-compass-needle");
+  if (n) n.style.transform = `rotate(${-map.getBearing()}deg)`;
 }
 
 // Le marqueur de position est une flèche. En cap-de-marche la carte pivote (la marche est
@@ -868,6 +871,7 @@ export function setPrimal(on) {
     suspendPosWatch();
     stopCompass(onNavHeading); // esprit primal : zéro animation en continu
     navSensorHeading = null;
+    document.querySelector("#nav-heading .compass-device-bar")?.classList.add("hidden");
     nav.was3D = is3D();
     if (nav.was3D) set3D(false);
 
@@ -917,6 +921,7 @@ export function stopNavigation() {
   stopWatch();
   stopCompass(onNavHeading);
   navSensorHeading = null;
+  document.querySelector("#nav-heading .compass-device-bar")?.classList.add("hidden");
   closeMarkSheet();   // avant `active = false` : la note en cours part en base
   nav.active = false;
   clearNavMarks();

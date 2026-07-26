@@ -951,37 +951,42 @@ function initScale() {
 }
 
 // ---------- Boussole ----------
-// Affichée en continu (demande utilisateur du 26/07/2026, après retour terrain) :
-// l'aiguille suit le cap capteur réel du téléphone (compass.js, partagé avec le HUD
-// de nav) et ne retombe sur la contre-rotation de la carte que si le capteur est
-// indisponible. Le clic garde son rôle d'origine : remettre le nord de la carte
-// (utile si elle a été pivotée à deux doigts), et retente au passage la permission
+// Affichée en continu (demande utilisateur du 26/07/2026, après retour terrain).
+// Deux indicateurs distincts et indépendants : l'aiguille pointe le nord de la
+// CARTE (contre-rotée au bearing, comme à l'origine) ; une barre fine superposée
+// suit en plus l'orientation PHYSIQUE du téléphone (capteur, compass.js — partagé
+// avec le HUD de nav), visible seulement quand le capteur répond. Le clic garde son
+// rôle d'origine : remettre le nord de la carte, et retente au passage la permission
 // capteur (geste utilisateur — nécessaire côté iOS).
-let mapNeedleDeg = 0;
+let mapBarDeg = 0;
 let mapSensorHeading = null;
 
 function initCompass() {
   const btn = document.getElementById("btn-compass");
   if (!btn) return;
   const needle = btn.querySelector(".compass-needle");
+  const bar = btn.querySelector(".compass-device-bar");
   btn.classList.remove("hidden");
 
-  const paint = () => {
-    if (!needle) return;
-    const target = mapSensorHeading != null ? -mapSensorHeading : -map.getBearing();
-    mapNeedleDeg = shortestRotate(mapNeedleDeg, target);
-    needle.style.transform = `rotate(${mapNeedleDeg}deg)`;
+  const paintNeedle = () => {
+    if (needle) needle.style.transform = `rotate(${-map.getBearing()}deg)`;
   };
-  const onMapHeading = (h) => { mapSensorHeading = h; requestAnimationFrame(paint); };
+  const paintBar = () => {
+    if (!bar || mapSensorHeading == null) return;
+    bar.classList.remove("hidden");
+    mapBarDeg = shortestRotate(mapBarDeg, -mapSensorHeading);
+    bar.style.transform = `rotate(${mapBarDeg}deg)`;
+  };
+  const onMapHeading = (h) => { mapSensorHeading = h; requestAnimationFrame(paintBar); };
 
-  map.on("rotate", paint);
-  map.on("rotateend", paint);
+  map.on("rotate", paintNeedle);
+  map.on("rotateend", paintNeedle);
   btn.addEventListener("click", () => {
     startCompass(onMapHeading); // geste utilisateur : couvre la permission iOS
     map.easeTo({ bearing: 0, pitch: 0, duration: 300 });
   });
   startCompass(onMapHeading); // marche directement sur Android, sans geste requis
-  paint();
+  paintNeedle();
 }
 
 // ---------- Relief 3D (S-V2-CARTE-C) ----------

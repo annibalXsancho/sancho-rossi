@@ -557,8 +557,27 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* Boussole affichée en continu (js/map.js initCompass) : en fin de pile pour ne
    décaler aucun autre bouton. */
 .compass-needle { transition: transform 120ms linear; }
+
+/* Deux indicateurs superposés dans le même bouton rond (carte + HUD nav) : l'aiguille
+   suit le nord de la carte, la barre fine suit l'orientation physique du téléphone
+   (capteur) — masquée tant qu'aucun cap capteur n'est reçu. */
+#btn-compass, #nav-heading { position: relative; }
+.compass-device-bar {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--red);
+  border-radius: 1px;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+  transition: transform 120ms linear;
+}
+.compass-device-bar.hidden { display: none; }
 @media (prefers-reduced-motion: reduce) {
-  .compass-needle { transition: none; }
+  .compass-needle, .compass-device-bar { transition: none; }
 }
 
 /* ---- Contrôles natifs MapLibre alignés sur le style v2 ---- */
