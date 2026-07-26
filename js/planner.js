@@ -321,6 +321,10 @@ export function plannerAddPoint(latlng, name = null) {
   commit();
   redraw();
   reroute();
+  // Premier point posé = la carte devient l'outil de travail : la feuille se replie
+  // d'elle-même (téléphone) pour libérer l'écran. Uniquement au PREMIER point — si on
+  // l'a rouverte volontairement, les points suivants ne la referment pas dans le dos.
+  if (planner.waypoints.length === 1) planner.sheetCollapse?.();
 }
 
 // Insertion d'un point SUR le tracé : on le glisse entre les deux waypoints dont le
@@ -387,21 +391,6 @@ function closeLoop() {
   commit();
   redraw();
   reroute();
-}
-
-function resetRoute() {
-  planner.waypoints = [];
-  planner.routed = null;
-  planner.locate = null;
-  planner.controller?.abort();
-  // Réinitialiser efface TOUT le plan en cours, repères compris : c'est le geste
-  // « page blanche », pas un simple retrait de points.
-  planner.annots = [];
-  drawAnnots();
-  setAnnotating(false);
-  commit();
-  redraw();
-  render();
 }
 
 // ---------- Routage ----------
@@ -519,8 +508,13 @@ function fitRoute() {
   // bas — le cadrage doit éviter les deux, sinon départ ou arrivée finissent dessous.
   // Padding de Leaflet (paddingTopLeft/BottomRight) traduit en {top,left,bottom,right}.
   const dockH = mobile ? 0 : el("plan-result")?.offsetHeight || 0;
+  // Mobile : ce qui masque la carte n'est pas la feuille entière mais sa portion NON
+  // repliée. Réduite, elle ne mange que la poignée + le bandeau — réserver sa hauteur
+  // totale tasserait le tracé dans le tiers haut de l'écran pour rien.
+  const sheetY = mobile ? parseFloat(getComputedStyle(bar).getPropertyValue("--sheet-y")) || 0 : 0;
+  const sheetH = Math.max(0, (bar?.offsetHeight || 0) - sheetY);
   const padding = mobile
-    ? { top: 90, left: 30, bottom: (bar?.offsetHeight || 0) + 30, right: 30 }
+    ? { top: 90, left: 30, bottom: sheetH + 30, right: 30 }
     : { top: 40, left: (bar?.offsetWidth || 380) + 40, bottom: dockH + 40, right: 50 };
   fitBoundsL(planner.trackLine.getBounds(), { padding, maxZoom: 15 });
 }
@@ -544,12 +538,29 @@ function renderList() {
     .join("");
 }
 
+// Les 4 chiffres, rendus une fois et posés à deux endroits : le dock bas (Mac) et le
+// bandeau de la feuille (téléphone), qui est la seule partie visible quand elle est
+// réduite. Même balisage des deux côtés — le CSS masque celui qui ne sert pas.
+function metricsHtml(dist, hours, gain, loss) {
+  const fr = (v) => v.toLocaleString("fr-FR");
+  return (
+    `<div class="dock-stat big"><span>${fr(dist)}<small> km</small></span><label>Distance</label></div>` +
+    `<div class="dock-stat big"><span>${fmtDuration(hours)}</span><label>Durée est.</label></div>` +
+    `<div class="dock-stat"><span>${gain != null ? fr(gain) : "—"}<small> m</small></span><label>Dénivelé +</label></div>` +
+    `<div class="dock-stat"><span>${loss != null ? fr(loss) : "—"}<small> m</small></span><label>Dénivelé −</label></div>`
+  );
+}
+
 function renderMetrics() {
   const box = el("plan-result");
   const r = planner.routed;
   if (!r || r.fallback || r.distance == null) {
     box.classList.add("hidden");
     el("plan-sac").classList.add("hidden");
+    el("plan-peek").innerHTML = "";
+    el("plan-peek").classList.add("hidden");
+    el("plan-bar").classList.remove("has-route");
+    planner.sheetRefit?.();
     planner.profile?.destroy();
     planner.profile = null;
     clearTimeout(planner.wxTimer);
@@ -565,12 +576,11 @@ function renderMetrics() {
   const loss = r.eles ? computeLoss(r.eles) : null;
   const dist = Math.round(r.distance * 10) / 10;
   const hours = naismithHours(dist, gain || 0);
-  const fr = (v) => v.toLocaleString("fr-FR");
-  el("plan-metrics").innerHTML =
-    `<div class="dock-stat big"><span>${fr(dist)}<small> km</small></span><label>Distance</label></div>` +
-    `<div class="dock-stat big"><span>${fmtDuration(hours)}</span><label>Durée est.</label></div>` +
-    `<div class="dock-stat"><span>${gain != null ? fr(gain) : "—"}<small> m</small></span><label>Dénivelé +</label></div>` +
-    `<div class="dock-stat"><span>${loss != null ? fr(loss) : "—"}<small> m</small></span><label>Dénivelé −</label></div>`;
+  const stats = metricsHtml(dist, hours, gain, loss);
+  el("plan-metrics").innerHTML = stats;
+  el("plan-peek").innerHTML = stats;
+  el("plan-peek").classList.remove("hidden");
+  el("plan-bar").classList.add("has-route");
 
   // Profil du dock bas : large, non compact — c'est la pièce maîtresse de la vue
   // plein écran (survol lié à la carte, glisser pour zoomer, bande de revêtement,
@@ -594,12 +604,17 @@ function renderMetrics() {
   // enchaînement de points) chaque route aboutie ne déclenche pas son appel météo —
   // seul l'itinéraire resté stable 800 ms est interrogé. hikeweather cache par
   // (points, horizon) : rouvrir le même tracé ne refait pas de réseau.
+  //
+  // Téléphone : PAS de météo ici. La feuille doit tenir sous le pouce et la fiche
+  // complète porte déjà les mêmes bandeaux — les empiler ici allongeait le panneau
+  // d'un écran entier pour une information qu'on relit de toute façon après
+  // enregistrement (et coûtait un appel Open-Meteo à chaque retouche du tracé).
   clearTimeout(planner.wxTimer);
   planner.wx?.destroy();
   planner.wx = null;
   planner.cond?.destroy();
   planner.cond = null;
-  if (r.eles) {
+  if (r.eles && !mobile) {
     planner.wxTimer = setTimeout(() => {
       planner.wx = createRouteWeather(el("plan-wx"), { id: "plan-en-cours" }, {
         eles: r.eles, track: r.track, totalKm: r.distance, cells: 5,
@@ -632,6 +647,9 @@ function renderMetrics() {
     pill.classList.add("hidden");
   }
   box.classList.remove("hidden");
+  // Le bandeau vient d'apparaître (ou le profil de changer) : la feuille réduite s'est
+  // agrandie sous le pli et son décalage est périmé — on la recale sur la nouvelle hauteur.
+  planner.sheetRefit?.();
 }
 
 function render(errMsg) {
@@ -648,10 +666,12 @@ function render(errMsg) {
   el("plan-gpx").disabled = !planner.routed || planner.routed.fallback || planner.routing;
   el("plan-share").disabled = !planner.routed || planner.routed.fallback || planner.routing;
   el("plan-reverse").disabled = planner.waypoints.length < 2;
-  el("plan-loop").disabled = planner.waypoints.length < 2 || isLooped();
-  el("plan-reset").disabled = !planner.waypoints.length;
-  el("plan-undo").disabled = planner.hIndex === 0;
-  el("plan-redo").disabled = planner.hIndex >= planner.history.length - 1;
+  // Rien à outiller tant qu'aucun point n'est posé : la rangée s'efface plutôt que de
+  // présenter deux boutons morts.
+  el("plan-tools").classList.toggle("hidden", !planner.waypoints.length);
+  // « Boucler » n'a de sens qu'à partir du 2e point (avec un seul, il n'y a rien à
+  // refermer) et disparaît dès que le parcours revient à son départ.
+  el("plan-loop-fab").classList.toggle("hidden", planner.waypoints.length < 2 || isLooped());
 }
 
 // ---------- Réordonnancement par glisser ----------
@@ -938,8 +958,12 @@ function exitPlanner() {
   planner.cursor = null;
   planner.history = [[]];
   planner.hIndex = 0;
+  el("plan-peek").innerHTML = "";
+  el("plan-peek").classList.add("hidden");
+  el("plan-loop-fab").classList.add("hidden");
   document.body.classList.remove("loops-active");
   planner.sheetReset?.();
+  el("plan-bar").classList.remove("has-route");
   el("plan-bar").classList.add("hidden");
   el("sheet-planner").classList.remove("active");
 }
@@ -958,9 +982,18 @@ function initSheet() {
   let dragging = false, moved = false, startY = 0, baseY = 0, curY = 0, maxY = 0;
   let lastY = 0, lastT = 0, vel = 0;
 
-  // Portion laissée visible en position réduite : poignée + en-tête (le titre reste
-  // lisible, tout le reste passe sous le pli).
-  const peek = () => grip.offsetHeight + (head?.offsetHeight || 0) + 12;
+  // Portion laissée visible en position réduite. Dès qu'un tracé existe, c'est le
+  // BANDEAU DE MÉTRIQUES qu'on garde à l'écran (distance, durée, D±) — c'est ce qu'on
+  // surveille en piquant ses points. Tant qu'il n'y a rien à mesurer, on retombe sur
+  // l'en-tête, pour que la feuille réduite s'annonce quand même.
+  const bandEl = () => {
+    const b = el("plan-peek");
+    return b && !b.classList.contains("hidden") && b.offsetHeight > 0 ? b : null;
+  };
+  const peek = () => {
+    const band = bandEl();
+    return band ? grip.offsetHeight + band.offsetHeight + 4 : grip.offsetHeight + (head?.offsetHeight || 0) + 12;
+  };
   const setY = (y) => { curY = y; panel.style.setProperty("--sheet-y", `${y}px`); };
   const collapse = () => { panel.classList.add("sheet-collapsed"); setY(maxY); };
   const expand = () => { panel.classList.remove("sheet-collapsed"); setY(0); };
@@ -968,6 +1001,28 @@ function initSheet() {
   // Réarme à « ouvert » à chaque ouverture du planificateur (et purge l'inline style
   // hérité si on repasse desktop).
   planner.sheetReset = () => { panel.classList.remove("sheet-collapsed", "sheet-dragging"); panel.style.removeProperty("--sheet-y"); curY = 0; };
+
+  // Repli programmé (premier point posé) : mêmes crans que le geste, pas d'état à part.
+  planner.sheetCollapse = () => {
+    if (!isMobile() || dragging || panel.classList.contains("sheet-collapsed")) return;
+    maxY = Math.max(0, panel.offsetHeight - peek());
+    collapse();
+  };
+
+  // La feuille repliée est calée sur sa hauteur d'alors ; le routage qui arrive ensuite
+  // fait pousser le bandeau, le profil et le dock. Sans recalage, le bandeau se
+  // retrouverait à moitié sous le pli — ou flottant au-dessus du bas de l'écran.
+  planner.sheetRefit = () => {
+    if (!isMobile() || dragging || !panel.classList.contains("sheet-collapsed")) return;
+    maxY = Math.max(0, panel.offsetHeight - peek());
+    setY(maxY);
+  };
+
+  // Le contenu ne grandit pas d'un coup : le profil se dessine, la ligne d'état apparaît,
+  // les repères s'ajoutent — chacun après le rendu qui l'a déclenché. Recaler une seule
+  // fois depuis renderMetrics laissait donc filer tout ce qui poussait ensuite ; on suit
+  // la hauteur réelle. (Poser --sheet-y ne change que le transform : pas de boucle.)
+  new ResizeObserver(() => planner.sheetRefit()).observe(panel);
 
   const onDown = (e) => {
     if (!isMobile() || dragging) return;
@@ -1052,15 +1107,12 @@ export function initPlanner() {
   el("plan-annot").addEventListener("click", () => setAnnotating(!planner.annotating));
 
   el("plan-reverse").addEventListener("click", reverseRoute);
-  el("plan-loop").addEventListener("click", closeLoop);
-  el("plan-reset").addEventListener("click", resetRoute);
+  el("plan-loop-fab").addEventListener("click", closeLoop);
   el("plan-cancel").addEventListener("click", exitPlanner);
   el("plan-save").addEventListener("click", savePlan);
   el("plan-gpx").addEventListener("click", () => { const d = plannerDraft(); if (d) downloadGPX(d); });
   el("plan-share").addEventListener("click", () => { const d = plannerDraft(); if (d) shareTrail(d); });
   el("plan-fit").addEventListener("click", fitRoute);
-  el("plan-undo").addEventListener("click", undo);
-  el("plan-redo").addEventListener("click", redo);
 
   // Raccourcis clavier (usage Mac depuis le bureau) — inactifs dès qu'on saisit du
   // texte, pour ne pas voler ⌘Z à la zone de recherche ou aux notes.

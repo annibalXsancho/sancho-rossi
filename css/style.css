@@ -1257,11 +1257,47 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .plan-profile { margin-top: 4px; }
 
 /* Boucler : action nommée (pas une icône cryptique) — referme le parcours sur A */
-.plan-loop { width: 100%; margin-bottom: 10px; font-size: 12.5px; }
+/* « Boucler l'itinéraire » posé SUR la carte (S-PLAN-MOBILE) : pastille tonale en haut,
+   loin du pouce qui pique les points et de la pile de contrôles (haut droite). Sur Mac,
+   décalée pour rester centrée sur la carte VISIBLE, le panneau mangeant 404 px à gauche. */
+.plan-loop-fab {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(50% + 202px);
+  transform: translateX(-50%);
+  z-index: 1003;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 150ms ease-out, background 150ms ease-out;
+}
+.plan-loop-fab.hidden { display: none; }
+.plan-loop-fab:hover { background: var(--surface-2); transform: translateX(-50%) translateY(-1px); }
+.plan-loop-fab:active { transform: translateX(-50%) scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .plan-loop-fab:hover, .plan-loop-fab:active { transform: translateX(-50%); }
+}
+
+/* Bandeau des 4 métriques — mobile uniquement (voir @media 700px) : sur Mac les mêmes
+   chiffres sont déjà dans le dock bas, à côté du profil. */
+.plan-peek { display: none; }
 
 /* Rangée d'outils : icônes seules, l'intitulé vit dans le title/aria-label */
 .plan-tools { display: flex; gap: 6px; margin-bottom: 10px; }
-.plan-tools .btn { flex: 1; font-size: 15px; padding: 7px 0; }
+.plan-tools .btn { flex: 1; gap: 7px; justify-content: center; font-size: 13px; padding: 8px 0; }
+.plan-tools.hidden { display: none; }
 
 /* Marqueur de point de passage : lettre A, B, C… posée sur la carte */
 .plan-wp {
@@ -3332,9 +3368,43 @@ body.primal-active .nav-fabs { display: none; }
 
   .plan-title { font-size: 16px; }
   .plan-lead { display: none; }
+  /* Dès qu'un tracé existe, le titre cède sa hauteur au bandeau de métriques : c'est lui,
+     et non « Planifier votre itinéraire », qu'on veut lire quand la feuille est réduite. */
+  .plan-panel.has-route .plan-title { display: none; }
   .plan-panel-scroll { flex: 1; min-height: 0; }
-  .plan-dock { position: static; padding: 0; border-radius: 0; box-shadow: none; margin-top: var(--sp-2); }
+
+  /* Bandeau des métriques : la portion de feuille laissée visible en position réduite.
+     Posé juste sous la poignée, donc au ras du bas de l'écran, au-dessus des onglets. */
+  .plan-peek {
+    display: flex;
+    flex: none;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: 0 2px var(--sp-3);
+  }
+  .plan-peek.hidden { display: none; }
+  .plan-peek .dock-stat { flex: 1 1 0; min-width: 0; }
+  .plan-peek .dock-stat span { font-size: 17px; }
+  .plan-peek .dock-stat.big span { font-size: 19px; }
+  /* Les chiffres vivent dans le bandeau : pas de doublon dans le dock. */
+  .plan-dock #plan-metrics { display: none; }
+
+  /* `relative` et non `static` : la pastille SAC est absolue et doit s'ancrer au DOCK
+     (coin du profil). Statique, elle remontait se poser sur le panneau — donc en plein
+     milieu du bandeau de métriques, par-dessus le dénivelé −.
+     ATTENTION : `relative` réveille les left/right/bottom du dock ancré desktop, qui
+     sont des DÉCALAGES ici — laissés tels quels, ils poussaient le dock 402 px à droite,
+     hors écran (invisible, non cliquable, mais toujours mesurable en JS). D'où le reset. */
+  .plan-dock {
+    position: relative;
+    left: auto; right: auto; bottom: auto;
+    padding: 0; border-radius: 0; box-shadow: none; margin-top: var(--sp-2);
+  }
+  .plan-dock-bar { justify-content: flex-end; }
   .plan-dock-stats { gap: var(--sp-3); }
+  /* La pastille flottante se recentre : plus de panneau latéral à contourner. */
+  .plan-loop-fab { left: 50%; }
   .dock-stat.big span { font-size: 18px; }
   .dock-stat span { font-size: 15px; }
   .trail-preview { left: 0; right: 0; bottom: 0; width: 100%; border-left: none; border-right: none; }
