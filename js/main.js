@@ -22,6 +22,7 @@ import { checkOutingsVigilance } from "./vigie.js";
 import { initToast, toast } from "./toast.js";
 import { checkIncomingShare } from "./share.js";
 import { runSync } from "./sync.js";
+import { initRangeFill } from "./rangefill.js";
 
 // Écran de chargement : retiré une fois l'app prête, avec une durée minimale d'affichage
 // pour éviter un flash (boot rapide) — jamais de saut de layout, fondu doux.
@@ -38,6 +39,7 @@ function hideSplash() {
 }
 
 initToast();
+initRangeFill();
 initUi();
 initMap();
 initFilters();

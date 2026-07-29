@@ -10,6 +10,7 @@ import { hasPack } from "./offline.js";
 import { renameImported, deleteImported } from "./trails.js";
 import { openPlannerForEdit } from "./planner.js";
 import { toast } from "./toast.js";
+import { paintRanges } from "./rangefill.js";
 
 // Gestes d'ergonomie sur « Mes itinéraires » (façon apps pro) :
 //   • glisser vers la gauche  → révèle un bouton rouge poubelle → supprimer
@@ -335,6 +336,7 @@ function renderLayers() {
       </div>`;
   }).join("");
 
+  paintRanges(host);   // rangées reconstruites : la portion parcourue est repeinte
   host.querySelectorAll(".layer-row").forEach((row) => {
     const name = row.dataset.layer;
     row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {

@@ -13,6 +13,7 @@ import { loops, setStart as setLoopStart } from "./loops.js";
 import { renderList } from "./trails.js";
 import { renderDetail } from "./detail.js";
 import { startCompass, stopCompass, shortestRotate } from "./compass.js";
+import { paintRange } from "./rangefill.js";
 import { savePos, shareSosPosition } from "./security.js";
 
 // ---------- Description des calques (source unique) ----------
@@ -585,7 +586,7 @@ export function applyLayer(name) {
     const cb = row.querySelector("input[type=checkbox]");
     if (cb) cb.checked = cfg.on;
     const op = row.querySelector(".layer-op");
-    if (op) op.value = cfg.op;
+    if (op) { op.value = cfg.op; paintRange(op); }
     const ov = row.querySelector(".op-val");
     if (ov) ov.textContent = `${cfg.op}%`;
   });

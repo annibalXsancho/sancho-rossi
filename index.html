@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=574" />
+  <link rel="stylesheet" href="css/style.css?v=576" />
   <script type="importmap">
     {
       "imports": {
@@ -348,7 +348,7 @@
           <p id="plan-status" class="loops-status muted hidden"></p>
           <div class="plan-sec-head">
             <span class="eyebrow">Mes repères</span>
-            <button class="btn plan-annot-btn" id="plan-annot" title="Poser un repère sur la carte : nuit, eau, danger…">📍 Annoter</button>
+            <button class="btn plan-annot-btn" id="plan-annot" title="Poser un repère sur la carte : nuit, eau, danger…"><span class="btn-ic" aria-hidden="true">📍</span>Annoter</button>
           </div>
           <p class="plan-annot-hint muted hidden" id="plan-annot-hint">Cliquez sur la carte ou sur le tracé pour poser le repère — Échap pour annuler.</p>
           <div id="plan-annots" class="plan-annots"></div>
@@ -383,7 +383,7 @@
           <div id="loops-metrics" class="loops-metrics"></div>
           <div class="loops-actions">
             <button class="btn" id="loops-another">↻ Autre proposition</button>
-            <button class="btn btn-primary" id="loops-save">⏎ Enregistrer</button>
+            <button class="btn btn-primary" id="loops-save">Enregistrer</button>
           </div>
         </div>
         <div class="builder-foot">
@@ -433,7 +433,7 @@
         <div class="sheet-scroll">
           <div class="sheet-reco-head">
             <span class="eyebrow" id="reco-title">Idées pour le week-end</span>
-            <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection">🎲 Autre</button>
+            <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection"><span class="btn-ic" aria-hidden="true">🎲</span>Autre</button>
           </div>
           <div id="home-suggestions" class="cards-grid reco-grid"></div>
           <div class="info-block outing-block hidden" id="outings-block">
@@ -459,7 +459,7 @@
     </section>
 
     <!-- ============ ITINÉRAIRES — bibliothèque perso (Mes randos, session, calques) ============ -->
-    <section id="view-itineraires" class="view hidden">
+    <section id="view-itineraires" class="view view-narrow hidden">
       <h2 class="view-title">Mes itinéraires</h2>
       <div id="nav-session"></div>
       <div class="settings-group">
@@ -474,7 +474,7 @@
     </section>
 
     <!-- ============ RÉGLAGES (Sécurité fusionnée) ============ -->
-    <section id="view-reglages" class="view hidden">
+    <section id="view-reglages" class="view view-narrow hidden">
       <h2 class="view-title">Réglages</h2>
 
       <div class="settings-group">
@@ -505,7 +505,7 @@
         </div>
       </div>
 
-      <h3 class="settings-section-title">🛟 Sécurité</h3>
+      <h3 class="settings-section-title">Sécurité</h3>
       <p class="muted view-intro">Préparez un plan de marche et partagez votre itinéraire et votre dernière position
       connue à vos proches — par WhatsApp, SMS ou e-mail, sans compte ni serveur : tout part de votre appareil.</p>
 
@@ -520,7 +520,7 @@
             <option value="email">E-mail</option>
           </select>
           <input id="contact-addr" type="text" placeholder="N° international (+33…) ou e-mail" />
-          <button class="btn btn-primary" id="btn-add-contact">Ajouter</button>
+          <button class="btn" id="btn-add-contact">Ajouter</button>
         </div>
       </div>
 
@@ -532,11 +532,11 @@
         </div>
         <div class="settings-row">
           <span id="last-pos" class="muted">Aucune position enregistrée.</span>
-          <button class="btn" id="btn-refresh-pos">📍 Actualiser maintenant</button>
+          <button class="btn" id="btn-refresh-pos"><span class="btn-ic" aria-hidden="true">📍</span>Actualiser maintenant</button>
         </div>
         <div class="settings-row">
           <span id="sos-queue-status" class="muted hidden"></span>
-          <button class="btn btn-primary" id="btn-sos-position">🆘 Partager ma position</button>
+          <button class="btn btn-primary" id="btn-sos-position"><span class="btn-ic" aria-hidden="true">🆘</span>Partager ma position</button>
         </div>
       </div>
 
@@ -554,7 +554,7 @@
         </div>
         <div class="settings-row">
           <span id="watch-status" class="muted">Veille désarmée.</span>
-          <button class="btn btn-primary" id="btn-arm-watch">🛡 Armer la veille</button>
+          <button class="btn" id="btn-arm-watch"><span class="btn-ic" aria-hidden="true">🛡</span>Armer la veille</button>
         </div>
       </div>
 
@@ -607,7 +607,7 @@
       </div>
 
       <div class="settings-group">
-        <h3>🔄 Synchronisation entre appareils</h3>
+        <h3>Synchronisation entre appareils</h3>
         <p class="muted">Un dépôt GitHub <strong>privé</strong> sert de coffre : vos itinéraires, repères et
         préférences retrouvés sur chaque appareil, sans compte ni serveur applicatif. Créez un
         <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">jeton
@@ -616,7 +616,7 @@
         <div class="plan-form">
           <input id="sync-repo" type="text" placeholder="votre-compte/mon-coffre-rando" autocomplete="off" />
           <input id="sync-token" type="password" placeholder="Jeton d'accès" autocomplete="off" />
-          <button class="btn btn-primary" id="sync-connect">Connecter</button>
+          <button class="btn" id="sync-connect">Connecter</button>
         </div>
         <div class="settings-row">
           <span id="sync-status" class="muted">Non configuré.</span>
@@ -667,7 +667,7 @@
         <div class="filters-label">Durée</div>
         <div class="filter-group" id="filter-days">
           <button class="chip active" data-value="">Tous</button>
-          <button class="chip" data-value="2">⛺ 2 j · bivouac</button>
+          <button class="chip" data-value="2"><span class="btn-ic" aria-hidden="true">⛺</span>2 j · bivouac</button>
           <button class="chip" data-value="1">1 jour</button>
         </div>
       </div>
@@ -694,8 +694,8 @@
       <div class="filters-section">
         <div class="filters-label">Sur le terrain</div>
         <div class="filter-group" id="filter-terrain">
-          <button class="chip" data-terrain="water">💧 Point d'eau</button>
-          <button class="chip" data-terrain="shelter">🏠 Refuge / abri</button>
+          <button class="chip" data-terrain="water"><span class="btn-ic" aria-hidden="true">💧</span>Point d'eau</button>
+          <button class="chip" data-terrain="shelter"><span class="btn-ic" aria-hidden="true">🏠</span>Refuge / abri</button>
         </div>
         <p class="filters-hint">Eau et refuge sont connus pour la sélection curée ; les tracés OSM les portent en « — ».</p>
       </div>
@@ -742,7 +742,7 @@
       <div class="filters-section">
         <div class="filters-label">Temps de route depuis ma position</div>
         <div class="drive-filter">
-          <button class="btn" id="filter-drive-pos" title="Utiliser ma position GPS">📍 Ma position</button>
+          <button class="btn" id="filter-drive-pos" title="Utiliser ma position GPS"><span class="btn-ic" aria-hidden="true">📍</span>Ma position</button>
           <label class="drive-max">Max
             <input id="filter-drive-max" type="number" min="0" step="0.5" placeholder="∞" /> h
           </label>
@@ -970,10 +970,10 @@
       </svg>
     </div>
     <p class="compass-view-pos" id="compass-view-pos">Position inconnue pour l'instant.</p>
-    <button id="compass-view-share" class="btn btn-primary compass-view-share">🆘 Partager ma position</button>
+    <button id="compass-view-share" class="btn btn-primary compass-view-share"><span class="btn-ic" aria-hidden="true">🆘</span>Partager ma position</button>
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=546"></script>
+  <script type="module" src="js/main.js?v=547"></script>
 </body>
 </html>
