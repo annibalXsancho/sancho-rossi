@@ -99,6 +99,50 @@ export function daylightRemainingMin(lat, lon, now) {
   return min > 0 ? min : null;
 }
 
+// ---------- Position du soleil dans le ciel (S-SOLEIL) ----------
+// `sunTimes` répond « à quelle heure », `sunPosition` répond « où » — c'est ce second
+// point de vue qu'il faut pour confronter le soleil au RELIEF : une crête ne masque pas
+// une heure, elle masque une direction. Mêmes primitives (anomalie moyenne → longitude
+// écliptique → déclinaison), plus les deux grandeurs qui manquaient : l'ascension droite
+// et le temps sidéral local, dont la différence donne l'angle horaire.
+
+function rightAscension(eclipLon) {
+  // La latitude écliptique du soleil est nulle par définition : le terme en tan(b) des
+  // formules générales disparaît.
+  return Math.atan2(Math.sin(eclipLon) * Math.cos(OBLIQUITY), Math.cos(eclipLon));
+}
+
+// Temps sidéral apparent à Greenwich, ramené à la longitude du lieu (lw = ouest positif).
+function siderealTime(d, lw) {
+  return RAD * (280.16 + 360.9856235 * d) - lw;
+}
+
+/**
+ * Direction du soleil vue d'un point, à un instant donné.
+ * @returns {{azimuth:number, altitude:number}} degrés — azimut depuis le NORD dans le
+ *   sens horaire (0 = nord, 90 = est, 180 = sud), hauteur au-dessus de l'horizon
+ *   géométrique (négative la nuit). Convention identique aux caps de nav.js/fiche3d.js.
+ */
+export function sunPosition(lat, lon, date) {
+  const phi = RAD * lat;
+  const lw = RAD * -lon;
+  const d = daysSinceJ2000(date);
+  const M = solarMeanAnomaly(d);
+  const eclipLon = eclipticLongitude(M);
+  const dec = declination(eclipLon);
+  const H = siderealTime(d, lw) - rightAscension(eclipLon);
+
+  const altitude = Math.asin(
+    Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)
+  );
+  // atan2 donne ici un azimut compté depuis le SUD vers l'ouest (convention astronomique) :
+  // le + 180° le ramène au nord, celui de la boussole et des caps du projet.
+  const azimuth =
+    Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi)) / RAD + 180;
+
+  return { azimuth: (azimuth + 360) % 360, altitude: altitude / RAD };
+}
+
 // ---------- Phase de lune ----------
 // Mois synodique moyen (nouvelle lune à nouvelle lune) : 29,53058867 jours.
 // Référence : nouvelle lune connue du 6 janvier 2000, 18:14 TU.

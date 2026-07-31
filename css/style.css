@@ -2233,6 +2233,88 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .f3d-bead::after { animation: none; opacity: 0.5; }
 }
 
+/* ---- Mode soleil (S-SOLEIL) ----
+   L'ambre est réservé au SOLEIL lui-même (disque, part ensoleillée du cadran) : c'est la
+   donnée, pas une décoration. Le rouge reste l'accent d'action et ne sert pas ici. */
+:root { --sun: #ffb02e; }
+
+.f3d-sun { white-space: nowrap; }
+.f3d-sun.active { background: color-mix(in srgb, var(--sun) 20%, var(--surface-2)); color: var(--sun); }
+
+.sun-row { padding: 0 2px var(--sp-3); }
+.sun-row.hidden { display: none; }
+.sun-controls { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.sun-date {
+  background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px;
+  border: 0; border-radius: var(--radius); padding: 7px var(--sp-3);
+}
+.sun-date:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sun-controls input[type="range"] {
+  flex: 1; min-width: 150px; height: 3px; accent-color: var(--sun);
+}
+.sun-read {
+  font-size: 13px; font-weight: 700; color: var(--sun);
+  font-variant-numeric: tabular-nums; min-width: 168px; text-align: right;
+}
+.sun-hint { font-size: 12px; margin-top: var(--sp-2); }
+.sun-hint.hidden { display: none; }
+
+/* Le panneau ne s'étire pas sur toute la largeur d'un écran de bureau : au-delà, le texte
+   se disloque et le cadran flotte dans le vide. Deux colonnes — la réponse à gauche, sa
+   preuve visuelle à droite — puis l'une sous l'autre sur téléphone. */
+.sun-panel {
+  background: var(--surface); border-radius: var(--radius-lg);
+  padding: var(--sp-4); box-shadow: var(--shadow-soft); max-width: 640px;
+}
+.sun-panel.hidden { display: none; }
+.sun-body { display: flex; align-items: center; gap: var(--sp-5); }
+.sun-text { flex: 1; min-width: 0; }
+.sun-ele { font-size: 12px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.sun-window {
+  font-size: 20px; font-weight: 800; color: var(--sun);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.sun-window.sun-none { color: var(--text-soft); }
+.sun-sub { font-size: 12.5px; color: var(--text-soft); margin-top: var(--sp-1); }
+.sun-gap { color: color-mix(in srgb, var(--sun) 60%, var(--text-soft)); }
+.sun-dial-wrap { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; }
+.sun-dial { width: 150px; height: 150px; }
+.sun-dial-marks text { font-size: 8px; font-weight: 700; fill: var(--text-soft); }
+.sun-dial-cap { font-size: 10.5px; text-align: center; margin-top: var(--sp-1); }
+
+/* Sonde posée au tap : discrète, mais son halo la retrouve sur un versant sombre. */
+.sun-probe {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--sun);
+  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.6), 0 0 0 7px color-mix(in srgb, var(--sun) 26%, transparent);
+}
+
+/* Disque solaire dans le ciel. Posé sur le canvas MapLibre par sunview.js, qui calcule
+   sa projection ; `--sun-low` (0 → 1 quand le soleil descend) le fait grossir et rougir
+   comme le vrai. Non cliquable : la carte dessous doit rester saisissable. */
+.sun-disc {
+  position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2;
+  width: calc(26px + 16px * var(--sun-low, 0));
+  height: calc(26px + 16px * var(--sun-low, 0));
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    #fffdf4 0%,
+    color-mix(in srgb, var(--sun) calc(60% + 30% * var(--sun-low, 0)), #fff6d8) 42%,
+    transparent 72%);
+  box-shadow: 0 0 40px 14px color-mix(in srgb, var(--sun) calc(30% + 25% * var(--sun-low, 0)), transparent);
+}
+/* Soleil plus haut que le cadre (le cas de la mi-journée : la caméra MapLibre ne se lève
+   jamais au-dessus de l'horizon). Épinglé en haut, dans sa direction exacte, avec un
+   chevron qui dit « par là, mais plus haut » — l'azimut reste lisible, la hauteur non. */
+.sun-disc-above {
+  width: 20px; height: 20px;
+  box-shadow: 0 0 22px 7px color-mix(in srgb, var(--sun) 32%, transparent);
+}
+.sun-disc-above::after {
+  content: "▲";
+  position: absolute; left: 50%; top: -13px; transform: translateX(-50%);
+  font-size: 9px; color: var(--sun); opacity: 0.9;
+}
+
 /* Mobile : deux lignes plutôt qu'une ligne écrasée — Survol + jauge, puis la lecture
    (km · altitude) et le choix du fond. Sur une seule ligne, « 1 992 m » se coupait. */
 @media (max-width: 700px) {
@@ -2241,6 +2323,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .progress-row input[type="range"] { flex: 1 1 120px; }
   .progress-info { order: 3; min-width: 0; flex: 1 1 auto; text-align: left; }
   .f3d-layers { order: 4; margin-left: auto; }
+  .f3d-sun { order: 5; }
+  .sun-read { min-width: 0; flex: 1 1 100%; text-align: left; }
+  .sun-body { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+  .sun-dial-wrap { margin-top: var(--sp-2); }
 }
 
 .nearby-list { display: flex; flex-direction: column; gap: 5px; max-width: 640px; }

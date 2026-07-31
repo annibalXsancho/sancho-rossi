@@ -659,6 +659,17 @@ export function renderDetail(id) {
           <button class="btn-ghost f3d-layer active" data-layer="satellite" type="button">Satellite</button>
           <button class="btn-ghost f3d-layer" data-layer="topo" type="button">Topo</button>
         </div>
+        <button class="btn f3d-sun" id="btn-sun" type="button" aria-pressed="false">☀ Soleil</button>
+      </div>
+      <div class="sun-row hidden" id="sun-row">
+        <div class="sun-controls">
+          <input type="date" id="sun-date" class="sun-date" aria-label="Date" />
+          <input type="range" id="sun-time" min="0" max="1439" step="5"
+                 aria-label="Heure de la journée" />
+          <span class="sun-read" id="sun-read"></span>
+        </div>
+        <p class="sun-hint muted" id="sun-hint">Touchez un point du relief pour connaître son ensoleillement.</p>
+        <div class="info-block sun-panel hidden" id="sun-panel"></div>
       </div>
     </div>`;
 
@@ -902,11 +913,189 @@ async function load3D(trail) {
         view.setLayer(b.dataset.layer);
       });
     });
+    bindSunMode(view, trail);
     show(view.setProgress(0));
   } catch (err) {
     intro.querySelector("#btn-load-3d").textContent = "▶ Réessayer";
     toast(`Vue 3D indisponible : ${err.message}`, { type: "error" });
   }
+}
+
+// ---------- Mode soleil de la vue 3D (S-SOLEIL) ----------
+// « Coucher 21 h 05 » ne veut rien dire dans une combe : le relief mange le soleil bien
+// avant. Le mode confronte la course du jour aux crêtes réelles — ombres portées sur le
+// terrain, disque solaire dans le ciel, et plage d'ensoleillement du point qu'on touche.
+
+const dayMinutes = (d) => d.getHours() * 60 + d.getMinutes();
+const atMin = (day, min) =>
+  new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, Math.round(min));
+
+// Date de départ : celle de la sortie prévue sur ce tracé si elle existe (on prépare une
+// sortie, on ne consulte pas la météo d'aujourd'hui), sinon aujourd'hui.
+function defaultSunDate(trail) {
+  const today = new Date().toISOString().slice(0, 10);
+  const next = outingsFor(trail.id).find((o) => o.date && o.date >= today);
+  if (!next) return new Date();
+  const [y, m, d] = next.date.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function sunPanelHtml(r) {
+  const { hhmm, duration, towards } = sunFmt;
+  const theo = `sans le relief : ${hhmm(r.theoretical.sunrise)} → ${hhmm(r.theoretical.sunset)}`;
+  // Cadran + légende : le même bloc dans les deux cas, la mise en page les met côte à côte
+  // du texte sur large écran (`.sun-body`) et l'un sous l'autre sur téléphone.
+  const dial = `<figure class="sun-dial-wrap">${sunDial(r)}
+      <figcaption class="sun-dial-cap muted">la course du jour vue d'ici · le relief en sombre</figcaption>
+    </figure>`;
+  const head = `<div class="info-block-head"><span class="eyebrow">Soleil ici</span>
+      <span class="sun-ele">${Math.round(r.ground).toLocaleString("fr-FR")} m</span></div>`;
+
+  if (!r.intervals.length) {
+    return `${head}<div class="sun-body"><div class="sun-text">
+        <p class="sun-window sun-none">Aucun soleil ce jour-là</p>
+        <p class="sun-sub">Le relief le masque de bout en bout</p>
+        <p class="info-block-foot muted">${theo}</p>
+      </div>${dial}</div>`;
+  }
+  const spans = r.intervals.map((i) => `${hhmm(i.from)} → ${hhmm(i.to)}`).join("  +  ");
+  // Coupures : une arête isolée peut trancher la journée en deux. C'est exactement ce
+  // qu'aucune application ne dit, donc ça se dit ici.
+  const gaps = r.intervals
+    .slice(1)
+    .map((i, k) => `coupure ${hhmm(r.intervals[k].to)} → ${hhmm(i.from)}`)
+    .join(" · ");
+  const last = r.intervals[r.intervals.length - 1];
+  return `${head}<div class="sun-body"><div class="sun-text">
+      <p class="sun-window">${spans}</p>
+      <p class="sun-sub">${duration(r.totalMin)} de soleil · disparaît derrière le relief
+        ${towards(last.toAz)}</p>
+      ${gaps ? `<p class="sun-sub sun-gap">${gaps}</p>` : ""}
+      <p class="info-block-foot muted">${theo}</p>
+    </div>${dial}</div>`;
+}
+
+// Les fonctions de mise en forme et le cadran viennent de sunview.js, chargé à la demande :
+// affectés à l'activation du mode, lus par sunPanelHtml.
+let sunFmt = null;
+let sunDial = null;
+
+function bindSunMode(view, trail) {
+  const btn = document.getElementById("btn-sun");
+  const rowEl = document.getElementById("sun-row");
+  const dateEl = document.getElementById("sun-date");
+  const timeEl = document.getElementById("sun-time");
+  const readEl = document.getElementById("sun-read");
+  const hintEl = document.getElementById("sun-hint");
+  const panelEl = document.getElementById("sun-panel");
+  if (!btn) return;
+
+  let sun = null;
+  let day = defaultSunDate(trail);
+  let timer = null;
+  let hooked = false; // le démontage n'est greffé qu'une fois, quel que soit le nombre de bascules
+
+  const setRead = (s, min) => {
+    readEl.textContent = `${String(Math.floor(min / 60)).padStart(2, "0")} h ${String(min % 60).padStart(2, "0")}` +
+      (s.altitude > 0
+        ? ` · soleil ${Math.round(s.altitude)}° ${sunFmt.towards(s.azimuth)}`
+        : " · soleil couché");
+  };
+
+  // Bornes du curseur = la journée utile. Laisser glisser en pleine nuit ne montrerait
+  // qu'un écran noir sur les trois quarts de la course.
+  function frameDay() {
+    const { civilDawn, civilDusk } = sunTimes(trail.center[0], trail.center[1], day);
+    timeEl.min = civilDawn ? Math.max(0, dayMinutes(civilDawn) - 20) : 0;
+    timeEl.max = civilDusk ? Math.min(1439, dayMinutes(civilDusk) + 20) : 1439;
+    dateEl.value = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    const now = new Date();
+    const sameDay = now.toDateString() === day.toDateString();
+    timeEl.value = String(
+      Math.min(Number(timeEl.max), Math.max(Number(timeEl.min), sameDay ? dayMinutes(now) : 13 * 60))
+    );
+  }
+
+  function apply() {
+    const min = Number(timeEl.value);
+    const s = sun.setTime(atMin(day, min));
+    if (s) setRead(s, min);
+  }
+
+  async function refreshProbe() {
+    if (!sun?.hasProbe()) return;
+    const r = await sun.reprobe(atMin(day, Number(timeEl.value)));
+    if (r) panelEl.innerHTML = sunPanelHtml(r);
+  }
+
+  async function enable() {
+    btn.disabled = true;
+    btn.textContent = "⏳ Relief…";
+    try {
+      const mod = await import("./sunview.js");
+      sunFmt = { hhmm: mod.hhmm, duration: mod.duration, towards: mod.towards };
+      sunDial = (r) => mod.dialSvg(r.profile, r.path, dayMinutes(atMin(day, Number(timeEl.value))));
+      sun = await mod.attachSun(view, sampleTrack(trail.mainline || trackOf(trail), 300), {
+        onProbe: (r) => {
+          if (r?.pending) { panelEl.classList.remove("hidden"); panelEl.innerHTML = `<p class="muted">Lecture du relief…</p>`; return; }
+          if (!r) { panelEl.classList.add("hidden"); hintEl.classList.remove("hidden"); return; }
+          hintEl.classList.add("hidden");
+          panelEl.classList.remove("hidden");
+          panelEl.innerHTML = sunPanelHtml(r);
+        },
+      });
+      // La vue 3D est détruite par renderDetail comme par closeDetail, toutes deux via
+      // `window.SR3D.destroy()` : on s'y greffe plutôt que d'ajouter un point de sortie
+      // à tenir à jour dans deux endroits. Les couches partent AVANT `map.remove()`.
+      // Une seule fois : réemballer à chaque bascule empilerait les fermetures.
+      if (!hooked) {
+        hooked = true;
+        const teardown = view.destroy.bind(view);
+        view.destroy = () => { try { sun?.destroy(); } catch {} sun = null; teardown(); };
+      }
+
+      frameDay();
+      apply();
+      rowEl.classList.remove("hidden");
+      btn.setAttribute("aria-pressed", "true");
+      btn.classList.add("active");
+    } catch (err) {
+      toast(`Soleil indisponible : ${err.message}`, { type: "error" });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "☀ Soleil";
+    }
+  }
+
+  btn.addEventListener("click", () => {
+    if (!sun) return enable();
+    // Extinction : on rend la vue 3D telle qu'elle était, sans ombres ni sonde.
+    sun.destroy();
+    sun = null;
+    rowEl.classList.add("hidden");
+    panelEl.classList.add("hidden");
+    hintEl.classList.remove("hidden");
+    btn.setAttribute("aria-pressed", "false");
+    btn.classList.remove("active");
+  });
+
+  // Glissé du curseur : le recalcul d'ombres (~40 ms) est débounçé pour que le geste
+  // reste au fil du doigt, jamais saccadé par un calcul par image.
+  timeEl.addEventListener("input", () => {
+    if (!sun) return;
+    clearTimeout(timer);
+    timer = setTimeout(apply, 60);
+  });
+  timeEl.addEventListener("change", () => sun && refreshProbe());
+
+  dateEl.addEventListener("change", () => {
+    if (!sun || !dateEl.value) return;
+    const [y, m, d] = dateEl.value.split("-").map(Number);
+    day = new Date(y, m - 1, d);
+    frameDay();
+    apply();
+    refreshProbe();
+  });
 }
 
 // Téléchargement d'un pack « pour le terrain » depuis la fiche. La fiche peut se
