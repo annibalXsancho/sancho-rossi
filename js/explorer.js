@@ -40,6 +40,7 @@ export function initExplorer() {
   if (!panel) return;
 
   const grip = el("sheet-grip");
+  const edgeToggle = el("panel-edge-toggle");
   const head = panel.querySelector(".sheet-actions");
   const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
 
@@ -113,9 +114,10 @@ export function initExplorer() {
   // ---------- Flèche de repli (⌄) ----------
   const toggle = () => {
     if (isMobile()) panel.classList.contains("sheet-collapsed") ? expand() : collapse();
-    else panel.classList.toggle("collapsed");
+    else { panel.classList.toggle("collapsed"); edgeToggle?.classList.toggle("collapsed", panel.classList.contains("collapsed")); }
   };
   el("panel-collapse")?.addEventListener("click", toggle);
+  edgeToggle?.addEventListener("click", toggle);
 
   // ---------- État initial ----------
   // Mobile : réduit (la carte domine, on tire pour lire) ; desktop : ouvert. Placement
@@ -130,6 +132,7 @@ export function initExplorer() {
     } else {
       panel.classList.remove("sheet-collapsed", "sheet-dragging");
       panel.style.removeProperty("--sheet-y");
+      edgeToggle?.classList.toggle("collapsed", panel.classList.contains("collapsed"));
       curY = 0;
     }
   };

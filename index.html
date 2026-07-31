@@ -55,7 +55,7 @@
         "./js/packdialog.js": "./js/packdialog.js?v=502",
         "./js/zoneselect.js": "./js/zoneselect.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
-        "./js/explorer.js": "./js/explorer.js?v=505",
+        "./js/explorer.js": "./js/explorer.js?v=506",
         "./js/fiche3d.js": "./js/fiche3d.js?v=507",
         "./js/sync.js": "./js/sync.js?v=502",
         "./js/outings.js": "./js/outings.js?v=501",
@@ -456,6 +456,13 @@
           <div id="trail-list" class="trail-list"></div>
         </div>
       </div>
+
+      <!-- Poignée de repli desktop : ancrée au bord du panneau, reste joignable même
+           quand le panneau est glissé hors écran (pour le rouvrir). Masquée en mobile
+           (la feuille se replie par la poignée #sheet-grip). -->
+      <button class="panel-edge-toggle" id="panel-edge-toggle" title="Masquer le panneau des itinéraires" aria-label="Masquer ou afficher le panneau des itinéraires">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
     </section>
 
     <!-- ============ ITINÉRAIRES — bibliothèque perso (Mes randos, session, calques) ============ -->

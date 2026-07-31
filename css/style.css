@@ -1025,7 +1025,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
    s'effacent (sinon la liste des résultats surgit par-dessus la carte → écran
    instable). Partagé par #loops-bar et #plan-bar. */
 .loops-active .map-search-dock,
-.loops-active .results-panel { display: none; }
+.loops-active .results-panel, .loops-active .panel-edge-toggle { display: none; }
 .builder-stats { flex: 1; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 /* ---------- Planificateur d'itinéraire (S-PLAN-A → S-PLAN-C) ---------- */
@@ -1366,6 +1366,37 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 
 .results-panel.collapsed { transform: translateX(calc(-100% - 18px)); }
+
+/* Poignée de repli desktop, en dehors du panneau : reste cliquable quand celui-ci est
+   glissé hors écran. Suit le bord droit du panneau, revient contre le bord de la carte
+   une fois replié. Masquée en mobile (poignée .sheet-grip dédiée). */
+.panel-edge-toggle {
+  position: absolute;
+  top: 50%;
+  left: calc(12px + var(--panel-w) + 10px);
+  transform: translateY(-50%);
+  z-index: 998;
+  width: 26px;
+  height: 54px;
+  padding: 0;
+  border: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft);
+  color: var(--text-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: left 0.18s ease, background 0.15s ease, color 0.15s ease;
+}
+.panel-edge-toggle:hover { color: var(--text); background: color-mix(in srgb, var(--surface) 96%, transparent); }
+.panel-edge-toggle svg { width: 15px; height: 15px; transition: transform 0.18s ease; }
+.panel-edge-toggle.collapsed { left: 12px; border-radius: var(--radius); }
+.panel-edge-toggle.collapsed svg { transform: rotate(180deg); }
+@media (max-width: 700px) { .panel-edge-toggle { display: none; } } /* mobile : poignée .sheet-grip dédiée */
 
 /* ============ Panneau glissant d'Explorer (bottom-sheet) ============ */
 .explorer-sheet { padding: 0; }
@@ -2481,7 +2512,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
    la barre du haut (desktop) ET la barre d'onglets du bas (mobile, repositionnée) → la
    masquer libère toute la hauteur d'écran, comme une vraie vue de navigation. */
 .nav-active .header, .nav-active #tab-nav,
-.nav-active .map-search-dock, .nav-active .results-panel,
+.nav-active .map-search-dock, .nav-active .results-panel, .nav-active .panel-edge-toggle,
 .nav-active .map-osm-btn, .nav-active .layers-control > .map-ctl,
 .nav-active .map-scale-bar, .nav-active .map-scale,
 .nav-active .maplibregl-ctrl-group { display: none; }
@@ -3913,6 +3944,7 @@ body.primal-active .nav-fabs { display: none; }
 .zone-selecting .map-scale,
 .zone-selecting .map-search-dock,
 .zone-selecting #results-panel,
+.zone-selecting .panel-edge-toggle,
 .zone-selecting .maplibregl-ctrl-bottom-left,
 .zone-selecting .maplibregl-ctrl-bottom-right { display: none !important; }
 
