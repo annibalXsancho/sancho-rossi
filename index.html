@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=574" />
+  <link rel="stylesheet" href="css/style.css?v=578" />
   <script type="importmap">
     {
       "imports": {
@@ -28,7 +28,7 @@
         "./js/mapillary.js": "./js/mapillary.js?v=502",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=545",
+        "./js/map.js": "./js/map.js?v=547",
         "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=535",
@@ -160,89 +160,12 @@
           <svg class="compass-needle" viewBox="0 0 24 24" fill="none"><path d="M12 3 8.4 12 12 10.4 15.6 12Z" fill="var(--red)"/><path d="M12 10.4 15.6 12 12 21 8.4 12Z" fill="currentColor" opacity="0.5"/></svg>
         </button>
 
-        <!-- Sélecteur de calques refondu : cartes-aperçu (fonds) + pastilles (surcouches, POI). -->
+        <!-- Sélecteur de calques (S-V3-CALQUES-UI) : GÉNÉRÉ par map.js depuis LAYER_GROUPS
+             + LAYER_META — groupes par intention, icônes SVG, repli mémorisé. Ajouter un
+             calque ne se fait plus ici mais dans map.js. Seul l'indice POI reste statique,
+             map.js le récupérant par son id. -->
         <div class="layers-panel hidden" id="layers-panel">
-          <div class="layers-title">Fond de carte</div>
-          <div class="layer-cards">
-            <div class="layer-card" data-layer="plan">
-              <div class="layer-thumb" role="button" tabindex="0" aria-label="Plan" style="background-image:url('assets/layer-previews/plan.png')"><span class="layer-check">✓</span></div>
-              <div class="layer-card-name">Plan</div>
-              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Plan" />
-            </div>
-            <div class="layer-card" data-layer="topo">
-              <div class="layer-thumb" role="button" tabindex="0" aria-label="Topographique" style="background-image:url('assets/layer-previews/topo.png')"><span class="layer-check">✓</span></div>
-              <div class="layer-card-name">Topo</div>
-              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Topographique" />
-            </div>
-            <div class="layer-card" data-layer="satellite">
-              <div class="layer-thumb" role="button" tabindex="0" aria-label="Satellite" style="background-image:url('assets/layer-previews/satellite.jpg')"><span class="layer-check">✓</span></div>
-              <div class="layer-card-name">Satellite</div>
-              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Satellite" />
-            </div>
-            <div class="layer-card" data-layer="sombre">
-              <div class="layer-thumb" role="button" tabindex="0" aria-label="Sombre" style="background-image:url('assets/layer-previews/sombre.png')"><span class="layer-check">✓</span></div>
-              <div class="layer-card-name">Sombre</div>
-              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Sombre" />
-            </div>
-            <div class="layer-card" data-layer="terrainhd">
-              <div class="layer-thumb" role="button" tabindex="0" aria-label="Terrain" style="background-image:url('assets/layer-previews/terrainhd.jpg')"><span class="layer-check">✓</span></div>
-              <div class="layer-card-name">Terrain</div>
-              <input type="range" class="layer-op" min="15" max="100" value="100" aria-label="Opacité Terrain" />
-            </div>
-          </div>
-
-          <div class="layers-title">Surcouches</div>
-          <div class="overlay-list">
-            <div class="overlay-row" data-layer="hillshade">
-              <span class="overlay-ic">⛰️</span>
-              <span class="overlay-name">Relief (ombrage)</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-              <input type="range" class="layer-op" min="10" max="100" value="45" aria-label="Opacité relief" />
-            </div>
-            <div class="overlay-row" data-layer="trails">
-              <span class="overlay-ic">🥾</span>
-              <span class="overlay-name">Sentiers balisés</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité sentiers" />
-            </div>
-            <div class="overlay-row" data-layer="mtb">
-              <span class="overlay-ic">🚵</span>
-              <span class="overlay-name">VTT balisé</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité VTT" />
-            </div>
-            <div class="overlay-row" data-layer="ski">
-              <span class="overlay-ic">⛷️</span>
-              <span class="overlay-name">Ski — pistes et itinéraires</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-              <input type="range" class="layer-op" min="15" max="100" value="85" aria-label="Opacité ski" />
-            </div>
-            <div class="overlay-row" data-layer="rain">
-              <span class="overlay-ic">🌧️</span>
-              <span class="overlay-name">Précipitations (radar direct)</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-              <input type="range" class="layer-op" min="15" max="100" value="70" aria-label="Opacité pluie" />
-            </div>
-          </div>
-
-          <div class="layers-title">Points d'intérêt</div>
-          <div class="overlay-list">
-            <div class="overlay-row poi" data-poi="water">
-              <span class="overlay-ic">💧</span>
-              <span class="overlay-name">Eau potable et sources</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            </div>
-            <div class="overlay-row poi" data-poi="huts">
-              <span class="overlay-ic">🏠</span>
-              <span class="overlay-name">Refuges et abris</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            </div>
-            <div class="overlay-row poi" data-poi="rescue">
-              <span class="overlay-ic">⛑</span>
-              <span class="overlay-name">Secours et bornes SOS</span>
-              <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
-            </div>
-          </div>
+          <div class="lp-groups" id="lp-groups"></div>
           <p class="muted poi-hint" id="poi-hint">Zoomez sur un massif : les points se chargent pour la zone affichée.</p>
         </div>
       </div>
@@ -674,7 +597,7 @@
         <div class="filters-label">Durée</div>
         <div class="filter-group" id="filter-days">
           <button class="chip active" data-value="">Tous</button>
-          <button class="chip" data-value="2">⛺ 2 j · bivouac</button>
+          <button class="chip" data-value="2"><svg class="chip-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20.3h18"/><path d="M13.4 3.7 4.6 20.3"/><path d="M10.6 3.7l8.8 16.6"/><path d="m9.2 20.3 2.8-5.4 2.8 5.4"/></svg>2 j · bivouac</button>
           <button class="chip" data-value="1">1 jour</button>
         </div>
       </div>
@@ -701,8 +624,8 @@
       <div class="filters-section">
         <div class="filters-label">Sur le terrain</div>
         <div class="filter-group" id="filter-terrain">
-          <button class="chip" data-terrain="water">💧 Point d'eau</button>
-          <button class="chip" data-terrain="shelter">🏠 Refuge / abri</button>
+          <button class="chip" data-terrain="water"><svg class="chip-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2c3.6 4 5.6 6.8 5.6 9.4a5.6 5.6 0 0 1-11.2 0C6.4 10 8.4 7.2 12 3.2Z"/></svg>Point d'eau</button>
+          <button class="chip" data-terrain="shelter"><svg class="chip-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3.2 11.2 8.8-7 8.8 7"/><path d="M6 10v9.5h12V10"/><path d="M10.2 19.5V14h3.6v5.5"/></svg>Refuge / abri</button>
         </div>
         <p class="filters-hint">Eau et refuge sont connus pour la sélection curée ; les tracés OSM les portent en « — ».</p>
       </div>
@@ -749,7 +672,7 @@
       <div class="filters-section">
         <div class="filters-label">Temps de route depuis ma position</div>
         <div class="drive-filter">
-          <button class="btn" id="filter-drive-pos" title="Utiliser ma position GPS">📍 Ma position</button>
+          <button class="btn btn-ic" id="filter-drive-pos" title="Utiliser ma position GPS"><svg class="chip-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s6.6-6.3 6.6-11.2a6.6 6.6 0 1 0-13.2 0C5.4 15.2 12 21.5 12 21.5Z"/><circle cx="12" cy="10.1" r="2.4"/></svg>Ma position</button>
           <label class="drive-max">Max
             <input id="filter-drive-max" type="number" min="0" step="0.5" placeholder="∞" /> h
           </label>
@@ -901,35 +824,35 @@
         <div class="layers-title">Fond de carte</div>
         <div class="layer-cards">
           <div class="layer-card" data-fmbase="plan">
-            <div class="layer-thumb" role="button" tabindex="0" aria-label="Plan" style="background-image:url('assets/layer-previews/plan.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Plan" style="background-image:url('assets/layer-previews/plan.png')"><span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span></div>
             <div class="layer-card-name">Plan</div>
           </div>
           <div class="layer-card" data-fmbase="topo">
-            <div class="layer-thumb" role="button" tabindex="0" aria-label="Topographique" style="background-image:url('assets/layer-previews/topo.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Topographique" style="background-image:url('assets/layer-previews/topo.png')"><span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span></div>
             <div class="layer-card-name">Topo</div>
           </div>
           <div class="layer-card" data-fmbase="satellite">
-            <div class="layer-thumb" role="button" tabindex="0" aria-label="Satellite" style="background-image:url('assets/layer-previews/satellite.jpg')"><span class="layer-check">✓</span></div>
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Satellite" style="background-image:url('assets/layer-previews/satellite.jpg')"><span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span></div>
             <div class="layer-card-name">Satellite</div>
           </div>
           <div class="layer-card" data-fmbase="sombre">
-            <div class="layer-thumb" role="button" tabindex="0" aria-label="Sombre" style="background-image:url('assets/layer-previews/sombre.png')"><span class="layer-check">✓</span></div>
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Sombre" style="background-image:url('assets/layer-previews/sombre.png')"><span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span></div>
             <div class="layer-card-name">Sombre</div>
           </div>
           <div class="layer-card" data-fmbase="terrainhd">
-            <div class="layer-thumb" role="button" tabindex="0" aria-label="Terrain" style="background-image:url('assets/layer-previews/terrainhd.jpg')"><span class="layer-check">✓</span></div>
+            <div class="layer-thumb" role="button" tabindex="0" aria-label="Terrain" style="background-image:url('assets/layer-previews/terrainhd.jpg')"><span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span></div>
             <div class="layer-card-name">Terrain</div>
           </div>
         </div>
         <div class="layers-title">Surcouches</div>
         <div class="overlay-list">
           <div class="overlay-row" data-fmov="hillshade">
-            <span class="overlay-ic">⛰️</span>
+            <span class="lp-ic"><svg class="lp-ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 18.5 6-9 4 5.5 2.5-3.5 6.5 7z"/><path d="m8.5 9.5 2.2 3.3"/></svg></span>
             <span class="overlay-name">Relief (ombrage)</span>
             <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
           </div>
           <div class="overlay-row" data-fmov="trails">
-            <span class="overlay-ic">🥾</span>
+            <span class="lp-ic"><svg class="lp-ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 21c0-3.6 7-3.6 7-7.5s-3.5-3.9-3.5-7.5"/><path d="M12 3.2v2.6"/><path d="M8.5 21h7"/></svg></span>
             <span class="overlay-name">Sentiers balisés</span>
             <label class="switch"><input type="checkbox" /><span class="slider-sw"></span></label>
           </div>

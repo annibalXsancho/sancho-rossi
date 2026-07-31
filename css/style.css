@@ -511,6 +511,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   transition: background 0.15s ease-out, color 0.15s ease-out;
 }
 
+/* Chip porteuse d'une icône : même grammaire dessinée que le sélecteur de calques,
+   les emojis ayant disparu des deux panneaux (S-V3-CALQUES-UI). */
+.chip:has(.chip-ic), .btn-ic { display: inline-flex; align-items: center; gap: 7px; }
+.chip-ic { width: 15px; height: 15px; flex: none; }
 .chip:hover { color: var(--text); background: var(--surface-3); }
 .chip.active { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 
@@ -735,20 +739,33 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   border: none;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-soft);
-  padding: 12px 14px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
   max-height: calc(100vh - 150px);
   overflow-y: auto;
+  /* Le panneau grandit avec le catalogue : sa barre de défilement doit se faire oublier.
+     Par défaut elle s'affichait en clair, tache blanche sur un thème en nuances de noir. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
 }
+.layers-panel::-webkit-scrollbar { width: 6px; }
+.layers-panel::-webkit-scrollbar-track { background: transparent; }
+.layers-panel::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: var(--radius-full);
+}
+.layers-panel::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 .layers-panel.hidden { display: none; }
 
+/* Titre de section du panneau jumeau de la fiche. Le trait 1px sous le titre est retiré
+   (S-V3-CALQUES-UI) : la charte v2 proscrit les encadrés, la hiérarchie passe par la
+   valeur des surfaces et l'espacement. */
 .layers-title {
-  font-size: 10.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   color: var(--text-soft);
-  margin: 12px 0 6px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 
 .layers-title:first-child { margin-top: 0; }
@@ -779,41 +796,95 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .poi-row { grid-template-areas: "sw name"; }
 .poi-hint { margin-top: 8px; }
 
-/* Interrupteur rectangulaire fin */
-.switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+/* Interrupteur — pastille arrondie (S-V3-CALQUES-UI). L'ancien rectangle cerné d'un trait
+   1px était le dernier vestige de l'identité v1 « athlète » dans ce panneau : la charte v2
+   veut `--radius-full` et aucune bordure, le contraste venant des surfaces. */
+.switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; }
 
 .slider-sw {
   position: absolute;
   inset: 0;
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.16s ease-out;
 }
 
 .slider-sw::before {
   content: "";
   position: absolute;
-  width: 12px;
-  height: 12px;
-  left: 2px;
-  top: 2px;
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  top: 3px;
   background: var(--text-soft);
-  transition: transform 0.12s, background 0.12s;
+  border-radius: var(--radius-full);
+  transition: transform 0.16s ease-out, background 0.16s ease-out;
 }
 
-.switch input:checked + .slider-sw { background: var(--red); border-color: var(--red); }
+.switch input:checked + .slider-sw { background: var(--red); }
 .switch input:checked + .slider-sw::before { transform: translateX(16px); background: #fff; }
+.switch input:focus-visible + .slider-sw { box-shadow: var(--focus-ring); }
 
-/* ===== Sélecteur de calques refondu (S-V2-EXPLORER-B) : aperçus visuels ===== */
+/* ===== Sélecteur de calques (S-V3-CALQUES-UI) =====
+   Refonte du sélecteur de S-V2-EXPLORER-B, jugé « trop moche » à l'usage. Trois causes
+   traitées : les emojis en guise d'icônes (remplacés par des tracés SVG), la liste plate
+   qui ne tiendrait pas à quinze calques (groupes repliables par intention), et les
+   sections nommées par technique. Le panneau est désormais généré par map.js. */
+.lp-groups { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.lp-group + .lp-group { padding-top: var(--sp-1); }
+
+/* En-tête de groupe : toute la ligne est la cible de repli (confort tactile). */
+.lp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-1);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.14s ease-out;
+}
+.lp-head:hover { background: var(--surface-2); }
+.lp-head:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.lp-chev {
+  width: 15px; height: 15px;
+  color: var(--text-soft);
+  flex: none;
+  transition: transform 0.18s ease-out;
+}
+.lp-group.closed .lp-chev { transform: rotate(-90deg); }
+.lp-group.closed .lp-body { display: none; }
+.lp-body { padding-bottom: var(--sp-2); }
+
+/* Icône de calque : pastille tonale + tracé, à la place des emojis. */
+.lp-ic {
+  grid-area: ic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-soft);
+  transition: background 0.14s ease-out, color 0.14s ease-out;
+}
+.lp-ic-svg { width: 17px; height: 17px; }
+.overlay-row.active .lp-ic { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); }
+
+/* Fonds de carte : vignettes en tuiles réelles. */
 .layer-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
 }
-.layer-card { display: flex; flex-direction: column; gap: 4px; }
+.layer-card { display: flex; flex-direction: column; gap: var(--sp-1); }
 .layer-thumb {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -825,6 +896,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   transition: box-shadow 0.15s ease-out, transform 0.1s ease-out;
 }
 .layer-thumb:hover { transform: translateY(-1px); }
+.layer-thumb:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .layer-card.active .layer-thumb { box-shadow: inset 0 0 0 2px var(--red), 0 0 0 2px var(--red); }
 .layer-check {
   position: absolute; top: 4px; right: 4px;
@@ -832,31 +904,37 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   display: none; align-items: center; justify-content: center;
   background: var(--red); color: #fff;
   border-radius: var(--radius-full);
-  font-size: 11px; font-weight: 800;
+  box-shadow: var(--shadow-soft);
 }
+.layer-check svg { width: 11px; height: 11px; }
 .layer-card.active .layer-check { display: flex; }
-.layer-card-name { font-size: 11.5px; font-weight: 700; text-align: center; color: var(--text-soft); }
+.layer-card-name { font-size: 11.5px; font-weight: 600; text-align: center; color: var(--text-soft); }
 .layer-card.active .layer-card-name { color: var(--text); }
-.layer-card .layer-op { display: none; width: 100%; accent-color: var(--red); height: 3px; margin: 0; }
+.layer-card .layer-op { display: none; width: 100%; margin: 0; }
 .layer-card.active .layer-op { display: block; }
 
-.overlay-list { display: flex; flex-direction: column; gap: 1px; }
+/* Surcouches et lieux : icône · nom · interrupteur, opacité révélée à l'état actif. */
+.overlay-list { display: flex; flex-direction: column; gap: 2px; }
 .overlay-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
   grid-template-areas: "ic name sw" ". op op";
   align-items: center;
-  column-gap: 10px; row-gap: 4px;
-  padding: 7px 5px;
+  column-gap: var(--sp-3); row-gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-1);
   border-radius: var(--radius);
-  transition: background 0.12s ease-out;
+  transition: background 0.14s ease-out;
 }
 .overlay-row:hover { background: var(--surface-2); }
-.overlay-ic { grid-area: ic; font-size: 15px; width: 22px; text-align: center; }
-.overlay-name { grid-area: name; font-size: 12.5px; font-weight: 600; }
+.overlay-name { grid-area: name; font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.overlay-row.active .overlay-name { color: var(--text); }
 .overlay-row .switch { grid-area: sw; }
-.overlay-row .layer-op { grid-area: op; display: none; accent-color: var(--red); height: 3px; margin: 2px 0 0; }
+.overlay-row .layer-op { grid-area: op; display: none; margin: 2px 0 0; }
 .overlay-row.active .layer-op { display: block; }
+
+/* Curseur d'opacité — un seul style pour les deux présentations. */
+.layer-op { accent-color: var(--red); height: 3px; cursor: pointer; }
+.layer-op:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 /* Bouton « Charger les randos de cette zone » dans la feuille Explorer */
 .sheet-load {
@@ -3127,6 +3205,10 @@ body.primal-active .nav-fabs { display: none; }
   width: min(560px, 100%);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
+  /* Même barre de défilement discrète que le panneau de calques : les deux panneaux de
+     la carte doivent se ressembler jusque dans ce détail (S-V3-CALQUES-UI). */
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
   background: var(--surface);
   border: none;
   border-top: 2px solid var(--red);

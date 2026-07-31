@@ -116,17 +116,59 @@ const LAYER_ORDER = [
 
 // Libellés + opacité minimale par calque — source unique consommée par le sélecteur de
 // carte ET la liste de calques de la bibliothèque (navview.js), qui ne scrape plus le DOM.
+//
+// `short` = nom court sous la vignette d'un fond ; `thumb` = aperçu en tuiles réelles ;
+// `icon` = clé dans LAYER_ICONS pour les surcouches. Le sélecteur (S-V3-CALQUES-UI) se
+// GÉNÈRE depuis cette table : ajouter un calque = une ligne ici + une ligne dans
+// LAYER_GROUPS, plus une seule ligne de HTML à écrire.
 export const LAYER_META = {
-  plan: { label: "Plan (OpenStreetMap)", min: 15 },
-  topo: { label: "Topographique", min: 15 },
-  satellite: { label: "Satellite", min: 15 },
-  sombre: { label: "Sombre", min: 15 },
-  terrainhd: { label: "Terrain HD", min: 15 },
-  hillshade: { label: "Relief (ombrage)", min: 10 },
-  trails: { label: "Sentiers balisés", min: 15 },
-  mtb: { label: "VTT balisé", min: 15 },
-  ski: { label: "Ski — pistes et itinéraires", min: 15 },
-  rain: { label: "Précipitations (radar direct)", min: 15 },
+  plan: { label: "Plan (OpenStreetMap)", min: 15, short: "Plan", thumb: "assets/layer-previews/plan.png" },
+  topo: { label: "Topographique", min: 15, short: "Topo", thumb: "assets/layer-previews/topo.png" },
+  satellite: { label: "Satellite", min: 15, short: "Satellite", thumb: "assets/layer-previews/satellite.jpg" },
+  sombre: { label: "Sombre", min: 15, short: "Sombre", thumb: "assets/layer-previews/sombre.png" },
+  terrainhd: { label: "Terrain HD", min: 15, short: "Terrain", thumb: "assets/layer-previews/terrainhd.jpg" },
+  hillshade: { label: "Relief (ombrage)", min: 10, short: "Relief", icon: "relief" },
+  trails: { label: "Sentiers balisés", min: 15, short: "Sentiers", icon: "trail" },
+  mtb: { label: "VTT balisé", min: 15, short: "VTT", icon: "mtb" },
+  ski: { label: "Ski — pistes et itinéraires", min: 15, short: "Ski", icon: "ski" },
+  rain: { label: "Précipitations (radar direct)", min: 15, short: "Pluie", icon: "rain" },
+};
+
+// ---------- Sélecteur de calques : icônes et regroupement par intention ----------
+// Icônes dessinées au trait (24×24, stroke hérité) — elles remplacent les emojis du
+// sélecteur v2, seule chose qui « sentait le prototype » dans ce panneau.
+export const LAYER_ICONS = {
+  relief: '<path d="m2.5 18.5 6-9 4 5.5 2.5-3.5 6.5 7z"/><path d="m8.5 9.5 2.2 3.3"/>',
+  // Poteau de balisage à deux flèches : une sinuosité de sentier devient illisible à 17 px.
+  trail: '<path d="M12 21.5V3"/><path d="M12 5.4h6.2l2 2.6-2 2.6H12z"/><path d="M12 13h-6.2l-2 2.6 2 2.6H12z"/>',
+  mtb: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5 10 8.5h5l3.5 9M10 8.5l4 9M14 6h3"/>',
+  // Fanion de piste planté dans la pente — deux skis parallèles se brouillent en miniature.
+  ski: '<path d="M3.5 20.5h17"/><path d="M8 20.5 13.5 4"/><path d="M13.5 4.4c3.2 1 3.8 3.4 7 2.4-.9 2.6-4 3.4-6 2.6"/>',
+  rain: '<path d="M7.5 15.5a3.8 3.8 0 0 1 .6-7.6 5.4 5.4 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.3 6.3"/><path d="M9 18.5v2.2M13 18v2.7M17 18.5v2.2"/>',
+  water: '<path d="M12 3.2c3.6 4 5.6 6.8 5.6 9.4a5.6 5.6 0 0 1-11.2 0C6.4 10 8.4 7.2 12 3.2Z"/>',
+  hut: '<path d="m3.2 11.2 8.8-7 8.8 7"/><path d="M6 10v9.5h12V10"/><path d="M10.2 19.5V14h3.6v5.5"/>',
+  rescue: '<circle cx="12" cy="12" r="8.8"/><path d="M12 7.6v8.8M7.6 12h8.8"/>',
+};
+
+// Groupes du sélecteur, ordonnés, nommés par INTENTION (ce que l'utilisateur cherche) et
+// non par technique — « Surcouches » ne veut rien dire pour qui cherche la pluie.
+// `kind` : base = vignettes empilables · overlay = calque raster · poi = points Overpass.
+// Un groupe vide n'est pas rendu : « Transports » attend les calques de S-V3-CALQUES-LISIBLE.
+export const LAYER_GROUPS = [
+  { id: "fond", label: "Fond de carte", kind: "base", items: ["plan", "topo", "satellite", "sombre", "terrainhd"] },
+  { id: "relief", label: "Relief", kind: "overlay", items: ["hillshade"] },
+  { id: "activites", label: "Activités", kind: "overlay", items: ["trails", "mtb", "ski"] },
+  { id: "conditions", label: "Conditions", kind: "overlay", items: ["rain"] },
+  { id: "transports", label: "Transports", kind: "overlay", items: [] },
+  { id: "lieux", label: "Lieux", kind: "poi", items: ["water", "huts", "rescue"] },
+];
+
+// Libellés des couches de points d'intérêt DANS LE PANNEAU. Séparé de POI_DEFS, dont
+// l'`icon` emoji sert aux marqueurs posés sur la carte et n'a pas à changer ici.
+export const POI_META = {
+  water: { label: "Eau potable et sources", icon: "water" },
+  huts: { label: "Refuges et abris", icon: "hut" },
+  rescue: { label: "Secours et bornes SOS", icon: "rescue" },
 };
 
 // ---------- Zooms ----------
@@ -591,6 +633,83 @@ export function applyLayer(name) {
   });
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
   updateZoomCap();
+}
+
+// ---------- Construction du sélecteur de calques (S-V3-CALQUES-UI) ----------
+// Le panneau n'est plus écrit à la main dans index.html (où chaque calque coûtait 6 lignes,
+// dupliquées entre la carte et la fiche) : il se génère depuis LAYER_GROUPS + LAYER_META.
+// Le contrat DOM consommé par applyLayer et par le câblage d'initMap est strictement
+// conservé — mêmes classes `.layer-card` / `.overlay-row` / `.layer-op`, mêmes `data-layer`
+// et `data-poi` — donc le modèle d'état ne bouge pas, seule la présentation change.
+const svgIcon = (key) =>
+  `<svg class="lp-ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${LAYER_ICONS[key] || ""}</svg>`;
+
+const GROUPS_KEY = "sr-lp-closed";
+const closedGroups = new Set(JSON.parse(localStorage.getItem(GROUPS_KEY) || "[]"));
+
+function baseCard(name) {
+  const m = LAYER_META[name];
+  const cfg = layersConfig[name];
+  return `<div class="layer-card" data-layer="${name}">
+      <div class="layer-thumb" role="button" tabindex="0" aria-label="${m.label}" style="background-image:url('${m.thumb}')">
+        <span class="layer-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span>
+      </div>
+      <div class="layer-card-name">${m.short}</div>
+      <input type="range" class="layer-op" min="${m.min}" max="100" value="${cfg.op}" aria-label="Opacité ${m.label}" />
+    </div>`;
+}
+
+function overlayRow(name) {
+  const m = LAYER_META[name];
+  const cfg = layersConfig[name];
+  return `<div class="overlay-row" data-layer="${name}">
+      <span class="lp-ic">${svgIcon(m.icon)}</span>
+      <span class="overlay-name">${m.label}</span>
+      <label class="switch"><input type="checkbox" aria-label="${m.label}" /><span class="slider-sw"></span></label>
+      <input type="range" class="layer-op" min="${m.min}" max="100" value="${cfg.op}" aria-label="Opacité ${m.label}" />
+    </div>`;
+}
+
+function poiRow(kind) {
+  const m = POI_META[kind];
+  return `<div class="overlay-row poi" data-poi="${kind}">
+      <span class="lp-ic">${svgIcon(m.icon)}</span>
+      <span class="overlay-name">${m.label}</span>
+      <label class="switch"><input type="checkbox" aria-label="${m.label}" /><span class="slider-sw"></span></label>
+    </div>`;
+}
+
+export function buildLayersPanel(host) {
+  if (!host) return;
+  host.innerHTML = LAYER_GROUPS.filter((g) => g.items.length)
+    .map((g) => {
+      const body =
+        g.kind === "base"
+          ? `<div class="layer-cards">${g.items.map(baseCard).join("")}</div>`
+          : `<div class="overlay-list">${g.items
+              .map(g.kind === "poi" ? poiRow : overlayRow)
+              .join("")}</div>`;
+      const closed = closedGroups.has(g.id);
+      return `<section class="lp-group${closed ? " closed" : ""}" data-group="${g.id}">
+        <button class="lp-head" type="button" aria-expanded="${!closed}" aria-controls="lp-body-${g.id}">
+          <span class="eyebrow">${g.label}</span>
+          <svg class="lp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="lp-body" id="lp-body-${g.id}">${body}</div>
+      </section>`;
+    })
+    .join("");
+
+  // Repli d'un groupe : mémorisé, pour que le panneau s'ouvre tel que l'utilisateur l'a laissé.
+  host.querySelectorAll(".lp-head").forEach((head) => {
+    head.addEventListener("click", () => {
+      const group = head.closest(".lp-group");
+      const nowClosed = group.classList.toggle("closed");
+      head.setAttribute("aria-expanded", String(!nowClosed));
+      nowClosed ? closedGroups.add(group.dataset.group) : closedGroups.delete(group.dataset.group);
+      localStorage.setItem(GROUPS_KEY, JSON.stringify([...closedGroups]));
+    });
+  });
 }
 
 // ---- Couches de points d'intérêt (Overpass) : eau, refuges, secours ----
@@ -1218,6 +1337,8 @@ export function initMap() {
 
   const layersControl = document.getElementById("layers-control");
   const layersPanel = document.getElementById("layers-panel");
+  // Le panneau est généré AVANT le câblage ci-dessous, qui interroge le DOM qu'il produit.
+  buildLayersPanel(document.getElementById("lp-groups"));
   // Équivalent de L.DomEvent.disableClickPropagation : la pile de contrôles est du DOM
   // posé au-dessus du canvas, ses clics et molettes ne doivent pas piloter la carte.
   ["click", "dblclick", "mousedown", "pointerdown", "wheel", "touchstart"].forEach((ev) =>
