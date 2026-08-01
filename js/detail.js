@@ -18,7 +18,7 @@ import { createRouteWeather } from "./hikeweather.js";
 import { createRouteConditions } from "./conditions.js";
 import { moonPhase, sunTimes } from "./astro.js";
 import { annotKind } from "./annotations.js";
-import { SAC_LABEL, computeLoss } from "./metrics.js";
+import { SAC_LABEL, computeLoss, cumulativeKm } from "./metrics.js";
 import { openOutingForm, outingsSectionHtml } from "./outings.js";
 import { touchPrefs } from "./sync.js";
 import { shareTrail } from "./share.js";
@@ -322,8 +322,13 @@ function showOnFullMap(p) {
 function fitFullMap({ animate = false } = {}) {
   if (!fullMap || !fullBounds) return;
   const panel = document.getElementById("fullmap-panel");
+  // Déplié sur un petit écran, le bandeau peut occuper plus de la moitié de la hauteur :
+  // une marge basse plus grande que la carte ferait échouer le cadrage. On la plafonne,
+  // quitte à laisser le tracé passer un peu sous le bandeau relevé.
+  const mapH = fullmapEl?.clientHeight || window.innerHeight;
+  const bottom = Math.min((panel?.offsetHeight || 150) + 30, Math.round(mapH * 0.5));
   fullMap.fitBounds(fullBounds, {
-    padding: { top: 70, left: 40, right: 40, bottom: (panel?.offsetHeight || 150) + 30 },
+    padding: { top: 70, left: 40, right: 40, bottom },
     duration: animate ? 350 : 0,
   });
 }
@@ -346,21 +351,65 @@ function paintFullProfile() {
   });
 }
 
+// Abscisses en km du profil, recalées sur la distance annoncée — même méthode que
+// `createProfile`, pour que les pentes se lisent sur la courbe affichée.
+function fullProfileKm() {
+  if (!fullEles?.length) return null;
+  const track = fullTrail.mainline || trackOf(fullTrail);
+  let pts = track && track.length === fullEles.length ? track
+    : track ? sampleTrack(track, fullEles.length) : null;
+  if (!pts || pts.length !== fullEles.length) return null;
+  const cum = cumulativeKm(pts);
+  const raw = cum[cum.length - 1];
+  if (!raw) return null;
+  const scale = fullTrail.distance > 0 ? fullTrail.distance / raw : 1;
+  return cum.map((c) => c * scale);
+}
+
+// Fenêtre minimale de mesure d'une pente. Le profil ne compte qu'une centaine de points :
+// en deçà de 250 m, un seul échantillon bruité produirait une pente spectaculaire et fausse.
+const SLOPE_WIN_KM = 0.25;
+
+// Montée moyenne la plus raide sur au moins SLOPE_WIN_KM. On s'arrête à la première
+// fenêtre assez longue : au-delà, la pente se moyenne et retombe.
+function maxClimbPct(eles, km) {
+  let best = 0;
+  for (let i = 0; i < eles.length - 1; i++) {
+    for (let j = i + 1; j < eles.length; j++) {
+      if (km[j] - km[i] < SLOPE_WIN_KM) continue;
+      best = Math.max(best, ((eles[j] - eles[i]) / ((km[j] - km[i]) * 1000)) * 100);
+      break;
+    }
+  }
+  return best;
+}
+
 // Détail chiffré qui n'apparaît qu'une fois le profil déplié : ce que la courbe montre
-// sans le dire (altitudes extrêmes, D−, amplitude, cotation). Replié, le bandeau garde
-// les quatre métriques qui décident d'y aller ou non.
+// sans le dire (altitude basse, D−, amplitude, pentes, cotation). Replié, le bandeau garde
+// les quatre métriques qui décident d'y aller ou non — et le détail ne les répète pas :
+// distance, durée, D+ et altitude max sont déjà en haut, en permanence.
 function fullDetailHtml() {
   if (!fullEles?.length) return "";
   const fr = (v) => Math.round(v).toLocaleString("fr-FR");
+  const pct = (v) => `${v.toFixed(1).replace(".", ",")} %`;
   const min = Math.min(...fullEles);
   const max = Math.max(...fullEles);
+  const gain = fullTrail.elevationGain ?? state.elev[fullTrail.id]?.gain;
   const loss = fullTrail.elevationLoss ?? computeLoss(fullEles);
   const sac = fullTrail.sac;
+  const km = fullProfileKm();
+  const dist = fullTrail.distance;
   const rows = [
     ["Altitude min", `${fr(min)} m`, null],
-    ["Altitude max", `${fr(max)} m`, null],
     ["Dénivelé négatif", `${fr(loss)} m`, null],
     ["Amplitude", `${fr(max - min)} m`, null],
+    gain != null && dist > 0
+      ? ["Dénivelé + / km", `${fr(gain / dist)} m`, "Dénivelé positif rapporté à la distance : la raideur générale du parcours"]
+      : null,
+    gain != null && dist > 0
+      ? ["Pente moyenne", pct(((gain + loss) / (dist * 1000)) * 100), "Dénivelé cumulé (montées et descentes) rapporté à la distance"]
+      : null,
+    km ? ["Pente max", pct(maxClimbPct(fullEles, km)), "Montée la plus raide en moyenne sur 250 m, mesurée sur le profil échantillonné"] : null,
     // Le libellé complet de la cote irait à la ligne dans une cellule de grille : il passe
     // en infobulle, la cellule ne montre que le niveau — qui est ce qu'on lit d'un coup d'œil.
     sac?.level ? ["Cotation", `${sac.level}${sac.estimated ? " (est.)" : ""}`, SAC_LABEL[sac.level] || ""] : null,
@@ -379,6 +428,9 @@ function setProfileOpen(on) {
   const detail = document.getElementById("fullmap-detail");
   panel?.classList.toggle("expanded", on);
   toggle?.setAttribute("aria-expanded", on ? "true" : "false");
+  // Sur mobile le libellé disparaît, la flèche reste seule : l'intitulé doit vivre
+  // dans l'aria-label, et dire le geste plutôt que l'état.
+  toggle?.setAttribute("aria-label", on ? "Replier le bandeau" : "Déplier le bandeau (profil et détails)");
   if (detail) {
     detail.innerHTML = on ? fullDetailHtml() : "";
     detail.classList.toggle("hidden", !on || !fullEles);

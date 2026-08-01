@@ -1967,9 +1967,36 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   .fullmap-overlay .fullmap-stack { top: 58px; right: 12px; }
   .fullmap-stack .layers-panel { max-width: calc(100vw - 74px); }
   .fullmap-panel { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
-  .fullmap-bar { gap: var(--sp-2); }
-  .fullmap-stats { gap: var(--sp-3); }
-  .fullmap-toggle { padding: 4px 8px; font-size: 10px; }
+  /* Relevé, le bandeau peut dépasser l'écran : il défile au lieu de pousser
+     le profil hors de vue. */
+  .fullmap-panel.expanded { max-height: 82vh; overflow-y: auto; overscroll-behavior: contain; }
+
+  /* Poignée de bottom-sheet : plus de libellé, la flèche seule au-dessus des
+     métriques. Elle pointe vers le haut quand le bandeau est en bas (le geste à
+     faire), vers le bas une fois relevé — la rotation est déjà portée par
+     [aria-expanded="true"]. */
+  .fullmap-bar { gap: var(--sp-1); }
+  .fullmap-toggle {
+    order: -1; flex: 1 0 100%;
+    justify-content: center;
+    padding: 0 0 2px; margin: 0;
+    min-height: 26px; /* cible tactile, sans manger la carte */
+  }
+  .fullmap-toggle span { display: none; }
+  .fullmap-toggle svg { width: 24px; height: 24px; stroke-width: 2.4; }
+  .fullmap-toggle:hover, .fullmap-toggle:active { background: transparent; color: var(--text); }
+
+  /* Les 4 métriques sur une seule ligne, réparties sur toute la largeur. */
+  .fullmap-stats { flex: 1 1 100%; flex-wrap: nowrap; justify-content: space-between; gap: var(--sp-2); }
+  .fullmap-stats .dock-stat { min-width: 0; }
+  .fullmap-stats .dock-stat span,
+  .fullmap-stats .dock-stat.big span { font-size: 15px; }
+  .fullmap-stats .dock-stat small { font-size: 10px; }
+  .fullmap-stats .dock-stat label { font-size: 8.5px; letter-spacing: 0.03em; }
+
+  /* Types de sols : réservés au bandeau relevé. En bas, la carte prime. */
+  .fullmap-panel:not(.expanded) .prof-legend { display: none; }
+  .fullmap-detail { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 2px var(--sp-4); }
 }
 
 /* Boussole plein écran (js/map.js openCompassView) */
