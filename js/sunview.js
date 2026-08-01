@@ -257,6 +257,53 @@ export async function attachSun(view, track, { onProbe = null } = {}) {
   }
 
   /**
+   * Pré-calcule la course du soleil entre deux instants, pour qu'un survol puisse la
+   * dérouler sans hoquet.
+   *
+   * `setTime` recalcule une grille d'ombres 192² — ~40 ms SYNCHRONES. Appelé pendant le
+   * survol, il ferait tomber des images à chaque rafraîchissement : inacceptable sur
+   * l'écran vitrine du produit. On paie donc tout d'avance, une fois, en rendant la main
+   * entre chaque pas pour ne pas figer la page — puis dérouler ne coûte plus qu'un
+   * changement d'image.
+   *
+   * @returns {Promise<{applyAt:Function, steps:number, dispose:Function}>}
+   */
+  async function prepareCourse(from, to, steps) {
+    const span = Math.max(1, to.getTime() - from.getTime());
+    const frames = [];
+    for (let i = 0; i <= steps; i++) {
+      if (dead) break;
+      const s = sunPosition(mid[0], mid[1], new Date(from.getTime() + (span * i) / steps));
+      const shade = shadeGrid(grid, s.azimuth, s.altitude);
+      ctx.putImageData(shadeToImageData(shade, GRID, ctx), 0, 0);
+      frames.push(canvas.toDataURL());
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    let shown = -1;
+    return {
+      steps: frames.length,
+      dispose() { frames.length = 0; },
+      /**
+       * Position exacte du soleil à cette date — le calcul astronomique coûte quelques
+       * microsecondes, donc le disque et le ciel restent CONTINUS ; seule l'image d'ombres,
+       * elle, se contente du pas pré-calculé le plus proche.
+       */
+      applyAt(date) {
+        if (dead || !frames.length) return null;
+        sun = sunPosition(mid[0], mid[1], date);
+        const i = clamp(Math.round(((date.getTime() - from.getTime()) / span) * steps), 0, frames.length - 1);
+        if (i !== shown) {
+          shown = i;
+          map.getSource(SHADE_ID)?.updateImage({ url: frames[i] });
+          try { map.setSky(skyFor(sun.altitude)); } catch { /* ciel indisponible */ }
+        }
+        placeDisc();
+        return sun;
+      },
+    };
+  }
+
+  /**
    * Sonde un point : horizon réel, plage d'ensoleillement du jour, course du soleil.
    * Charge son propre MNT centré sur le point (tuiles très majoritairement déjà en cache)
    * — l'horizon d'un point de bord d'emprise a besoin des crêtes situées AU-DELÀ.
@@ -290,6 +337,7 @@ export async function attachSun(view, track, { onProbe = null } = {}) {
   probeHandle = {
     date: new Date(),
     setTime(date) { probeHandle.date = date; return setTime(date); },
+    prepareCourse,
     probeAt,
     /** Re-sonde le point courant (changement de date) sans nouveau geste. */
     reprobe(date) {

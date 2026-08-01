@@ -49,7 +49,9 @@ L'exigence esthétique fait partie du produit : interface **belle, fluide, moder
 
 ## Pièges résolus — ne pas retomber dedans
 - Segments des relations OSM **désordonnés** → chaînage `orderSegments()` obligatoire, sinon D+ triplé.
-- 3D : UV de texture calés sur la bbox (pas la mosaïque) ; en occlusion la caméra **pivote** autour de la cible (crans 10°) — jamais de dézoom ni surélévation (refus utilisateur).
+- 3D : UV de texture calés sur la bbox (pas la mosaïque) ; en occlusion la caméra **pivote** autour de la cible — jamais de dézoom. *(Le refus de la **surélévation** portait sur l'ancienne vue 3D **figée** de viewer3d.js. Pour le **survol** de fiche, l'utilisateur a tranché le 01/08/2026 une cascade **pivot → rapprochement → montée en dernier recours** — S-3D-SURVOL. Ne pas la défaire.)*
+- **3D : la caméra vit dans l'espace RENDU, pas dans les altitudes vraies.** Le relief est exagéré × `DEM_EXAGGERATION` (1,4) : toute altitude confiée à une caméra ou à un lancer de rayon doit être multipliée par ce facteur (`rendered()` dans fiche3d.js). Mélanger les deux espaces fait voler la caméra 0,4 × altitude trop bas — mesuré : l'œil sous le sol dessiné 28 % du temps sur un franchissement de col.
+- 3D : le champ vertical de MapLibre vaut 36,9° (±18,4° autour du centre) et le centre de l'image est le point VISÉ. Un point placé à plus de 18° du centre est **hors cadre** — raisonner en angles avant d'écrire des mètres.
 - Géoloc/wake-lock bloqués en HTTP non sécurisé.
 - `import()` dynamique dans un script classique se résout par rapport à l'URL du script.
 - Mobile ≤700 px : tab-nav en bas, bottom-sheets, aucun bouton flottant en bas d'écran.

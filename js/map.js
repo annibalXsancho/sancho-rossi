@@ -1241,7 +1241,10 @@ const DEM_SOURCE = "src-dem";
 const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 // Exagération douce : assez pour lire une crête, pas au point de caricaturer les pentes
 // (un facteur trop élevé transforme une colline en aiguille et trompe l'œil sur l'effort).
-const DEM_EXAGGERATION = 1.4;
+// EXPORTÉE parce qu'elle ne concerne pas que le rendu : tout code qui place une caméra ou
+// lance un rayon doit raisonner dans l'espace RENDU, où le sol est à `alt × ce facteur`.
+// Mélanger les deux espaces revient à voler 0,4 × altitude trop bas (cf. fiche3d.js).
+export const DEM_EXAGGERATION = 1.4;
 const PITCH_3D = 65;
 let terrain3d = false;
 

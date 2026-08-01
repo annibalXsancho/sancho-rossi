@@ -2334,6 +2334,14 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font-size: 13px; font-weight: 700; color: var(--sun);
   font-variant-numeric: tabular-nums; min-width: 168px; text-align: right;
 }
+/* Conséquence de l'heure choisie, dite en clair sous le curseur : c'est ce qui fait du
+   curseur une HEURE DE DÉPART sans avoir à l'expliquer. Les chiffres tabulaires évitent
+   que la ligne tressaute pendant qu'on glisse. */
+.sun-depart {
+  font-size: 12px; margin-top: var(--sp-2); color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.sun-depart:empty { display: none; }
 .sun-hint { font-size: 12px; margin-top: var(--sp-2); }
 .sun-hint.hidden { display: none; }
 

@@ -18,7 +18,7 @@ import { createRouteWeather } from "./hikeweather.js";
 import { createRouteConditions } from "./conditions.js";
 import { moonPhase, sunTimes } from "./astro.js";
 import { annotKind } from "./annotations.js";
-import { SAC_LABEL, computeLoss } from "./metrics.js";
+import { SAC_LABEL, computeLoss, naismithHours } from "./metrics.js";
 import { openOutingForm, outingsSectionHtml } from "./outings.js";
 import { touchPrefs } from "./sync.js";
 import { shareTrail } from "./share.js";
@@ -668,6 +668,7 @@ export function renderDetail(id) {
                  aria-label="Heure de la journée" />
           <span class="sun-read" id="sun-read"></span>
         </div>
+        <p class="sun-depart" id="sun-depart"></p>
         <p class="sun-hint muted" id="sun-hint">Touchez un point du relief pour connaître son ensoleillement.</p>
         <div class="info-block sun-panel hidden" id="sun-panel"></div>
       </div>
@@ -887,12 +888,17 @@ async function load3D(trail) {
       info.textContent = `${r.km.toFixed(1)} km${r.alt != null ? ` · ${Math.round(r.alt)} m` : ""}`;
     };
 
+    // Points d'accroche du survol, garnis par le mode soleil quand il est allumé (il est
+    // lié APRÈS l'ouverture de la vue, d'où le relais mutable plutôt qu'un paramètre).
+    const fly = { beforePlay: null, onFrame: null, onStop: null };
+
     const view = await open(container, trail, sampleTrack(trail.mainline || trackOf(trail), 300), eles, {
       // Pendant le survol c'est la vue qui mène : la jauge et le libellé la suivent.
       onFrame: (r) => {
         slider.value = Math.round(r.f * 1000);
         show(r);
-        if (!r.playing) playBtn.textContent = "▶ Survol";
+        fly.onFrame?.(r);
+        if (!r.playing) { playBtn.textContent = "▶ Survol"; fly.onStop?.(); }
       },
     });
     window.SR3D = view;
@@ -901,10 +907,21 @@ async function load3D(trail) {
     row.classList.remove("hidden");
     slider.value = 0;
     slider.addEventListener("input", () => {
+      const was = view.playing();
       playBtn.textContent = "▶ Survol";
       show(view.setProgress(Number(slider.value) / 1000));
+      if (was) fly.onStop?.(); // une seule fois, à la coupure — pas à chaque cran du glissé
     });
-    playBtn.addEventListener("click", () => {
+    playBtn.addEventListener("click", async () => {
+      if (view.playing()) { view.pause(); playBtn.textContent = "▶ Survol"; fly.onStop?.(); return; }
+      // Le mode soleil pré-calcule sa course avant de lâcher le survol : la payer en vol
+      // hacherait l'animation (cf. prepareCourse dans sunview.js).
+      if (fly.beforePlay) {
+        playBtn.disabled = true;
+        playBtn.textContent = "⏳ Course du soleil…";
+        try { await fly.beforePlay(); } catch { /* le survol part quand même, soleil figé */ }
+        playBtn.disabled = false;
+      }
       playBtn.textContent = view.toggle() ? "⏸ Pause" : "▶ Survol";
     });
     row.querySelectorAll(".f3d-layer").forEach((b) => {
@@ -913,7 +930,7 @@ async function load3D(trail) {
         view.setLayer(b.dataset.layer);
       });
     });
-    bindSunMode(view, trail);
+    bindSunMode(view, trail, fly);
     show(view.setProgress(0));
   } catch (err) {
     intro.querySelector("#btn-load-3d").textContent = "▶ Réessayer";
@@ -980,7 +997,15 @@ function sunPanelHtml(r) {
 let sunFmt = null;
 let sunDial = null;
 
-function bindSunMode(view, trail) {
+// Horloge d'un nombre de minutes depuis minuit. Le modulo n'est pas cosmétique : une
+// arrivée calculée à 25 h 10 doit se lire « 01 h 10 », le survol pouvant déborder sur le
+// lendemain sur une longue course partie tard.
+const clockLabel = (min) => {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")} h ${String(m % 60).padStart(2, "0")}`;
+};
+
+function bindSunMode(view, trail, fly) {
   const btn = document.getElementById("btn-sun");
   const rowEl = document.getElementById("sun-row");
   const dateEl = document.getElementById("sun-date");
@@ -988,19 +1013,42 @@ function bindSunMode(view, trail) {
   const readEl = document.getElementById("sun-read");
   const hintEl = document.getElementById("sun-hint");
   const panelEl = document.getElementById("sun-panel");
+  const departEl = document.getElementById("sun-depart");
+  const playBtn = document.getElementById("btn-flyover");
   if (!btn) return;
 
   let sun = null;
   let day = defaultSunDate(trail);
   let timer = null;
+  let course = null, departMin = 0;
   let hooked = false; // le démontage n'est greffé qu'une fois, quel que soit le nombre de bascules
 
   const setRead = (s, min) => {
-    readEl.textContent = `${String(Math.floor(min / 60)).padStart(2, "0")} h ${String(min % 60).padStart(2, "0")}` +
+    readEl.textContent = clockLabel(min) +
       (s.altitude > 0
         ? ` · soleil ${Math.round(s.altitude)}° ${sunFmt.towards(s.azimuth)}`
         : " · soleil couché");
   };
+
+  // Durée de marche estimée : c'est elle, et non la durée du survol (25–70 s), qui règle
+  // la course du soleil — on veut voir le vrai soleil d'une vraie journée de marche.
+  const hikeHours = () => {
+    const gain = trail.elevationGain ?? state.elev[trail.id]?.gain ?? 0;
+    return Math.max(0.5, naismithHours(trail.distance || 0, gain) || 1);
+  };
+
+  // Le curseur horaire EST l'heure de départ : pas de contrôle supplémentaire à
+  // comprendre, juste la conséquence affichée en clair sous lui.
+  function showDepart() {
+    const h = hikeHours();
+    const dep = Number(timeEl.value);
+    // Durée écrite en heures ici, et non via `fmtDuration` : au-delà de 9 h celle-ci bascule
+    // en jours (« 1 j (est.) »), ce qui contredirait le « 05 h 00 → 14 h 43 » de la même
+    // ligne — le survol, lui, déroule une seule journée de marche.
+    const walk = `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}`;
+    departEl.textContent =
+      `Départ ${clockLabel(dep)} → arrivée ≈ ${clockLabel(dep + h * 60)} · ${walk} de marche`;
+  }
 
   // Bornes du curseur = la journée utile. Laisser glisser en pleine nuit ne montrerait
   // qu'un écran noir sur les trois quarts de la course.
@@ -1026,6 +1074,37 @@ function bindSunMode(view, trail) {
     if (!sun?.hasProbe()) return;
     const r = await sun.reprobe(atMin(day, Number(timeEl.value)));
     if (r) panelEl.innerHTML = sunPanelHtml(r);
+  }
+
+  // ----- Le survol déroule la journée -----
+  // Lancer le survol, c'est marcher : le soleil parcourt la durée réelle de la course
+  // entre l'heure de départ et l'arrivée estimée.
+  function hookFlyover() {
+    fly.beforePlay = async () => {
+      if (!sun) return;
+      departMin = Number(timeEl.value);
+      const h = hikeHours();
+      // Un pas toutes les 10 minutes simulées, borné : en deçà la course saccade, au-delà
+      // on paie un pré-calcul plus long que le survol lui-même.
+      const steps = Math.round(Math.min(40, Math.max(6, (h * 60) / 10)));
+      course?.dispose();
+      course = await sun.prepareCourse(atMin(day, departMin), atMin(day, departMin + h * 60), steps);
+    };
+    fly.onFrame = (r) => {
+      if (!sun || !course) return;
+      const min = departMin + r.f * hikeHours() * 60;
+      const s = course.applyAt(atMin(day, min));
+      if (s) setRead(s, min); // l'heure VIVANTE ; le curseur, lui, reste sur le départ
+    };
+    // À l'arrêt, l'affichage doit redire la vérité du curseur, sinon le libellé annonce
+    // une heure que plus aucun réglage ne porte.
+    fly.onStop = () => { if (sun) apply(); };
+  }
+
+  function unhookFlyover() {
+    fly.beforePlay = fly.onFrame = fly.onStop = null;
+    course?.dispose();
+    course = null;
   }
 
   async function enable() {
@@ -1056,6 +1135,8 @@ function bindSunMode(view, trail) {
 
       frameDay();
       apply();
+      showDepart();
+      hookFlyover();
       rowEl.classList.remove("hidden");
       btn.setAttribute("aria-pressed", "true");
       btn.classList.add("active");
@@ -1070,6 +1151,7 @@ function bindSunMode(view, trail) {
   btn.addEventListener("click", () => {
     if (!sun) return enable();
     // Extinction : on rend la vue 3D telle qu'elle était, sans ombres ni sonde.
+    unhookFlyover();
     sun.destroy();
     sun = null;
     rowEl.classList.add("hidden");
@@ -1083,6 +1165,10 @@ function bindSunMode(view, trail) {
   // reste au fil du doigt, jamais saccadé par un calcul par image.
   timeEl.addEventListener("input", () => {
     if (!sun) return;
+    // Régler l'heure de départ pendant un survol, ce serait deux pilotes sur la même
+    // horloge : le survol s'arrête, comme il le fait déjà quand on glisse la jauge.
+    if (view.playing()) { view.pause(); if (playBtn) playBtn.textContent = "▶ Survol"; }
+    showDepart();
     clearTimeout(timer);
     timer = setTimeout(apply, 60);
   });
@@ -1094,6 +1180,7 @@ function bindSunMode(view, trail) {
     day = new Date(y, m - 1, d);
     frameDay();
     apply();
+    showDepart();
     refreshProbe();
   });
 }
