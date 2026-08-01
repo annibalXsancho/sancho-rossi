@@ -4,6 +4,7 @@
 import { state, allTrails } from "./state.js";
 import { cardHTML } from "./trails.js";
 import { fetchRetry } from "./net.js";
+import { emptyState } from "./empty.js";
 
 const MONTHS = {
   janvier: 1, février: 2, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6,
@@ -135,9 +136,7 @@ export async function renderRecommendations() {
     .sort((a, b) => b.s - a.s);
 
   if (!scored.length) {
-    el.innerHTML =
-      `<div class="empty-state"><div class="empty-icon">🧭</div>` +
-      `<p>Ouvrez la carte et chargez une zone pour voir des idées.</p></div>`;
+    el.innerHTML = emptyState("compass", "Chargez une zone sur la carte pour voir des idées.", null, true);
     return;
   }
 

@@ -26,6 +26,22 @@ import { trailMarks, removeFieldMark } from "./fieldmarks.js";
 
 import { toast } from "./toast.js";
 
+// Icônes des actions de fiche (S12) : les emojis couleur (🧭 📅 🛟 ⤓ ♡ ▶) qui tenaient
+// lieu de pictogrammes sont remplacés par des traits `currentColor`, de la même famille
+// que LAYER_ICONS (map.js) et EMPTY_ICONS (empty.js). Ils suivent donc la couleur du
+// bouton — y compris son état actif — au lieu de poser une tache de couleur étrangère.
+const A_ICO = (d) => `<svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const IC_PLAY = A_ICO('<path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/>');
+const IC_HEART = A_ICO('<path d="M12 20s-7-4.4-7-9.2A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.8C19 15.6 12 20 12 20Z"/>');
+const IC_HEART_FULL = A_ICO('<path d="M12 20s-7-4.4-7-9.2A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.8C19 15.6 12 20 12 20Z" fill="currentColor" stroke="none"/>');
+const IC_MAP = A_ICO('<path d="M9 4.5 3.5 7v12.5L9 17l6 2.5 5.5-2.5V4.5L15 7Z"/><path d="M9 4.5V17M15 7v12.5"/>');
+const IC_DOWN = A_ICO('<path d="M12 4v10"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/>');
+const IC_CHECK = A_ICO('<path d="m5 12.5 4.5 4.5L19 7"/>');
+const IC_CAL = A_ICO('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/>');
+const IC_SHARE = A_ICO('<path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/><path d="M12 15V4"/><path d="m8 8 4-4 4 4"/>');
+const IC_SHIELD = A_ICO('<path d="M12 3.5 5.5 6v6c0 4 2.8 7 6.5 8.5 3.7-1.5 6.5-4.5 6.5-8.5V6Z"/>');
+const IC_TRASH = A_ICO('<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="m6 7 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>');
+
 const detailPanel = document.getElementById("detail-panel");
 const detailContent = document.getElementById("detail-content");
 const breadcrumbEl = document.getElementById("detail-breadcrumb");
@@ -618,7 +634,7 @@ export function renderDetail(id) {
       <span class="pill">${t.type}</span>
       ${t.bivouac ? `<span class="pill pill-bivouac">⛺ 2 jours · 1 nuit</span>` : ""}
       ${t.sac?.level ? `<span class="pill pill-sac" title="${t.sac.estimated ? "Cotation estimée (pente)" : "Cotation OSM"} · ${SAC_LABEL[t.sac.level] || ""}">${t.sac.level}${t.sac.estimated ? " (est.)" : ""}</span>` : ""}
-      <span class="detail-location">📍 ${t.location}</span>
+      <span class="detail-location"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.1-6.5-10a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10-6.5 10Z"/><circle cx="12" cy="10.8" r="2.3"/></svg> ${t.location}</span>
     </div>
 
     <div class="detail-media">
@@ -643,18 +659,18 @@ export function renderDetail(id) {
     </div>
 
     <div class="detail-actions">
-      <button class="btn btn-primary btn-lg" id="btn-follow">▶ Suivre ce tracé</button>
+      <button class="btn btn-primary btn-lg" id="btn-follow">${IC_PLAY} Suivre ce tracé</button>
       <div class="action-row">
-        <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
-        <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
-        <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
-        <button class="btn ${outingsFor(id).length ? "faved" : ""}" id="btn-plan-outing">${outingsFor(id).length ? "📅 Sortie planifiée" : "📅 Réserver une sortie"}</button>
+        <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? `${IC_HEART_FULL} Enregistré` : `${IC_HEART} Sauvegarder`}</button>
+        <button class="btn" id="btn-itinerary">${IC_MAP} Voir sur la carte</button>
+        <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? `${IC_CHECK} Hors-ligne` : `${IC_DOWN} Terrain`}</button>
+        <button class="btn ${outingsFor(id).length ? "faved" : ""}" id="btn-plan-outing">${IC_CAL} ${outingsFor(id).length ? "Sortie planifiée" : "Réserver une sortie"}</button>
       </div>
       <div class="action-row action-row-minor">
-        <button class="btn-ghost" id="btn-gpx">⤓ GPX</button>
-        <button class="btn-ghost" id="btn-share-link">↗ Partager le lien</button>
-        <button class="btn-ghost" id="btn-safety">🛟 Plan de marche</button>
-        ${t.imported ? `<button class="btn-ghost btn-ghost-danger" id="btn-delete-gpx">🗑 Supprimer</button>` : ""}
+        <button class="btn-ghost" id="btn-gpx">${IC_DOWN} GPX</button>
+        <button class="btn-ghost" id="btn-share-link">${IC_SHARE} Partager le lien</button>
+        <button class="btn-ghost" id="btn-safety">${IC_SHIELD} Plan de marche</button>
+        ${t.imported ? `<button class="btn-ghost btn-ghost-danger" id="btn-delete-gpx">${IC_TRASH} Supprimer</button>` : ""}
       </div>
     </div>
 

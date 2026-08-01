@@ -12,6 +12,7 @@ import { trailMarks } from "./fieldmarks.js";
 import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 import { touchPrefs, tombstoneTrace } from "./sync.js";
 import { computeGain, computeLoss, naismithHours, fmtDuration, sacRating } from "./metrics.js";
+import { emptyState } from "./empty.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -63,7 +64,7 @@ export function renderList() {
   listEl.innerHTML = trails.length
     ? trails.slice(0, 80).map(cardHTML).join("") +
       (trails.length > 80 ? `<p class="muted" style="text-align:center">… et ${trails.length - 80} autres (affinez les filtres)</p>` : "")
-    : `<div class="empty-state"><div class="empty-icon">🥾</div><p>Aucun itinéraire ne correspond.</p></div>`;
+    : emptyState("route", "Aucun itinéraire ne correspond aux filtres.", null, true);
 
   // Les itinéraires exclus par les filtres disparaissent aussi de la carte
   const visible = new Set(trails.map((t) => t.id));

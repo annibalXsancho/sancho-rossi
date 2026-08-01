@@ -9,6 +9,8 @@ import { saveTraces, putMeta, clearAll } from "./storage.js";
 import { listPacks, deletePack, deleteAllPacks, storageEstimate, listPending, delPending, resumeZonePack } from "./offline.js";
 import { toast } from "./toast.js";
 import { initSync, renderSyncStatus, scheduleSync } from "./sync.js";
+import { emptyState } from "./empty.js";
+import { closeFilters } from "./filters.js";
 import { renderOutingsBlock } from "./outings.js";
 
 // Surface approximative d'une bbox, en km² (équirectangulaire — largement suffisant pour
@@ -30,8 +32,12 @@ function applyTheme(theme) {
 
 // ---------- Navigation par onglets ----------
 export function switchTab(name) {
-  // Un clic d'onglet doit toujours répondre : on referme la fiche qui recouvre tout
+  // Un clic d'onglet doit toujours répondre : on referme ce qui recouvre la carte —
+  // la fiche, et les feuilles qui lui appartiennent (filtres, calques). Elles restaient
+  // sinon posées par-dessus l'écran suivant (S12).
   if (isDetailOpen()) closeDetail();
+  closeFilters();
+  document.getElementById("layers-panel")?.classList.add("hidden");
   state.view = name;
   localStorage.setItem("sr-view", name); // dernier onglet restauré au prochain boot
   document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
@@ -122,7 +128,7 @@ export async function renderOffline() {
       </div>`;
           })
           .join("")
-      : `<p class="muted">Aucun pack. Ouvrez une rando puis « ⤓ Terrain », ou téléchargez une zone depuis la carte.</p>`;
+      : emptyState("download", "Aucune carte embarquée. Ouvrez une rando puis « Terrain », ou téléchargez une zone depuis la carte.", null, true);
     listEl.querySelectorAll("[data-del-pack]").forEach((b) =>
       b.addEventListener("click", async () => {
         b.disabled = true;

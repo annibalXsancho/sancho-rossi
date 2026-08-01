@@ -4,6 +4,7 @@ import { state, BASE_TRAILS as TRAILS, catalogTrails, getTrail, trackOf } from "
 import { fetchRetry } from "./net.js";
 import { toast } from "./toast.js";
 import { touchPrefs } from "./sync.js";
+import { emptyState } from "./empty.js";
 
 // ---------- Veille automatique : alerte si aucune activité après l'heure prévue ----------
 let watchTopic = localStorage.getItem("sr-topic");
@@ -126,12 +127,12 @@ function renderWatchStatus() {
   link.textContent = `ntfy.sh/${watchTopic}`;
   link.href = `https://ntfy.sh/${watchTopic}`;
   if (watch?.armed) {
-    statusEl.innerHTML = `🛡 <strong>Veille armée</strong> — ${watch.trailName}, alerte auto le
+    statusEl.innerHTML = `<strong>Veille armée</strong> — ${watch.trailName}, alerte auto le
       ${new Date(watch.deadline).toLocaleString("fr-FR", { weekday: "short", hour: "2-digit", minute: "2-digit" })} sans activité.`;
     btn.textContent = "Désarmer";
   } else {
     statusEl.textContent = watch?.alertSent ? "Alerte envoyée puis veille désarmée." : "Veille désarmée.";
-    btn.textContent = "🛡 Armer la veille";
+    btn.innerHTML = `<svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 5.5 6v6c0 4 2.8 7 6.5 8.5 3.7-1.5 6.5-4.5 6.5-8.5V6Z"/></svg> Armer la veille`;
   }
 }
 
@@ -153,7 +154,7 @@ function renderContacts() {
       </div>`
         )
         .join("")
-    : `<p class="muted">Aucun contact pour l'instant — ajoutez au moins une personne de confiance.</p>`;
+    : emptyState("contacts", "Aucun contact de confiance. Ajoutez au moins une personne qui saura où vous êtes.", null, true);
   el.querySelectorAll("[data-del-contact]").forEach((b) =>
     b.addEventListener("click", () => {
       state.contacts = state.contacts.filter((c) => c.id !== b.dataset.delContact);
@@ -392,7 +393,7 @@ export function renderSafety() {
   const favs = opts.filter((t) => state.favorites.has(t.id));
   const rest = opts.filter((t) => !state.favorites.has(t.id));
   sel.innerHTML =
-    (favs.length ? `<optgroup label="♥ Enregistrés">${favs.map((t) => `<option value="${t.id}">${t.name}</option>`).join("")}</optgroup>` : "") +
+    (favs.length ? `<optgroup label="Enregistrés">${favs.map((t) => `<option value="${t.id}">${t.name}</option>`).join("")}</optgroup>` : "") +
     `<optgroup label="Tous les itinéraires">${rest.map((t) => `<option value="${t.id}">${t.name}</option>`).join("")}</optgroup>`;
   if (current && getTrail(current)) sel.value = current;
   if (!document.getElementById("plan-date").value) {

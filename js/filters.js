@@ -174,6 +174,12 @@ export function openFilters() {
   updateFiltersBadge(filteredTrails().length);
 }
 
+// La feuille de filtres appartient à la carte : elle ne doit pas survivre à un
+// changement d'onglet. Sans ça elle restait posée par-dessus Réglages (S12).
+export function closeFilters() {
+  document.getElementById("filters-modal")?.classList.add("hidden");
+}
+
 // Un changement de filtre re-rend puis, si le filtre temps de route est actif, complète
 // le cache OSRM pour les nouveaux candidats (no-op sinon).
 function refresh() {
@@ -183,10 +189,6 @@ function refresh() {
 
 export function initFilters() {
   const filtersModal = document.getElementById("filters-modal");
-
-  function closeFilters() {
-    filtersModal.classList.add("hidden");
-  }
 
   document.getElementById("filters-close").addEventListener("click", closeFilters);
   document.getElementById("filters-apply").addEventListener("click", closeFilters);

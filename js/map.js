@@ -620,16 +620,14 @@ export function applyLayer(name) {
     if (cfg.on && name === "rain") refreshRainLayer();
   });
   paintLayer(name);
-  // Toutes les présentations de ce calque restent en phase : cartes-aperçu + rangées de
-  // surcouches du sélecteur refondu, ET la liste de calques de la bibliothèque (.layer-row).
+  // Toutes les présentations de ce calque restent en phase — le panneau de la carte et
+  // celui de la bibliothèque, qui sont deux montages du MÊME sélecteur généré.
   document.querySelectorAll(`[data-layer="${name}"]`).forEach((row) => {
     row.classList.toggle("active", cfg.on);
     const cb = row.querySelector("input[type=checkbox]");
     if (cb) cb.checked = cfg.on;
     const op = row.querySelector(".layer-op");
     if (op) op.value = cfg.op;
-    const ov = row.querySelector(".op-val");
-    if (ov) ov.textContent = `${cfg.op}%`;
   });
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
   updateZoomCap();
@@ -709,6 +707,68 @@ export function buildLayersPanel(host) {
       nowClosed ? closedGroups.add(group.dataset.group) : closedGroups.delete(group.dataset.group);
       localStorage.setItem(GROUPS_KEY, JSON.stringify([...closedGroups]));
     });
+  });
+  wireLayersPanel(host);
+}
+
+// Câblage d'un panneau généré. Extrait d'initMap en S12 : la bibliothèque
+// (« Mes itinéraires ») affichait sa PROPRE liste de calques, écrite à la main —
+// plate, sans groupes ni icônes, et avec tous les curseurs d'opacité visibles en
+// permanence (un mur de traits rouges là où la charte ne les révèle qu'à l'état
+// actif). Un seul panneau existe désormais, et la sélection des éléments est
+// bornée au `host` pour que deux instances ne se câblent pas l'une l'autre.
+// `applyLayer` resynchronise déjà toutes les présentations d'un calque.
+export function wireLayersPanel(host) {
+  if (!host) return;
+
+  // Cartes-aperçu (fonds) : le clic sur la vignette bascule le calque ; le curseur règle
+  // l'opacité (isolé du clic pour ne pas re-basculer la carte). Sur-agrandissement inchangé.
+  host.querySelectorAll(".layer-card[data-layer]").forEach((card) => {
+    const name = card.dataset.layer;
+    const thumb = card.querySelector(".layer-thumb");
+    const toggle = () => { layersConfig[name].on = !layersConfig[name].on; applyLayer(name); };
+    thumb.addEventListener("click", toggle);
+    thumb.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+    card.querySelector(".layer-op")?.addEventListener("input", (e) => {
+      e.stopPropagation();
+      layersConfig[name].op = Number(e.target.value);
+      applyLayer(name);
+    });
+  });
+
+  // Surcouches (relief, sentiers, VTT, ski, pluie) : interrupteur + opacité fine.
+  host.querySelectorAll(".overlay-row[data-layer]").forEach((row) => {
+    const name = row.dataset.layer;
+    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
+      layersConfig[name].on = e.target.checked;
+      applyLayer(name);
+    });
+    row.querySelector(".layer-op")?.addEventListener("input", (e) => {
+      layersConfig[name].op = Number(e.target.value);
+      applyLayer(name);
+    });
+  });
+
+  host.querySelectorAll(".overlay-row[data-poi]").forEach((row) => {
+    const kind = row.dataset.poi;
+    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
+      poiState[kind].on = e.target.checked;
+      if (e.target.checked) {
+        poiState[kind].group.addTo();
+        refreshPoi(kind);
+      } else {
+        poiState[kind].group.remove();
+      }
+    });
+  });
+
+  // Le panneau doit s'ouvrir à l'image de l'état courant, pas à l'état par défaut.
+  LAYER_ORDER.forEach(applyLayer);
+  Object.keys(poiState).forEach((kind) => {
+    const cb = host.querySelector(`.overlay-row[data-poi="${kind}"] input[type=checkbox]`);
+    if (cb) cb.checked = poiState[kind].on;
   });
 }
 
@@ -1352,50 +1412,8 @@ export function initMap() {
     layersPanel.classList.toggle("hidden")
   );
 
-  // Cartes-aperçu (fonds) : le clic sur la vignette bascule le calque ; le curseur règle
-  // l'opacité (isolé du clic pour ne pas re-basculer la carte). Sur-agrandissement inchangé.
-  document.querySelectorAll(".layer-card[data-layer]").forEach((card) => {
-    const name = card.dataset.layer;
-    const thumb = card.querySelector(".layer-thumb");
-    const toggle = () => { layersConfig[name].on = !layersConfig[name].on; applyLayer(name); };
-    thumb.addEventListener("click", toggle);
-    thumb.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
-    });
-    card.querySelector(".layer-op")?.addEventListener("input", (e) => {
-      e.stopPropagation();
-      layersConfig[name].op = Number(e.target.value);
-      applyLayer(name);
-    });
-  });
-
-  // Surcouches (relief, sentiers, VTT, ski, pluie) : interrupteur + opacité fine.
-  document.querySelectorAll(".overlay-row[data-layer]").forEach((row) => {
-    const name = row.dataset.layer;
-    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
-      layersConfig[name].on = e.target.checked;
-      applyLayer(name);
-    });
-    row.querySelector(".layer-op")?.addEventListener("input", (e) => {
-      layersConfig[name].op = Number(e.target.value);
-      applyLayer(name);
-    });
-  });
-
-  LAYER_ORDER.forEach(applyLayer);
-
-  document.querySelectorAll(".overlay-row[data-poi]").forEach((row) => {
-    const kind = row.dataset.poi;
-    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
-      poiState[kind].on = e.target.checked;
-      if (e.target.checked) {
-        poiState[kind].group.addTo();
-        refreshPoi(kind);
-      } else {
-        poiState[kind].group.remove();
-      }
-    });
-  });
+  // Le câblage vit dans `wireLayersPanel`, appelé par `buildLayersPanel` ci-dessus :
+  // la bibliothèque monte le même panneau et doit obtenir exactement le même comportement.
 
   let poiMoveTimer;
   map.on("moveend", () => {

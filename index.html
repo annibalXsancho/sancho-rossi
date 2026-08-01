@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=581" />
+  <link rel="stylesheet" href="css/style.css?v=584" />
   <script type="importmap">
     {
       "imports": {
@@ -23,16 +23,17 @@
         "./js/storage.js": "./js/storage.js?v=508",
         "./js/net.js": "./js/net.js?v=501",
         "./js/toast.js": "./js/toast.js?v=502",
+        "./js/empty.js": "./js/empty.js?v=501",
         "./js/api.js": "./js/api.js?v=502",
         "./js/photos.js": "./js/photos.js?v=516",
         "./js/mapillary.js": "./js/mapillary.js?v=502",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=548",
+        "./js/map.js": "./js/map.js?v=549",
         "./js/compass.js": "./js/compass.js?v=501",
-        "./js/filters.js": "./js/filters.js?v=506",
-        "./js/trails.js": "./js/trails.js?v=535",
-        "./js/detail.js": "./js/detail.js?v=577",
+        "./js/filters.js": "./js/filters.js?v=507",
+        "./js/trails.js": "./js/trails.js?v=536",
+        "./js/detail.js": "./js/detail.js?v=578",
         "./js/share.js": "./js/share.js?v=503",
         "./js/catalog.js": "./js/catalog.js?v=519",
         "./js/brouter.js": "./js/brouter.js?v=521",
@@ -45,16 +46,16 @@
         "./js/loops.js": "./js/loops.js?v=526",
         "./js/geosearch.js": "./js/geosearch.js?v=525",
         "./js/nav.js": "./js/nav.js?v=520",
-        "./js/navview.js": "./js/navview.js?v=510",
-        "./js/security.js": "./js/security.js?v=519",
+        "./js/navview.js": "./js/navview.js?v=511",
+        "./js/security.js": "./js/security.js?v=521",
         "./js/astro.js": "./js/astro.js?v=575",
         "./js/conditions.js": "./js/conditions.js?v=501",
         "./js/vigie.js": "./js/vigie.js?v=502",
-        "./js/ui.js": "./js/ui.js?v=533",
+        "./js/ui.js": "./js/ui.js?v=534",
         "./js/offline.js": "./js/offline.js?v=529",
         "./js/packdialog.js": "./js/packdialog.js?v=502",
         "./js/zoneselect.js": "./js/zoneselect.js?v=501",
-        "./js/recommend.js": "./js/recommend.js?v=503",
+        "./js/recommend.js": "./js/recommend.js?v=504",
         "./js/explorer.js": "./js/explorer.js?v=506",
         "./js/fiche3d.js": "./js/fiche3d.js?v=509",
         "./js/sync.js": "./js/sync.js?v=502",
@@ -108,10 +109,14 @@
     </nav>
 
     <nav class="header-nav">
-      <button id="btn-import-gpx" class="nav-btn" title="Importer un fichier GPX">⤒ GPX</button>
+      <button id="btn-import-gpx" class="nav-btn" title="Importer un fichier GPX">
+        <svg class="nav-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5"/><path d="m8 9 4-4 4 4"/><path d="M5 19h14"/></svg>
+        GPX
+      </button>
       <input id="gpx-file-input" type="file" accept=".gpx" multiple hidden />
       <button id="btn-favorites" class="nav-btn" title="Mes itinéraires enregistrés">
-        ♥ <span id="fav-count" class="fav-count">0</span>
+        <svg class="nav-btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-9.2A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.8C19 15.6 12 20 12 20Z" fill="currentColor" stroke="none"/></svg>
+        <span id="fav-count" class="fav-count">0</span>
       </button>
     </nav>
   </header>
@@ -274,7 +279,7 @@
           <p id="plan-status" class="loops-status muted hidden"></p>
           <div class="plan-sec-head">
             <span class="eyebrow">Mes repères</span>
-            <button class="btn plan-annot-btn" id="plan-annot" title="Poser un repère sur la carte : nuit, eau, danger…">📍 Annoter</button>
+            <button class="btn plan-annot-btn" id="plan-annot" title="Poser un repère sur la carte : nuit, eau, danger…"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.1-6.5-10a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10-6.5 10Z"/><circle cx="12" cy="10.8" r="2.3"/></svg> Annoter</button>
           </div>
           <p class="plan-annot-hint muted hidden" id="plan-annot-hint">Cliquez sur la carte ou sur le tracé pour poser le repère — Échap pour annuler.</p>
           <div id="plan-annots" class="plan-annots"></div>
@@ -309,7 +314,7 @@
           <div id="loops-metrics" class="loops-metrics"></div>
           <div class="loops-actions">
             <button class="btn" id="loops-another">↻ Autre proposition</button>
-            <button class="btn btn-primary" id="loops-save">⏎ Enregistrer</button>
+            <button class="btn btn-primary" id="loops-save">Enregistrer</button>
           </div>
         </div>
         <div class="builder-foot">
@@ -359,7 +364,10 @@
         <div class="sheet-scroll">
           <div class="sheet-reco-head">
             <span class="eyebrow" id="reco-title">Idées pour le week-end</span>
-            <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection">🎲 Autre</button>
+            <button class="btn btn-ghost reco-shuffle" id="reco-shuffle" title="Autre sélection">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h3.5l3 5"/><path d="M14.5 17H21"/><path d="m18.5 14.5 2.5 2.5-2.5 2.5"/><path d="M3 17h3.5l7-10H21"/><path d="M18.5 4.5 21 7l-2.5 2.5"/></svg>
+              Autre
+            </button>
           </div>
           <div id="home-suggestions" class="cards-grid reco-grid"></div>
           <div class="info-block outing-block hidden" id="outings-block">
@@ -401,7 +409,7 @@
       </div>
       <div class="settings-group">
         <h3>Calques de carte</h3>
-        <div id="navview-layers"></div>
+        <div class="lp-groups" id="navview-layers"></div>
         <p class="muted">Appliqués aussitôt à la carte, conservés pour la prochaine sortie.</p>
       </div>
     </section>
@@ -438,7 +446,7 @@
         </div>
       </div>
 
-      <h3 class="settings-section-title">🛟 Sécurité</h3>
+      <h3 class="settings-section-title">Sécurité</h3>
       <p class="muted view-intro">Préparez un plan de marche et partagez votre itinéraire et votre dernière position
       connue à vos proches — par WhatsApp, SMS ou e-mail, sans compte ni serveur : tout part de votre appareil.</p>
 
@@ -453,7 +461,7 @@
             <option value="email">E-mail</option>
           </select>
           <input id="contact-addr" type="text" placeholder="N° international (+33…) ou e-mail" />
-          <button class="btn btn-primary" id="btn-add-contact">Ajouter</button>
+          <button class="btn" id="btn-add-contact">Ajouter</button>
         </div>
       </div>
 
@@ -465,11 +473,11 @@
         </div>
         <div class="settings-row">
           <span id="last-pos" class="muted">Aucune position enregistrée.</span>
-          <button class="btn" id="btn-refresh-pos">📍 Actualiser maintenant</button>
+          <button class="btn" id="btn-refresh-pos"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.1-6.5-10a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10-6.5 10Z"/><circle cx="12" cy="10.8" r="2.3"/></svg> Actualiser maintenant</button>
         </div>
         <div class="settings-row">
           <span id="sos-queue-status" class="muted hidden"></span>
-          <button class="btn btn-primary" id="btn-sos-position">🆘 Partager ma position</button>
+          <button class="btn btn-primary" id="btn-sos-position"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.1-6.5-10a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10-6.5 10Z"/><circle cx="12" cy="10.8" r="2.3"/></svg> Partager ma position</button>
         </div>
       </div>
 
@@ -487,7 +495,7 @@
         </div>
         <div class="settings-row">
           <span id="watch-status" class="muted">Veille désarmée.</span>
-          <button class="btn btn-primary" id="btn-arm-watch">🛡 Armer la veille</button>
+          <button class="btn" id="btn-arm-watch"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 5.5 6v6c0 4 2.8 7 6.5 8.5 3.7-1.5 6.5-4.5 6.5-8.5V6Z"/></svg> Armer la veille</button>
         </div>
       </div>
 
@@ -540,7 +548,7 @@
       </div>
 
       <div class="settings-group">
-        <h3>🔄 Synchronisation entre appareils</h3>
+        <h3>Synchronisation entre appareils</h3>
         <p class="muted">Un dépôt GitHub <strong>privé</strong> sert de coffre : vos itinéraires, repères et
         préférences retrouvés sur chaque appareil, sans compte ni serveur applicatif. Créez un
         <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">jeton
@@ -549,7 +557,7 @@
         <div class="plan-form">
           <input id="sync-repo" type="text" placeholder="votre-compte/mon-coffre-rando" autocomplete="off" />
           <input id="sync-token" type="password" placeholder="Jeton d'accès" autocomplete="off" />
-          <button class="btn btn-primary" id="sync-connect">Connecter</button>
+          <button class="btn" id="sync-connect">Connecter</button>
         </div>
         <div class="settings-row">
           <span id="sync-status" class="muted">Non configuré.</span>
@@ -903,7 +911,7 @@
       </svg>
     </div>
     <p class="compass-view-pos" id="compass-view-pos">Position inconnue pour l'instant.</p>
-    <button id="compass-view-share" class="btn btn-primary compass-view-share">🆘 Partager ma position</button>
+    <button id="compass-view-share" class="btn btn-primary compass-view-share"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.1-6.5-10a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10-6.5 10Z"/><circle cx="12" cy="10.8" r="2.3"/></svg> Partager ma position</button>
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>

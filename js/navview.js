@@ -4,12 +4,13 @@
 import { state, gainOf } from "./state.js";
 import { initNav, startNavigation, stopNavigation, setPrimal, navSession } from "./nav.js";
 import { switchTab } from "./ui.js";
-import { layersConfig, applyLayer, LAYER_META } from "./map.js";
+import { buildLayersPanel } from "./map.js";
 import { renderDetail } from "./detail.js";
 import { hasPack } from "./offline.js";
 import { renameImported, deleteImported } from "./trails.js";
 import { openPlannerForEdit } from "./planner.js";
 import { toast } from "./toast.js";
+import { emptyState } from "./empty.js";
 
 // Gestes d'ergonomie sur « Mes itinéraires » (façon apps pro) :
 //   • glisser vers la gauche  → révèle un bouton rouge poubelle → supprimer
@@ -107,10 +108,12 @@ function renderTrails() {
   openItem = null; // le DOM va être remplacé : aucun élément « ouvert » ne survit
 
   if (!trails.length) {
-    host.innerHTML = `
-      <p class="muted">Aucun itinéraire enregistré pour l'instant. Créez le vôtre avec le
-      planificateur, ou importez une trace GPX (bouton ⤒ GPX en haut de l'écran).</p>
-      <button class="btn" id="navview-plan">Ouvrir le planificateur</button>`;
+    host.innerHTML = emptyState(
+      "route",
+      "Aucun itinéraire enregistré. Tracez le vôtre au planificateur, ou importez une trace GPX.",
+      { label: "Ouvrir le planificateur", id: "navview-plan" },
+      true
+    );
     document.getElementById("navview-plan").addEventListener("click", () => {
       switchTab("carte");
       document.getElementById("btn-planner")?.click();
@@ -318,34 +321,13 @@ function startInlineRename(item, trail) {
 }
 
 // ---------- Calques ----------
-// Rangées générées depuis layersConfig ; libellés et bornes d'opacité repris du panneau
-// carte (source unique dans index.html). applyLayer resynchronise les deux interfaces.
+// Le panneau est celui de la carte, généré par `buildLayersPanel` (S-V3-CALQUES-UI) :
+// mêmes groupes, mêmes icônes dessinées, opacité révélée à l'état actif seulement.
+// Avant S12 cet écran dessinait sa propre liste plate, avec tous les curseurs visibles.
+// Re-généré à chaque affichage de l'onglet : c'est ce qui le resynchronise si les
+// calques ont changé depuis la carte.
 function renderLayers() {
-  const host = document.getElementById("navview-layers");
-  host.innerHTML = Object.keys(layersConfig).map((name) => {
-    const cfg = layersConfig[name];
-    const label = LAYER_META[name]?.label || name;
-    const min = LAYER_META[name]?.min || 15;
-    return `
-      <div class="layer-row" data-layer="${name}">
-        <label class="switch"><input type="checkbox" ${cfg.on ? "checked" : ""} /><span class="slider-sw"></span></label>
-        <span class="layer-name">${label}</span>
-        <input type="range" class="layer-op" min="${min}" max="100" value="${cfg.op}" />
-        <span class="op-val">${cfg.op}%</span>
-      </div>`;
-  }).join("");
-
-  host.querySelectorAll(".layer-row").forEach((row) => {
-    const name = row.dataset.layer;
-    row.querySelector("input[type=checkbox]").addEventListener("change", (e) => {
-      layersConfig[name].on = e.target.checked;
-      applyLayer(name);
-    });
-    row.querySelector(".layer-op").addEventListener("input", (e) => {
-      layersConfig[name].op = Number(e.target.value);
-      applyLayer(name);
-    });
-  });
+  buildLayersPanel(document.getElementById("navview-layers"));
 }
 
 export function renderNavView() {
