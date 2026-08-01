@@ -2,6 +2,8 @@
 
 Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et préparer des itinéraires partout en Europe depuis le Mac, puis naviguer sur le terrain au téléphone — itinéraire téléchargé, carte hors-ligne, GPS, veille sécurité. Sans compte, sans abonnement, sans serveur applicatif. Le bivouac 2 jours est un filtre parmi d'autres ; la liberté de choix est le principe directeur.
 
+**Périmètre étendu au voyage *(31/07/2026, section V3 du ROADMAP)*** : l'outil centralise aussi transport et planification de voyage — trains (horaires, correspondances, porte-à-porte via Transitous/MOTIS), comparaison train ↔ voiture, roadtrips multi-jours. **La rando reste le cœur ; le transport la sert** (rejoindre un départ de sentier, étaler un massif sur plusieurs jours). **Tranché, ne pas re-proposer** : navigation turn-by-turn véhicule (abandonnée — pas de trafic sans clé), trafic routier temps réel, heatmap Strava, SCAN 25 IGN et tarifs SNCF (tous sous clé).
+
 ## Contraintes machine (non négociables)
 - **Pas de Node/npm/Homebrew.** App 100 % statique HTML/CSS/JS. Libs via CDN, modules ES natifs. Vérifier `which npm` avant de proposer un build — ne pas proposer de scaffold Node/React.
 - Serveur dev : `python3 -m http.server` (config `.claude/launch.json`). Preview via **127.0.0.1**, pas localhost (échec IPv6).
@@ -12,7 +14,8 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 - `index.html` — structure, onglets Accueil / Carte / Itinéraires / Réglages + Sécurité.
 - `css/style.css` — tout le style.
 - `js/` — logique (découpage en modules ES prévu au sprint S1, voir ROADMAP.md).
-- `js/viewer3d.js` — vue 3D Three.js (importmap CDN, terrain Terrarium, texture Esri).
+- `js/map.js` — carte **MapLibre GL JS** (CDN, sans clé) : table de sources `TILE_TEMPLATES`, calques, tracés, POI. Leaflet a été retiré de la carte principale en juillet 2026 ; ne pas proposer d'API Leaflet ici.
+- `js/fiche3d.js` — vue 3D de fiche, **carte MapLibre inclinée** (DEM Terrarium, texture Esri). Remplace l'ancien `viewer3d.js` Three.js, supprimé.
 - Stockage : localStorage clés `sr-*` pour les petites préférences ; **IndexedDB pour tout objet volumineux** (tracés sauvegardés, tuiles offline) — localStorage plafonne à ~5 Mo.
 - Données tracés : **chargées à la demande via Overpass selon la zone visible**, avec cache persistant. Aucun catalogue embarqué.
 
@@ -50,4 +53,4 @@ L'exigence esthétique fait partie du produit : interface **belle, fluide, moder
 - Géoloc/wake-lock bloqués en HTTP non sécurisé.
 - `import()` dynamique dans un script classique se résout par rapport à l'URL du script.
 - Mobile ≤700 px : tab-nav en bas, bottom-sheets, aucun bouton flottant en bas d'écran.
-- **Tuiles carto = réponses opaques cross-origin** (fetch `no-cors`) : le script ne peut PAS lire leurs octets → **impossible en IndexedDB** ; seul le **Cache Storage** les détient (packs offline `sr-pack-<id>`). Clé de cache **normalisée** (sous-domaine `{s}` retiré) identique côté page et SW, sinon Leaflet (a/b/c rotatif) rate l'entrée. Taille par tuile inaccessible → jauge via `navigator.storage.estimate()`.
+- **Tuiles carto = réponses opaques cross-origin** (fetch `no-cors`) : le script ne peut PAS lire leurs octets → **impossible en IndexedDB** ; seul le **Cache Storage** les détient (packs offline `sr-pack-<id>`). Clé de cache **normalisée** (sous-domaine `{s}` retiré) identique côté page et SW, sinon la carte (sous-domaines a/b/c énumérés dans le tableau `tiles` de MapLibre) rate l'entrée. Taille par tuile inaccessible → jauge via `navigator.storage.estimate()`.
