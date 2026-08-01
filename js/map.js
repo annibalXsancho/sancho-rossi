@@ -107,12 +107,25 @@ export const TILE_TEMPLATES = {
 };
 
 // Ordre d'empilement, du fond vers le dessus. Sous MapLibre l'ordre des couches du style
-// EST le z-index : tous les calques sont déclarés une fois pour toutes à l'initialisation
-// (cachés par défaut), si bien qu'allumer/éteindre ne réordonne jamais rien.
+// EST le z-index : tous les calques RASTER sont déclarés une fois pour toutes à
+// l'initialisation (cachés par défaut), si bien qu'allumer/éteindre ne réordonne jamais rien.
 const LAYER_ORDER = [
   "plan", "topo", "satellite", "sombre", "terrainhd",
   "hillshade", "trails", "mtb", "ski", "rain",
 ];
+
+// Calques VECTORIELS (S-V3-VECTOR), posés à la demande par js/vector.js — ils ne peuvent
+// pas être déclarés au boot : leur source coûte un tilejson à charger, et les courbes de
+// niveau tirent une bibliothèque entière. Le RANG tient lieu d'ordre d'empilement, comme
+// LAYER_ORDER pour les rasters : plus bas = plus profond. Le fond « Sancho » passe SOUS
+// tous les rasters (c'est un fond parmi les fonds) ; les étiquettes montent au-dessus,
+// mais restent sous les tracés.
+export const VECTOR_RANK = { sancho: -1, ombrage: 20, courbes: 30, noms: 90 };
+const VECTOR_ORDER = ["sancho", "ombrage", "courbes", "noms"];
+
+// Tous les calques du modèle d'état, rasters et vectoriels confondus.
+const ALL_LAYERS = [...LAYER_ORDER, ...VECTOR_ORDER];
+const isVector = (name) => name in VECTOR_RANK;
 
 // Libellés + opacité minimale par calque — source unique consommée par le sélecteur de
 // carte ET la liste de calques de la bibliothèque (navview.js), qui ne scrape plus le DOM.
@@ -132,6 +145,12 @@ export const LAYER_META = {
   mtb: { label: "VTT balisé", min: 15, short: "VTT", icon: "mtb" },
   ski: { label: "Ski — pistes et itinéraires", min: 15, short: "Ski", icon: "ski" },
   rain: { label: "Précipitations (radar direct)", min: 15, short: "Pluie", icon: "rain" },
+  // Calques vectoriels (S-V3-VECTOR). `min` plus haut que les rasters : une étiquette à
+  // 15 % d'opacité n'est plus lisible, elle est juste sale.
+  sancho: { label: "Sancho (vectoriel)", min: 30, short: "Sancho", thumb: "assets/layer-previews/sancho.png" },
+  ombrage: { label: "Relief détaillé (calculé)", min: 10, short: "Relief HD", icon: "relief-hd" },
+  courbes: { label: "Courbes de niveau", min: 25, short: "Courbes", icon: "contour" },
+  noms: { label: "Noms (villes, lacs, sommets)", min: 30, short: "Noms", icon: "label" },
 };
 
 // ---------- Sélecteur de calques : icônes et regroupement par intention ----------
@@ -148,18 +167,25 @@ export const LAYER_ICONS = {
   water: '<path d="M12 3.2c3.6 4 5.6 6.8 5.6 9.4a5.6 5.6 0 0 1-11.2 0C6.4 10 8.4 7.2 12 3.2Z"/>',
   hut: '<path d="m3.2 11.2 8.8-7 8.8 7"/><path d="M6 10v9.5h12V10"/><path d="M10.2 19.5V14h3.6v5.5"/>',
   rescue: '<circle cx="12" cy="12" r="8.8"/><path d="M12 7.6v8.8M7.6 12h8.8"/>',
+  // Courbes de niveau : trois isolignes emboîtées — la silhouette d'une carte d'état-major.
+  contour: '<path d="M2.5 17.5c3-4 6-6 9.5-6s6.5 2 9.5 6"/><path d="M5 20.5c2.4-2.6 4.7-4 7-4s4.6 1.4 7 4"/><path d="M6 12.5c1.9-3.4 3.9-5.2 6-5.2s4.1 1.8 6 5.2"/>',
+  // Étiquette de lieu : une épingle et son texte.
+  label: '<path d="M9 20.5s-4.6-3.7-4.6-7.4a4.6 4.6 0 0 1 9.2 0c0 3.7-4.6 7.4-4.6 7.4Z"/><circle cx="9" cy="12.8" r="1.6"/><path d="M16 6.5h5M16 10.5h4"/>',
+  // Ombrage calculé : un versant éclairé d'un côté, dans l'ombre de l'autre.
+  "relief-hd": '<path d="m2.5 18.5 6-9 4 5.5 2.5-3.5 6.5 7z"/><path d="m8.5 9.5-6 9h6z" fill="currentColor" stroke="none" opacity="0.45"/><path d="M17.5 3.5v3M20.8 5.2l-1.8 2M14.2 5.2l1.8 2"/>',
 };
 
 // Groupes du sélecteur, ordonnés, nommés par INTENTION (ce que l'utilisateur cherche) et
 // non par technique — « Surcouches » ne veut rien dire pour qui cherche la pluie.
 // `kind` : base = vignettes empilables · overlay = calque raster · poi = points Overpass.
-// Un groupe vide n'est pas rendu : « Transports » attend les calques de S-V3-CALQUES-LISIBLE.
+// Un groupe vide n'est pas rendu : « Transports » attend les calques du module trains.
 export const LAYER_GROUPS = [
-  { id: "fond", label: "Fond de carte", kind: "base", items: ["plan", "topo", "satellite", "sombre", "terrainhd"] },
-  { id: "relief", label: "Relief", kind: "overlay", items: ["hillshade"] },
+  { id: "fond", label: "Fond de carte", kind: "base", items: ["sancho", "plan", "topo", "satellite", "sombre", "terrainhd"] },
+  { id: "relief", label: "Relief", kind: "overlay", items: ["hillshade", "ombrage", "courbes"] },
   { id: "activites", label: "Activités", kind: "overlay", items: ["trails", "mtb", "ski"] },
   { id: "conditions", label: "Conditions", kind: "overlay", items: ["rain"] },
   { id: "transports", label: "Transports", kind: "overlay", items: [] },
+  { id: "noms", label: "Lisibilité", kind: "overlay", items: ["noms"] },
   { id: "lieux", label: "Lieux", kind: "poi", items: ["water", "huts", "rescue"] },
 ];
 
@@ -189,11 +215,26 @@ export const OVERZOOM = 2;
 const NATIVE_MAX = Object.fromEntries(
   Object.entries(TILE_TEMPLATES).map(([k, v]) => [k, v.maxZoom])
 );
+// Le vectoriel n'a pas de zoom natif au sens raster : il se redessine net à tout zoom.
+// Les courbes s'arrêtent à la résolution du MNT (Terrarium z15) — au-delà on dessinerait
+// de l'interpolation en la faisant passer pour du terrain.
+// 19 comme les meilleurs rasters : le vectoriel pourrait monter plus haut, mais rien ne
+// justifie que le plafond de l'app change selon le calque allumé — il reste à 21 (19 + 2).
+Object.assign(NATIVE_MAX, { sancho: 19, noms: 19, ombrage: 18, courbes: 16 });
+
+const DEFAULT_OP = { sancho: 100, ombrage: 55, courbes: 80, noms: 100 };
 
 export const layersConfig = Object.assign(
-  Object.fromEntries(LAYER_ORDER.map((n) => [n, { on: n === "plan", op: TILE_TEMPLATES[n].op }])),
+  Object.fromEntries(
+    ALL_LAYERS.map((n) => [n, { on: n === "plan", op: TILE_TEMPLATES[n]?.op ?? DEFAULT_OP[n] }])
+  ),
   JSON.parse(localStorage.getItem("sr-layers") || "{}")
 );
+// Un `sr-layers` enregistré AVANT ce sprint ne connaît pas les calques vectoriels : on
+// complète sans écraser les préférences existantes.
+for (const n of ALL_LAYERS) {
+  if (!layersConfig[n]) layersConfig[n] = { on: false, op: TILE_TEMPLATES[n]?.op ?? DEFAULT_OP[n] };
+}
 
 // Un modèle d'URL → le tableau `tiles` de MapLibre (un hôte par sous-domaine, à défaut
 // l'URL telle quelle). C'est l'équivalent de la rotation {s} de Leaflet.
@@ -207,6 +248,8 @@ function tileUrls(def) {
 // (`source.setTiles`) sans lui faire connaître la table des gabarits.
 export const layerTiles = (name) =>
   TILE_TEMPLATES[name] ? tileUrls(TILE_TEMPLATES[name]) : null;
+
+const GLYPHS_URL = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 
 function buildStyle() {
   const sources = {};
@@ -228,7 +271,11 @@ function buildStyle() {
       paint: { "raster-opacity": (layersConfig[name]?.op ?? def.op) / 100 },
     });
   }
-  return { version: 8, sources, layers };
+  // `glyphs` doit être présent dès la construction du style : une couche `symbol` ajoutée
+  // ensuite (les étiquettes de S-V3-VECTOR) échouerait sans lui, et MapLibre n'expose pas
+  // de façon fiable d'en poser un après coup. Aucune requête n'est émise tant qu'aucune
+  // couche de texte n'existe — le coût au boot est nul.
+  return { version: 8, glyphs: GLYPHS_URL, sources, layers };
 }
 
 export const map = new maplibregl.Map({
@@ -585,7 +632,7 @@ async function refreshRainLayer() {
 // Ainsi le sur-agrandissement reste borné à ce que la donnée la plus fine peut honnêtement
 // porter : topo seul (natif 17) monte à z19, plan ou satellite (natif 19) à z21.
 export function updateZoomCap() {
-  const natives = LAYER_ORDER.filter((n) => layersConfig[n]?.on).map((n) => NATIVE_MAX[n] ?? 17);
+  const natives = ALL_LAYERS.filter((n) => layersConfig[n]?.on).map((n) => NATIVE_MAX[n] ?? 17);
   const cap = (natives.length ? Math.max(...natives) : 17) + OVERZOOM;
   const glCap = cap - ZOOM_OFFSET;
   if (map.getMaxZoom() !== glCap) map.setMaxZoom(glCap); // MapLibre dézoome s'il était au-dessus
@@ -600,13 +647,47 @@ export function updateZoomCap() {
 // (`raster-brightness-max`, essayé d'abord, est accepté par le validateur mais n'a aucun
 // effet mesurable sous MapLibre 5.)
 let dimFactor = 1;
+// Vrai dès que js/vector.js a été chargé une fois : au-delà, éteindre un calque vectoriel
+// doit pouvoir le repeindre, mais avant, rien ne justifie de charger le module.
+let vectorLoaded = false;
 
 function paintLayer(name) {
   const cfg = layersConfig[name];
+  if (isVector(name)) {
+    // Un calque vectoriel n'existe dans le style qu'une fois posé. Tant qu'il n'a jamais
+    // été allumé il n'y a rien à peindre — et surtout rien à charger : `vectorLoaded`
+    // garde le module (et la bibliothèque de courbes) hors du boot tant que l'utilisateur
+    // n'en veut pas, ce qui est tout l'intérêt du chargement différé (lignée S11).
+    if (!cfg.on && !vectorLoaded) return;
+    whenMapReady(async () => {
+      const v = await import("./vector.js");
+      vectorLoaded = true;
+      if (cfg.on) await v.ensureVector(name);
+      if (v.isVectorInstalled(name)) v.paintVector(name, cfg, dimFactor);
+    });
+    return;
+  }
   whenMapReady(() => {
     map.setLayoutProperty(`lyr-${name}`, "visibility", cfg.on ? "visible" : "none");
     map.setPaintProperty(`lyr-${name}`, "raster-opacity", (cfg.op / 100) * dimFactor);
   });
+}
+
+// Point d'insertion d'un calque vectoriel : juste avant la première couche de RANG
+// supérieur déjà posée, à défaut avant le premier tracé (le parcours reste au-dessus de
+// la carte, étiquettes comprises), à défaut au sommet. C'est ce qui rend l'empilement
+// indépendant de l'ordre dans lequel l'utilisateur allume ses calques.
+export function insertBeforeTracks(name) {
+  const rank = VECTOR_RANK[name] ?? 50;
+  const ids = map.getStyle().layers.map((l) => l.id);
+  // Un fond vectoriel se glisse sous toute la pile raster.
+  if (rank < 0) return ids.find((id) => id.startsWith("lyr-")) || undefined;
+  for (const id of ids) {
+    const m = /^lyr-([a-z]+)-?/.exec(id);
+    const other = m && VECTOR_RANK[m[1]];
+    if (other != null && other > rank) return id;
+  }
+  return ids.find((id) => id.startsWith("trk-")) || undefined;
 }
 
 export function setLayersDim(factor) {
@@ -765,7 +846,7 @@ export function wireLayersPanel(host) {
   });
 
   // Le panneau doit s'ouvrir à l'image de l'état courant, pas à l'état par défaut.
-  LAYER_ORDER.forEach(applyLayer);
+  ALL_LAYERS.forEach(applyLayer);
   Object.keys(poiState).forEach((kind) => {
     const cb = host.querySelector(`.overlay-row[data-poi="${kind}"] input[type=checkbox]`);
     if (cb) cb.checked = poiState[kind].on;
@@ -1297,8 +1378,8 @@ function initCompassView() {
 // Togglable ET dégradable (contrainte ROADMAP) : rien de la vague 2 n'en dépend. Par
 // défaut éteint — le relief demande le réseau (les tuiles DEM ne sont pas embarquées dans
 // les packs), et laisser la carte plate au démarrage évite tout coût GPU non sollicité.
-const DEM_SOURCE = "src-dem";
-const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+export const DEM_SOURCE = "src-dem";
+export const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
 // Exagération douce : assez pour lire une crête, pas au point de caricaturer les pentes
 // (un facteur trop élevé transforme une colline en aiguille et trompe l'œil sur l'effort).
 // EXPORTÉE parce qu'elle ne concerne pas que le rendu : tout code qui place une caméra ou
@@ -1307,6 +1388,12 @@ const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{
 export const DEM_EXAGGERATION = 1.4;
 const PITCH_3D = 65;
 let terrain3d = false;
+
+// Le MNT sur la carte principale — exigé par le relief 3D, l'ombrage calculé et les
+// courbes de niveau, qui n'ont pas à savoir lequel des trois est arrivé le premier.
+export function ensureDem() {
+  ensureDemOn(map);
+}
 
 function ensureDemOn(mapInstance) {
   if (!mapInstance.getSource(DEM_SOURCE)) {

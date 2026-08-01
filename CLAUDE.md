@@ -15,6 +15,7 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 - `css/style.css` — tout le style.
 - `js/` — logique (découpage en modules ES prévu au sprint S1, voir ROADMAP.md).
 - `js/map.js` — carte **MapLibre GL JS** (CDN, sans clé) : table de sources `TILE_TEMPLATES`, calques, tracés, POI. Leaflet a été retiré de la carte principale en juillet 2026 ; ne pas proposer d'API Leaflet ici.
+- `js/vector.js` — socle **vectoriel** (S-V3-VECTOR), chargé en `import()` différé : surcouche « Noms » (OpenFreeMap, étiquettes détachées du fond), courbes de niveau **calculées côté client** (maplibre-contour sur le MNT Terrarium), ombrage dynamique, et le fond maison « Sancho ». Ajouter un calque vectoriel = une entrée dans `DEFS` + une ligne dans `LAYER_META`/`LAYER_GROUPS`/`VECTOR_RANK` (map.js). L'empilement se règle par le **rang**, jamais par l'ordre d'allumage ; le tracé reste au-dessus de tout.
 - `js/fiche3d.js` — vue 3D de fiche, **carte MapLibre inclinée** (DEM Terrarium, texture Esri). Remplace l'ancien `viewer3d.js` Three.js, supprimé.
 - Stockage : localStorage clés `sr-*` pour les petites préférences ; **IndexedDB pour tout objet volumineux** (tracés sauvegardés, tuiles offline) — localStorage plafonne à ~5 Mo.
 - Données tracés : **chargées à la demande via Overpass selon la zone visible**, avec cache persistant. Aucun catalogue embarqué.
@@ -22,6 +23,7 @@ Outil de randonnée personnel (mono-utilisateur, pas de social) : découvrir et 
 ## APIs (toutes gratuites, sans clé, couverture Europe)
 - **Overpass** (tracés + POI) : `relation["route"="hiking"](bbox);out geom N;` — jamais `out tags geom` (syntaxe invalide). Miroir kumi.systems + `AbortSignal.timeout(25s)` ; 429 fréquents sur overpass-api.de.
 - **Open-Meteo** : météo (daily+hourly), géocodage **de villes** (météo sur la route, `weather.js`), Elevation (**max 100 pts/req**).
+- **OpenFreeMap** (tiles.openfreemap.org, schéma OpenMapTiles, CORS `*`) : tuiles **vectorielles** — étiquettes de la surcouche « Noms » et fond « Sancho ». `glyphs` doit être déclaré dès la CONSTRUCTION du style MapLibre, sinon toute couche `symbol` ajoutée ensuite échoue.
 - **Nominatim** (nominatim.openstreetmap.org, `format=jsonv2&addressdetails=1`) : géocodage **par lieu** de la recherche carte (`geosearch.js`, S7). Choisi contre Open-Meteo qui triait par population et égarait les massifs (« Mont Blanc » → Maurice, « Dolomites » → barrage du Montana). Couvre les reliefs européens + renvoie une `boundingbox` pour cadrer la vue. Politique ≤ 1 req/s → débounce 500 ms + requête annulée à chaque frappe (mono-utilisateur = OK).
 - **BRouter** (brouter.de, `profile=hiking-mountain`) : routage rando, altitudes en 3e coordonnée, CORS ouvert.
 - **OSRM** (router.project-osrm.org) : temps de route voiture.

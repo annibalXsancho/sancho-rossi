@@ -1,5 +1,5 @@
 // Sancho Rossi — service worker : coquille hors-ligne + cache des tuiles carto
-const SHELL_CACHE = "sr-shell-v74";
+const SHELL_CACHE = "sr-shell-v75";
 const TILES_CACHE = "sr-tiles-v1";
 const MAX_TILES = 1500;
 
@@ -10,6 +10,9 @@ const MAX_TILES = 1500;
 const CDN_ASSETS = [
   "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js",
   "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css",
+  // Courbes de niveau calculées côté client (S-V3-VECTOR) : sans elle en cache, les
+  // courbes disparaîtraient hors-ligne alors que le MNT, lui, peut être en cache.
+  "https://unpkg.com/maplibre-contour@0.1.0/dist/index.mjs",
 ];
 const CDN_HOSTS = ["unpkg.com", "cdn.jsdelivr.net"];
 
@@ -23,6 +26,7 @@ const SHELL_FILES = [
   "js/net.js",
   "js/toast.js",
   "js/empty.js",
+  "js/vector.js",
   "js/api.js",
   "js/photos.js",
   "js/mapillary.js",
@@ -67,6 +71,7 @@ const SHELL_FILES = [
   "assets/logo-t.png",
   "assets/icon-512.png",
   "assets/icon-maskable.png",
+  "assets/layer-previews/sancho.png",
   "assets/layer-previews/plan.png",
   "assets/layer-previews/topo.png",
   "assets/layer-previews/satellite.jpg",
