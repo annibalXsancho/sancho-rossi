@@ -134,14 +134,16 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
   // altitude confiée à la caméra passe désormais par `rendered()`.
   const rendered = (alt) => (alt ?? 0) * DEM_EXAGGERATION;
 
-  // Hauteur de vol RÉELLE au-dessus du sol rendu. Elle était gonflée (700–1 600 m) pour
-  // compenser à l'aveugle la garde manquante ; la garde étant maintenant honnête, on
-  // redescend d'autant, sinon on survole le massif de trop haut pour le lire.
-  const flyH = clamp(500 + totalKm * 45, 500, 1200); // œil au-dessus du point courant
+  // Hauteur de vol RÉELLE au-dessus du sol rendu — c'est ELLE qui règle l'échelle de la
+  // vue : recul et visée en sont des multiples, donc doubler la hauteur élargit le plan
+  // sans toucher au cadrage (la bille reste au même endroit dans l'image). Retour
+  // utilisateur : « trop zoomé » — on prend nettement plus de champ qu'au premier réglage.
+  const flyH = clamp(900 + totalKm * 80, 900, 2600); // œil au-dessus du point courant
   const BACK_M = flyH * 1.5;    // recul derrière le marcheur → ~34° sous l'horizon
   const LEAD_M = flyH * 0.65;   // point visé au-delà de lui  → ~25°, l'assiette de la vue
-  // ~25 s pour une courte, plafonné à 70 s : au-delà on ne regarde plus, on attend.
-  const flyMs = clamp(25000 + totalKm * 2500, 25000, 70000);
+  // Durée : « trop long » (une longue tenait 70 s). Un survol est une bande-annonce, pas
+  // la marche en temps réel — ~12 s pour une courte, 28 s au plus.
+  const flyMs = clamp(12000 + totalKm * 700, 12000, 28000);
 
   // Déplacement d'un point de `d` mètres selon un cap (approximation plane : sur 1 à 2 km
   // l'erreur est très inférieure à la taille d'un pixel de terrain).
@@ -164,12 +166,20 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
   // même. C'est ce jeu qui donne le vivant ; le survol rigide donnait la maquette.
   // Constante de temps volontairement plus courte que celle du cap (1,8 s) : la caméra
   // doit se replacer plus vite qu'elle ne se réoriente, sinon elle vire avant d'avancer.
-  const CAM_TAU = 900;
+  // Resserrée après retour utilisateur (« la bille s'écarte trop ») : il reste du jeu, mais
+  // la caméra recolle vite. Le gros de l'écart venait en réalité d'ailleurs — la bille
+  // suivait un fil à 300 points quand le tracé dessiné en a des milliers (cf. detail.js).
+  // 350 ms et non 500 : le survol raccourci fait voler la caméra ~2,8 × plus vite, et le
+  // retard vaut vitesse × constante de temps. Trop long, il buterait en permanence sur le
+  // plafond ci-dessous — or un retard saturé colle à nouveau au tracé wiggle compris, et
+  // on reperdrait le lissage. À 350 ms le retard reste sous le plafond à toutes les
+  // longueurs, et le filtre coupe toujours très bas devant le bruit de l'échantillonnage.
+  const CAM_TAU = 350;
   // Retard maximal toléré, en mètres. Il borne la dérive DANS TOUS LES SENS, donc aussi
-  // latéralement : à 0,25 × la hauteur de vol pour un recul de 1,5 ×, la bille s'écarte au
-  // plus de ~9,5° de l'axe, ce qui tient même dans le demi-champ horizontal d'un cadre
-  // portrait de téléphone (~11°). Au-delà on rattrape, la bille ne sort pas de l'image.
-  const MAX_LAG_M = flyH * 0.25;
+  // latéralement. Au plafond, la bille s'écarte d'environ 4,5° de l'axe : invisible comme
+  // décalage, suffisant comme respiration, et très en deçà du demi-champ horizontal d'un
+  // cadre portrait de téléphone (~11°).
+  const MAX_LAG_M = flyH * 0.12;
   const M_PER_LAT = 110540;
   const mPerLon = (lat) => 111320 * Math.cos((lat * Math.PI) / 180);
   let anchor = null; // { lat, lon, alt, leadAlt } — lissés
@@ -410,6 +420,61 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
     );
   }
 
+  // ---------- La main rendue à l'utilisateur pendant le survol ----------
+  // Le survol ne doit pas confisquer la carte : on veut pouvoir tourner autour d'un
+  // sommet, se pencher, zoomer, PENDANT que ça défile. Le geste ne met donc rien en
+  // pause — la bille avance, le soleil aussi — il suspend seulement le pilotage de la
+  // caméra. Après quelques secondes sans geste, la prise de vue revient d'elle-même,
+  // sans bouton à trouver.
+  const HAND_MS = 2600;     // silence à observer avant de reprendre la caméra
+  const REGAIN_MS = 1600;   // durée du retour vers la prise de vue
+  let handOver = -1e9, regain = 1;
+
+  function releaseToUser() {
+    handOver = performance.now();
+    regain = 0;
+  }
+  // Le signal principal est l'ÉVÉNEMENT D'ENTRÉE BRUT sur le conteneur : un doigt, une
+  // souris ou une molette ne peuvent pas être produits par notre propre `jumpTo`, et ils
+  // arrivent sans dépendre de la machinerie de gestes de MapLibre — laquelle est pilotée
+  // par `requestAnimationFrame` et ne tourne donc pas dans tous les contextes.
+  const el = map.getContainer();
+  const onInput = () => { if (playing) releaseToUser(); };
+  for (const ev of ["pointerdown", "touchstart", "wheel"]) {
+    el.addEventListener(ev, onInput, { passive: true });
+  }
+  // En complément, les gestes vus par MapLibre (clavier, inertie d'un lancer). `jumpTo` ne
+  // porte jamais `originalEvent` — vérifié : 598 évènements caméra programmatiques, 0 avec
+  // `originalEvent` — donc nos images de survol ne se lâchent pas la main à elles-mêmes.
+  const camEvents = ["dragstart", "rotatestart", "pitchstart", "zoomstart"];
+  const onCam = (e) => { if (e?.originalEvent && playing) releaseToUser(); };
+  camEvents.forEach((ev) => map.on(ev, onCam));
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  /** Applique la prise de vue, sauf si l'utilisateur a la main ; retour progressif ensuite. */
+  function driveCamera(dt) {
+    if (performance.now() - handOver < HAND_MS) return; // la carte est à lui
+    const target = chaseCamera(avoid);
+    if (regain >= 1) {
+      // `jumpTo` et non `easeTo` : une animation de caméra par image, ce sont deux
+      // animations concurrentes qui se disputent la même valeur (cf. nav.js).
+      map.jumpTo(target);
+      return;
+    }
+    // Reprise en douceur : la cible bouge pendant qu'on la rejoint, donc on interpole vers
+    // elle À CHAQUE IMAGE plutôt que de lancer un `easeTo` vers une position déjà périmée.
+    regain = Math.min(1, regain + dt / REGAIN_MS);
+    const k = 1 - Math.exp(-Math.min(dt, 100) / 420);
+    const c = map.getCenter();
+    map.jumpTo({
+      center: [lerp(c.lng, target.center.lng, k), lerp(c.lat, target.center.lat, k)],
+      zoom: lerp(map.getZoom(), target.zoom, k),
+      pitch: lerp(map.getPitch(), target.pitch, k),
+      bearing: smoothAngle(map.getBearing(), target.bearing, k),
+    });
+  }
+
   function setProgress(f, { follow = false, dt = 16 } = {}) {
     if (dead) return null;
     const p = at(f);
@@ -422,9 +487,7 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
       bearing = bearing == null ? headingAt(f) : smoothAngle(bearing, headingAt(f), k);
       trackAnchor(f, dt);
       trackAvoidance(performance.now(), dt, f);
-      // `jumpTo` et non `easeTo` : une animation de caméra par image, ce sont deux
-      // animations concurrentes qui se disputent la même valeur (cf. nav.js).
-      map.jumpTo(chaseCamera(avoid));
+      driveCamera(dt);
     } else {
       nudgeIntoView(p.lat, p.lon);
     }
@@ -459,6 +522,9 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
     // dégagé dès la première image, il n'y a rien avant lui à quoi enchaîner en douceur.
     avoidGoal = avoid = planAvoidance(start);
     lastProbe = performance.now();
+    // Un lâcher hérité du survol précédent ne doit pas bloquer le plan d'ouverture.
+    handOver = -1e9;
+    regain = 1;
     map.easeTo({ ...chaseCamera(avoid), duration: 900 });
     // Le suivi démarre après le cadrage, sinon les deux se marchent dessus.
     setTimeout(() => { if (playing) { t0 = tPrev = performance.now(); raf = requestAnimationFrame(frame); } }, 900);
@@ -499,6 +565,11 @@ export async function open(container, trail, track, eles = null, { onFrame = nul
     destroy() {
       dead = true;
       pause();
+      // Le conteneur est REUTILISÉ d'une fiche à l'autre (#viewer3d) : sans ce retrait, les
+      // écouteurs d'entrée s'empileraient à chaque ouverture. `map.remove()` ne les enlève
+      // pas, ils sont posés sur l'élément de l'appelant, pas sur la carte.
+      for (const ev of ["pointerdown", "touchstart", "wheel"]) el.removeEventListener(ev, onInput);
+      camEvents.forEach((ev) => map.off(ev, onCam));
       [bead, ...marks].forEach((m) => m.remove());
       map.remove();
     },
