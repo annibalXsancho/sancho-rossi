@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=581" />
+  <link rel="stylesheet" href="css/style.css?v=582" />
   <script type="importmap">
     {
       "imports": {
@@ -55,14 +55,16 @@
         "./js/packdialog.js": "./js/packdialog.js?v=502",
         "./js/zoneselect.js": "./js/zoneselect.js?v=501",
         "./js/recommend.js": "./js/recommend.js?v=503",
-        "./js/explorer.js": "./js/explorer.js?v=506",
+        "./js/explorer.js": "./js/explorer.js?v=582",
         "./js/fiche3d.js": "./js/fiche3d.js?v=509",
         "./js/sync.js": "./js/sync.js?v=502",
         "./js/outings.js": "./js/outings.js?v=501",
         "./js/importgpx.js": "./js/importgpx.js?v=501",
         "./js/dem.js": "./js/dem.js?v=575",
         "./js/sun.js": "./js/sun.js?v=575",
-        "./js/sunview.js": "./js/sunview.js?v=576"
+        "./js/sunview.js": "./js/sunview.js?v=576",
+        "./js/transit.js": "./js/transit.js?v=582",
+        "./js/trains.js": "./js/trains.js?v=582"
       }
     }
   </script>
@@ -293,6 +295,29 @@
         </div>
       </div>
 
+      <!-- Trains & transports (S-V3-TRAIN-A) : chercher une gare, lire ses départs.
+           Même primitive de panneau que le planificateur (.plan-panel) : latéral sur Mac,
+           bottom-sheet glissable sur téléphone. Rempli par js/trains.js. -->
+      <div id="train-panel" class="plan-panel train-panel hidden">
+        <div class="plan-sheet-grip" id="train-sheet-grip" role="button" tabindex="0" aria-label="Réduire ou agrandir le panneau"></div>
+        <div class="plan-panel-head">
+          <div class="plan-head-row">
+            <span class="eyebrow">Trains &amp; transports</span>
+            <button class="plan-close" id="train-close" title="Fermer" aria-label="Fermer">✕</button>
+          </div>
+          <h2 class="plan-title">Prochains départs</h2>
+          <p class="plan-lead muted">Cherchez une gare ou un arrêt — partout en Europe, sans compte.</p>
+        </div>
+        <div class="plan-search-wrap" id="train-search-wrap">
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          </span>
+          <input id="train-search" type="text" placeholder="Gare, arrêt, village…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" />
+          <div id="train-suggest" class="search-suggest plan-suggest hidden" role="listbox"></div>
+        </div>
+        <div class="plan-panel-scroll" id="train-scroll"></div>
+      </div>
+
       <!-- Générateur de boucle clef en main -->
       <div id="loops-bar" class="builder-bar loops-bar hidden">
         <div class="builder-head">
@@ -345,6 +370,10 @@
           <button class="sheet-act" id="sheet-loops" title="Générer une boucle">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a8 8 0 1 1-5.66 2.34"/><path d="M6 3.5 6.3 6.6 9.4 6.3"/></svg>
             <span>Boucle</span>
+          </button>
+          <button class="sheet-act" id="sheet-trains" title="Trains et transports publics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M5 9h14"/><path d="m8 19-1.5 2M16 19l1.5 2"/><circle cx="8.6" cy="12.3" r="1" fill="currentColor" stroke="none"/><circle cx="15.4" cy="12.3" r="1" fill="currentColor" stroke="none"/></svg>
+            <span>Trains</span>
           </button>
           <button class="sheet-act sheet-act-badged" id="sheet-filters" title="Filtres">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>

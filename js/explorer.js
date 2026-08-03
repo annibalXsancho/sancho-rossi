@@ -49,6 +49,13 @@ export function initExplorer() {
   // (#btn-load-trails) sont câblés directement par leurs modules (planner.js / loops.js /
   // catalog.js). Filtres et « Mes randos » ici.
   el("sheet-filters")?.addEventListener("click", openFilters);
+  // Trains (S-V3-TRAIN-A) : transit.js + trains.js chargés à la demande (S11) — le module
+  // n'est atteint qu'après un tap explicite, il n'a rien à faire dans le boot.
+  el("sheet-trains")?.addEventListener("click", async () => {
+    const m = await import("./trains.js");
+    m.initTrains();
+    m.openTrains();
+  });
   el("sheet-library")?.addEventListener("click", () => switchTab("itineraires"));
   el("btn-pack-zone")?.addEventListener("click", startZoneDownload);
 

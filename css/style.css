@@ -4169,3 +4169,135 @@ body.primal-active .nav-fabs { display: none; }
   .zone-bar { bottom: calc(16px + env(safe-area-inset-bottom)); left: 12px; right: 12px; transform: none; max-width: none; }
   .zone-bar-actions { margin-left: auto; }
 }
+
+/* ============ Trains & transports (S-V3-TRAIN-A) ============ */
+/* Le panneau réutilise la primitive .plan-panel (latéral desktop / bottom-sheet mobile) :
+   seul son contenu est propre au module. Hiérarchie par la valeur des surfaces, jamais
+   par des encadrés — l'heure porte la lecture, le reste s'efface. */
+.train-panel .plan-panel-scroll { padding-bottom: var(--sp-4); }
+
+/* Cinquième action rapide dans la feuille Explorer : les libellés tiennent sur une
+   ligne au pas juste en dessous, plutôt que « Mes randos » cassé en deux. */
+.sheet-act { font-size: 10.5px; }
+.sheet-act span { white-space: nowrap; }
+
+.train-sec { margin-bottom: var(--sp-4); }
+.train-sec-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-2); margin-bottom: var(--sp-2);
+}
+.train-refresh, .train-back { font-size: 11.5px; padding: 4px 8px; }
+.train-empty { font-size: 12.5px; line-height: 1.5; margin: var(--sp-2) 0 0; }
+.train-sk { height: 46px; margin-bottom: 6px; border-radius: var(--radius); }
+
+/* ---- Ligne d'arrêt (récents, zone affichée, suggestions) ---- */
+.stop-list { display: flex; flex-direction: column; gap: 2px; }
+.stop-row {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left;
+  font: inherit; color: var(--text);
+  background: none; border: none; cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  transition: background 150ms ease-out;
+}
+.stop-row:hover { background: var(--surface-2); }
+.stop-row-ic { display: flex; flex: none; color: var(--text-soft); }
+.stop-row-ic svg { width: 18px; height: 18px; }
+.stop-row-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.stop-row-name { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stop-row-sub { font-size: 11px; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Dans la liste de suggestions (fond translucide), la ligne occupe toute la largeur. */
+#train-suggest .stop-row { border-radius: 0; padding: 9px 12px; }
+
+/* ---- En-tête d'arrêt ---- */
+.train-stop-head { margin-top: 0; }
+.train-stop-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.train-stop-sub { font-size: 11.5px; margin-top: 2px; }
+
+.train-filters { display: flex; gap: 6px; flex-wrap: wrap; margin: var(--sp-3) 0 var(--sp-2); }
+.train-filters .chip { font-size: 11.5px; padding: 6px 12px; }
+
+/* ---- Tableau des départs ---- */
+/* Une ligne = heure (colonne fixe, chiffres tabulaires pour que les heures s'alignent),
+   destination, puis les qualifications en micro-étiquettes. */
+.dep-list { display: flex; flex-direction: column; }
+.dep-row {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 4px;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--text) 7%, transparent);
+}
+.dep-row:last-child { box-shadow: none; }
+.dep-time { display: flex; flex-direction: column; align-items: flex-start; }
+.dep-hh {
+  display: flex; align-items: baseline; gap: 4px;
+  font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.dep-delay { font-size: 11.5px; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
+.dep-delay.dep-early { color: var(--text-soft); }
+.dep-sched { font-size: 10.5px; color: var(--text-soft); text-decoration: line-through; font-variant-numeric: tabular-nums; }
+.dep-body { min-width: 0; }
+.dep-head { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.dep-line {
+  flex: none;
+  font-size: 11px; font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2); color: var(--text);
+}
+.dep-to { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px;
+  margin-top: 3px;
+  font-size: 10.5px; color: var(--text-soft);
+}
+.dep-mode { display: inline-flex; align-items: center; gap: 4px; }
+.dep-mode-ic { width: 13px; height: 13px; }
+/* Le relatif (« dans 7 min ») vit SOUS l'heure : la destination récupère toute la
+   largeur du panneau, au lieu d'être tronquée par une troisième colonne. */
+.dep-when { font-size: 10.5px; color: var(--text-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Couverture temps réel très inégale en Europe : chaque départ dit ce qu'il est plutôt
+   que de laisser croire qu'un horaire théorique est observé. */
+.dep-flag {
+  text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 9.5px;
+}
+.dep-flag-live { color: var(--red); display: inline-flex; align-items: center; gap: 4px; }
+.dep-flag-live::before {
+  content: ""; width: 5px; height: 5px; border-radius: var(--radius-full);
+  background: var(--red); animation: dep-pulse 1.8s ease-in-out infinite;
+}
+@keyframes dep-pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .dep-flag-live::before { animation: none; } }
+.dep-flag-off { color: var(--red); }
+.dep-cancelled .dep-hh, .dep-cancelled .dep-to { text-decoration: line-through; opacity: 0.6; }
+
+.train-more { width: 100%; margin-top: var(--sp-3); }
+.train-attrib { font-size: 10.5px; margin: var(--sp-4) 0 0; }
+.train-attrib a { color: inherit; }
+
+/* Arrêt posé sur la carte : même grammaire que les POI (pastille sombre, trait clair),
+   l'arrêt sélectionné passe au rouge — le plein rouge reste l'action/l'objet unique. */
+.stop-marker {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  transition: transform 150ms ease-out;
+}
+.stop-marker svg { width: 15px; height: 15px; }
+.stop-marker:hover { transform: scale(1.12); }
+.stop-marker-active { color: #fff; background: var(--red); }
+.stop-marker-active svg { width: 19px; height: 19px; }
+
+@media (max-width: 700px) {
+  /* 5 actions rapides dans la feuille Explorer : les libellés tiennent en réduisant
+     légèrement le pas typographique plutôt qu'en les tronquant. */
+  .sheet-act { font-size: 10px; padding: 8px 2px; }
+  .dep-row { grid-template-columns: 58px 1fr; }
+}
