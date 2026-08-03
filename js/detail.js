@@ -944,7 +944,12 @@ async function load3D(trail) {
     // lié APRÈS l'ouverture de la vue, d'où le relais mutable plutôt qu'un paramètre).
     const fly = { beforePlay: null, onFrame: null, onStop: null };
 
-    const view = await open(container, trail, sampleTrack(trail.mainline || trackOf(trail), 300), eles, {
+    // 2 000 points, et non 300 : la bille suit CE fil pendant que `drawTrackOn` dessine la
+    // géométrie complète. À 300 points, un tracé de 20 km n'a plus qu'un point tous les
+    // 67 m — les lacets sont coupés en travers et la bille quitte visiblement le tracé
+    // dessiné. `sampleTrack` prélève par indices régulièrement espacés : la densité peut
+    // changer sans rien casser, l'altitude se lisant par FRACTION de parcours.
+    const view = await open(container, trail, sampleTrack(trail.mainline || trackOf(trail), 2000), eles, {
       // Pendant le survol c'est la vue qui mène : la jauge et le libellé la suivent.
       onFrame: (r) => {
         slider.value = Math.round(r.f * 1000);
