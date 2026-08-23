@@ -16,6 +16,7 @@ import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 import { loadFieldMarks } from "./fieldmarks.js";
 import { initPlaces, loadSavedPlaces } from "./places.js";
+import { initMeteoMap } from "./meteomap.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initOutings, loadFieldOutings, renderOutingsBlock } from "./outings.js";
@@ -53,6 +54,7 @@ initRecommend();
 initExplorer();
 initOutings();
 initPlaces();
+initMeteoMap();
 
 // ---------- Version affichée (Réglages) ----------
 const versionEl = document.getElementById("setting-version");

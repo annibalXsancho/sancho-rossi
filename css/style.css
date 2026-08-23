@@ -2972,6 +2972,103 @@ body.primal-active .nav-fabs { display: none; }
   .mark-kind, .mark-close { transition: none; }
 }
 
+/* ============ Bandeau météo (S-V3-METEO) ============ */
+/* En HAUT de la carte : le bas est déjà pris (tab-nav mobile, feuille Explorer,
+   recherche). Décalé du panneau Explorer à gauche et de la pile de contrôles à droite. */
+.meteo-bar {
+  position: absolute;
+  top: 12px;
+  left: calc(var(--panel-w) + 24px);
+  right: 76px;
+  max-width: 520px;
+  margin-inline: auto;
+  z-index: 1000;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  animation: meteo-drop 200ms ease-out;
+}
+.meteo-bar.hidden { display: none; }
+@keyframes meteo-drop { from { transform: translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.meteo-bar-head { display: flex; align-items: center; gap: var(--sp-2); }
+.meteo-bar-head .eyebrow { flex: none; }
+/* L'heure regardée est l'information principale du bandeau : elle porte le poids. */
+.meteo-when {
+  flex: 1; min-width: 0;
+  text-align: right;
+  font-size: 14px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.meteo-bar-head .mark-close { width: 26px; height: 26px; font-size: 12px; }
+
+/* Puces de jour : le réglage grossier. La réglette dessous affine heure par heure. */
+.meteo-days { display: flex; gap: 6px; margin: var(--sp-2) 0 6px; overflow-x: auto; scrollbar-width: none; }
+.meteo-days::-webkit-scrollbar { display: none; }
+.meteo-day {
+  flex: none;
+  padding: 5px 12px;
+  font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--text-soft);
+  background: var(--surface-2);
+  border: none; border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+.meteo-day:hover { background: var(--surface-3); transform: translateY(-1px); }
+.meteo-day:active { transform: scale(0.96); }
+.meteo-day.active { color: #fff; background: var(--red); }
+
+/* Réglette d'heure : piste épaisse et curseur large — se manœuvre au pouce. */
+.meteo-hour {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 22px;
+  margin: 0; background: transparent; cursor: pointer;
+}
+.meteo-hour::-webkit-slider-runnable-track { height: 6px; border-radius: var(--radius-full); background: var(--surface-3); }
+.meteo-hour::-moz-range-track { height: 6px; border-radius: var(--radius-full); background: var(--surface-3); }
+.meteo-hour::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; margin-top: -8px;
+  border: none; border-radius: var(--radius-full);
+  background: var(--red);
+  box-shadow: var(--shadow-soft);
+}
+.meteo-hour::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border: none; border-radius: var(--radius-full);
+  background: var(--red);
+  box-shadow: var(--shadow-soft);
+}
+.meteo-hour:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-full); }
+
+/* Légende : sans elle, un aplat de couleur ne dit rien. */
+.meteo-legend { margin-top: 4px; }
+.meteo-scale { display: block; height: 7px; border-radius: var(--radius-full); }
+.meteo-ticks { display: flex; justify-content: space-between; margin-top: 3px; }
+.meteo-ticks i {
+  font-style: normal; font-size: 10.5px; font-weight: 700;
+  color: var(--text-soft); font-variant-numeric: tabular-nums;
+}
+.meteo-status { margin-top: 6px; font-size: 11.5px; font-weight: 600; color: var(--text-soft); }
+.meteo-status.hidden { display: none; }
+
+/* Mobile : le bandeau prend la largeur sous l'en-tête, et pousse l'échelle sous lui —
+   sinon les deux se marchent dessus dans le coin haut-gauche. */
+@media (max-width: 700px) {
+  .meteo-bar { left: 12px; right: 12px; max-width: none; }
+  body:has(.meteo-bar:not(.hidden)) .map-scale { top: 190px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meteo-bar { animation: none; }
+  .meteo-day { transition: none; }
+}
+
 /* ============ Lieux épinglés (S-V3-LIEUX) ============ */
 /* La feuille reprend le cadre `.mark-*` ci-dessus (même geste, même grammaire) et n'ajoute
    que son contenu : nom éditable, altitude + commune, coordonnées, actions. */

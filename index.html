@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=591" />
+  <link rel="stylesheet" href="css/style.css?v=592" />
   <script type="importmap">
     {
       "imports": {
@@ -28,7 +28,7 @@
         "./js/mapillary.js": "./js/mapillary.js?v=502",
         "./js/weather.js": "./js/weather.js?v=526",
         "./js/hikeweather.js": "./js/hikeweather.js?v=527",
-        "./js/map.js": "./js/map.js?v=590",
+        "./js/map.js": "./js/map.js?v=592",
         "./js/compass.js": "./js/compass.js?v=501",
         "./js/filters.js": "./js/filters.js?v=506",
         "./js/trails.js": "./js/trails.js?v=535",
@@ -43,6 +43,7 @@
         "./js/annotations.js": "./js/annotations.js?v=501",
         "./js/fieldmarks.js": "./js/fieldmarks.js?v=502",
         "./js/places.js": "./js/places.js?v=591",
+        "./js/meteomap.js": "./js/meteomap.js?v=592",
         "./js/loops.js": "./js/loops.js?v=526",
         "./js/geosearch.js": "./js/geosearch.js?v=591",
         "./js/nav.js": "./js/nav.js?v=520",
@@ -142,6 +143,22 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         </button>
       </div>
+
+      <!-- Bandeau météo (S-V3-METEO) : visible seulement quand un champ est allumé.
+           Placé EN HAUT : le bas de la carte est déjà pris par la tab-nav mobile, la
+           feuille Explorer et la recherche. Puces de jour (le grossier) + réglette d'heure
+           (le fin) + légende, sans quoi un aplat de couleur ne dit rien. -->
+      <section class="meteo-bar hidden" id="meteo-bar" aria-label="Météo affichée">
+        <div class="meteo-bar-head">
+          <span class="eyebrow" id="meteo-field">Météo</span>
+          <span class="meteo-when" id="meteo-when">—</span>
+          <button type="button" class="mark-close" id="meteo-close" title="Masquer la météo" aria-label="Masquer la météo">✕</button>
+        </div>
+        <div class="meteo-days" id="meteo-days"></div>
+        <input type="range" class="meteo-hour" id="meteo-hour" min="0" max="0" value="0" step="1" aria-label="Heure affichée" />
+        <div class="meteo-legend" id="meteo-legend"></div>
+        <p class="meteo-status hidden" id="meteo-status"></p>
+      </section>
 
       <!-- Pile de contrôles à droite : filtres, liste, calques, position, circuit -->
       <!-- Chrome de carte apaisée (S-V2-EXPLORER-B) : seuls calques, position, relief 3D et
@@ -970,6 +987,6 @@
   </section>
 
   <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <script type="module" src="js/main.js?v=590"></script>
+  <script type="module" src="js/main.js?v=592"></script>
 </body>
 </html>

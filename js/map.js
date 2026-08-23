@@ -104,6 +104,16 @@ export const TILE_TEMPLATES = {
     dynamic: true,
     attribution: '<a href="https://rainviewer.com">RainViewer</a>',
   },
+  // ---- Champs météo (S-V3-METEO) : ni tuiles raster, ni vecteur, mais un CANEVAS peint
+  // par meteomap.js depuis une grille Open-Meteo, posé sur la carte en source `canvas`.
+  // Le canevas est créé ici (buildStyle doit le référencer dès la construction du style) ;
+  // `field` porte le nom de la variable Open-Meteo. MapLibre consomme une source `canvas`
+  // avec une couche de type `raster` : opacité, visibilité et assombrissement nocturne
+  // passent donc par le chemin raster existant, sans une ligne de plus.
+  temp:    { field: "temperature_2m", maxZoom: 22, op: 82 },
+  pluie:   { field: "precipitation",  maxZoom: 22, op: 92 },
+  rafales: { field: "wind_gusts_10m", maxZoom: 22, op: 88 },
+  nuages:  { field: "cloud_cover",    maxZoom: 22, op: 88 },
   // Seule entrée VECTORIELLE de la table (S-V3-NOMS). Le satellite et le Terrain HD sont
   // MUETS : leurs tuiles ne portent aucune étiquette. Une surcouche raster de noms (Esri
   // « World Boundaries & Places », auditée : CORS `*`, 2 étiquettes par tuile à z13 sur
@@ -133,10 +143,19 @@ const NAMES_GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pb
 // (cachés par défaut), si bien qu'allumer/éteindre ne réordonne jamais rien.
 // « noms » ferme la marche : des étiquettes passant SOUS le radar de pluie ou sous
 // l'ombrage seraient illisibles — elles doivent coiffer toute la pile de fonds.
+// Les champs météo passent AU-DESSUS de l'ombrage (qu'ils délaveraient sinon) mais SOUS
+// les sentiers, le radar et les noms : un tracé ou une étiquette ne doit jamais disparaître
+// sous un aplat de couleur.
 const LAYER_ORDER = [
   "plan", "topo", "satellite", "sombre", "terrainhd",
-  "hillshade", "trails", "mtb", "ski", "rain", "noms",
+  "hillshade", "temp", "pluie", "rafales", "nuages",
+  "trails", "mtb", "ski", "rain", "noms",
 ];
+
+// Un calque « à tuiles » est un calque raster classique. Le vecteur et les champs météo
+// n'en sont pas : ni plafond de zoom natif, ni pack offline, ni `raster-opacity` pour le
+// vecteur. Une seule question à poser partout plutôt que deux drapeaux à tester.
+const isTiled = (def) => !def.vector && !def.field;
 
 // Fonds qui portent DÉJÀ leurs propres étiquettes, gravées dans la tuile (plan = OSM
 // France, topo = OpenTopoMap, sombre = CARTO dark_all). Superposer les nôtres par-dessus
@@ -167,6 +186,10 @@ export const LAYER_META = {
     // sélecteur DIT pourquoi rien ne change, plutôt que de laisser un interrupteur menteur.
     hint: "Déjà fournis par ce fond de carte",
   },
+  temp:    { label: "Température", min: 20, short: "Température", icon: "temp" },
+  pluie:   { label: "Pluie prévue", min: 20, short: "Pluie prévue", icon: "rain" },
+  rafales: { label: "Rafales de vent", min: 20, short: "Rafales", icon: "wind" },
+  nuages:  { label: "Nuages", min: 20, short: "Nuages", icon: "cloud" },
   hillshade: { label: "Relief (ombrage)", min: 10, short: "Relief", icon: "relief" },
   trails: { label: "Sentiers balisés", min: 15, short: "Sentiers", icon: "trail" },
   mtb: { label: "VTT balisé", min: 15, short: "VTT", icon: "mtb" },
@@ -188,6 +211,10 @@ export const LAYER_ICONS = {
   // panneau ou une étiquette-bulle se referment en tache.
   names: '<path d="M5.6 17.2 12 4.8l6.4 12.4"/><path d="M8.2 13h7.6"/><path d="M3.5 20.4h17"/>',
   rain: '<path d="M7.5 15.5a3.8 3.8 0 0 1 .6-7.6 5.4 5.4 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.3 6.3"/><path d="M9 18.5v2.2M13 18v2.7M17 18.5v2.2"/>',
+  // Thermomètre, girouette et nuage : trois silhouettes franches, lisibles à 17 px.
+  temp: '<path d="M14.2 13.6V5.4a2.2 2.2 0 0 0-4.4 0v8.2a4 4 0 1 0 4.4 0Z"/><path d="M12 17.6v-6"/>',
+  wind: '<path d="M3.5 9h10.2a2.9 2.9 0 1 0-2.9-2.9"/><path d="M3.5 14h13.6a2.9 2.9 0 1 1-2.9 2.9"/>',
+  cloud: '<path d="M7.4 18.4a4.2 4.2 0 0 1 .5-8.4 5.9 5.9 0 0 1 11.2 1.4 3.6 3.6 0 0 1-.4 7h-11Z"/>',
   water: '<path d="M12 3.2c3.6 4 5.6 6.8 5.6 9.4a5.6 5.6 0 0 1-11.2 0C6.4 10 8.4 7.2 12 3.2Z"/>',
   hut: '<path d="m3.2 11.2 8.8-7 8.8 7"/><path d="M6 10v9.5h12V10"/><path d="M10.2 19.5V14h3.6v5.5"/>',
   rescue: '<circle cx="12" cy="12" r="8.8"/><path d="M12 7.6v8.8M7.6 12h8.8"/>',
@@ -202,7 +229,11 @@ export const LAYER_GROUPS = [
   { id: "lisibilite", label: "Lisibilité", kind: "overlay", items: ["noms"] },
   { id: "relief", label: "Relief", kind: "overlay", items: ["hillshade"] },
   { id: "activites", label: "Activités", kind: "overlay", items: ["trails", "mtb", "ski"] },
-  { id: "conditions", label: "Conditions", kind: "overlay", items: ["rain"] },
+  // Groupe EXCLUSIF : deux aplats de couleur superposés ne veulent rien dire, et le radar
+  // observé contredirait la pluie prévue. Un seul calque météo à la fois, allumer l'un
+  // éteint l'autre — la règle est portée par `applyLayer`, pas par chaque écouteur.
+  { id: "meteo", label: "Météo", kind: "overlay", exclusive: true,
+    items: ["temp", "pluie", "rafales", "nuages", "rain"] },
   { id: "transports", label: "Transports", kind: "overlay", items: [] },
   { id: "lieux", label: "Lieux", kind: "poi", items: ["water", "huts", "rescue"] },
 ];
@@ -234,8 +265,14 @@ const NATIVE_MAX = Object.fromEntries(
   Object.entries(TILE_TEMPLATES).map(([k, v]) => [k, v.maxZoom])
 );
 
+// Calques allumés à la première ouverture. « noms » en fait partie : la carte doit porter
+// ses noms sans qu'on aille les chercher dans un panneau — c'était la demande d'origine.
+// Il reste sans effet visible sous le fond Plan (qui grave déjà ses étiquettes) et
+// apparaît de lui-même dès qu'on passe sur le satellite ou le relief.
+const DEFAULT_ON = ["plan", "noms"];
+
 export const layersConfig = Object.assign(
-  Object.fromEntries(LAYER_ORDER.map((n) => [n, { on: n === "plan", op: TILE_TEMPLATES[n].op }])),
+  Object.fromEntries(LAYER_ORDER.map((n) => [n, { on: DEFAULT_ON.includes(n), op: TILE_TEMPLATES[n].op }])),
   JSON.parse(localStorage.getItem("sr-layers") || "{}")
 );
 
@@ -251,6 +288,20 @@ function tileUrls(def) {
 // (`source.setTiles`) sans lui faire connaître la table des gabarits.
 export const layerTiles = (name) =>
   TILE_TEMPLATES[name] ? tileUrls(TILE_TEMPLATES[name]) : null;
+
+// ---------- Champs météo : canevas partagés avec meteomap.js ----------
+// Une source `canvas` exige son élément dès la construction du style : les canevas sont
+// donc créés ici et prêtés à meteomap.js, qui seul sait quoi peindre dedans.
+const fieldCanvases = new Map();
+export const fieldCanvas = (name) => fieldCanvases.get(name) || null;
+
+// Coins par défaut : le monde. Remplacés dès le premier rendu par la zone chargée.
+const WORLD_QUAD = [[-180, 85], [180, 85], [180, -85], [-180, -85]];
+
+// meteomap.js s'enregistre ici pour être prévenu qu'un champ s'allume ou s'éteint —
+// même patron que `setPinHandler` : map.js n'importe pas ses consommateurs.
+let fieldHandler = null;
+export function setFieldHandler(fn) { fieldHandler = fn || null; }
 
 // ---------- Étiquettes vectorielles du calque « Noms » ----------
 const NAMES_SOURCE = "src-noms";
@@ -333,6 +384,23 @@ function buildStyle() {
   const layers = [];
   for (const name of LAYER_ORDER) {
     const def = TILE_TEMPLATES[name];
+    // Champ météo : une source `canvas` posée sur le monde entier par défaut. Le canevas
+    // est minuscule tant que rien n'est peint ; meteomap.js le redimensionne, le remplit
+    // et recale ses coins (`setCoordinates`) sur la zone effectivement chargée.
+    if (def.field) {
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = 2;
+      fieldCanvases.set(name, cv);
+      sources[`src-${name}`] = { type: "canvas", canvas: cv, coordinates: WORLD_QUAD, animate: false };
+      layers.push({
+        id: `lyr-${name}`,
+        type: "raster",
+        source: `src-${name}`,
+        layout: { visibility: "none" },
+        paint: { "raster-opacity": (layersConfig[name]?.op ?? def.op) / 100 },
+      });
+      continue;
+    }
     // Le calque vectoriel n'est pas une tuile raster : une source vecteur (TileJSON) et
     // une pile de couches symbole, déclarées ici comme les autres pour que l'ordre du
     // style reste le seul z-index du projet.
@@ -732,11 +800,11 @@ async function refreshRainLayer() {
 // Ainsi le sur-agrandissement reste borné à ce que la donnée la plus fine peut honnêtement
 // porter : topo seul (natif 17) monte à z19, plan ou satellite (natif 19) à z21.
 export function updateZoomCap() {
-  // Le calque vectoriel est EXCLU du calcul : ses étiquettes se redessinent à tous les
-  // zooms, son `maxZoom` de 22 ferait sauter le plafond à z24 et autoriserait un
-  // sur-agrandissement massif de tuiles raster qui, elles, s'arrêtent à 19.
+  // Seuls les calques À TUILES comptent. Le vecteur et les champs météo se redessinent à
+  // tous les zooms ; leur `maxZoom` de 22 ferait sauter le plafond à z24 et autoriserait
+  // un sur-agrandissement massif des tuiles raster, elles bloquées à 19.
   const natives = LAYER_ORDER
-    .filter((n) => layersConfig[n]?.on && !TILE_TEMPLATES[n].vector)
+    .filter((n) => layersConfig[n]?.on && isTiled(TILE_TEMPLATES[n]))
     .map((n) => NATIVE_MAX[n] ?? 17);
   const cap = (natives.length ? Math.max(...natives) : 17) + OVERZOOM;
   const glCap = cap - ZOOM_OFFSET;
@@ -793,6 +861,19 @@ export function applyLayer(name) {
     const ov = row.querySelector(".op-val");
     if (ov) ov.textContent = `${cfg.op}%`;
   });
+  // Groupe exclusif (Météo) : allumer un calque y éteint ses voisins. La récursion
+  // s'arrête d'elle-même — les voisins sont éteints, et ce bloc ne s'exécute qu'à
+  // l'allumage.
+  const exclusive = cfg.on && LAYER_GROUPS.find((g) => g.exclusive && g.items.includes(name));
+  if (exclusive) {
+    for (const other of exclusive.items) {
+      if (other !== name && layersConfig[other]?.on) {
+        layersConfig[other].on = false;
+        applyLayer(other);
+      }
+    }
+  }
+  if (TILE_TEMPLATES[name].field) fieldHandler?.(name, cfg.on);
   // Changer de fond change la réponse de `namesRedundant()` : le calque « Noms » se
   // repeint dans la foulée, et sa ligne du sélecteur dit pourquoi il s'est effacé.
   if (LABELLED_BASES.includes(name)) paintLayer("noms");
