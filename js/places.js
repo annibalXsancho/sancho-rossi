@@ -24,12 +24,16 @@ import { touchPlaces } from "./sync.js";
 const byId = new Map();       // id → lieu
 const markers = new Map();    // id → marqueur MapLibre des lieux ENREGISTRÉS
 let pinMarker = null;         // punaise du point en cours d'épinglage (pas encore gardé)
+let pinSeed = null;           // nom déjà connu de cette punaise (venue d'une recherche)
 let sheet = null;             // { place, lat, lon, saved } — état de la feuille ouverte
 let nameTimer = null;
 let lookupToken = 0;          // annule l'affichage d'un géocodage qui répond trop tard
 
 const el = (id) => document.getElementById(id);
 const FLY_ZOOM = 15;
+
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 // ---------- Chargement ----------
 export async function loadSavedPlaces() {
@@ -106,10 +110,15 @@ const PIN_SVG =
   '<path d="M12 22.5S4.6 14.9 4.6 9.9a7.4 7.4 0 0 1 14.8 0c0 5-7.4 12.6-7.4 12.6Z"/>' +
   '<circle cx="12" cy="9.9" r="2.6"/></svg>';
 
-function pinEl(className) {
+function pinEl(className, { ping = false, label = "" } = {}) {
   const node = document.createElement("div");
   node.className = className;
-  node.innerHTML = PIN_SVG;
+  // L'anneau du ping est un frère du SVG, ancré sur la POINTE de la punaise : c'est le
+  // point désigné, pas le centre du dessin, qui doit irradier.
+  node.innerHTML =
+    (ping ? '<span class="place-ping" aria-hidden="true"></span>' : "") +
+    PIN_SVG +
+    (label ? `<span class="place-pin-label">${escapeHtml(label)}</span>` : "");
   return node;
 }
 
@@ -130,41 +139,76 @@ function refreshMarkers() {
   }
 }
 
-function showPin(lat, lon) {
+// Punaise du point en cours : posée par l'appui long (sans fioriture, la feuille s'ouvre
+// dans la foulée) ou par une recherche de lieu (avec ping et étiquette — là, rien ne
+// s'ouvre, il faut que l'œil trouve le résultat tout seul sur la carte).
+//   seed  : nom/contexte DÉJÀ connus (résultat de recherche) → la feuille les reprend
+//           sans repasser par le géocodage inverse.
+function showPin(lat, lon, { ping = false, label = "", seed = null } = {}) {
   clearPin();
-  pinMarker = domMarker(lat, lon, { element: pinEl("place-pin fresh"), anchor: "bottom" }).addTo(map);
+  const node = pinEl("place-pin fresh", { ping, label });
+  if (seed) {
+    // Une punaise de recherche est un point PROPOSÉ : elle attend un tap pour ouvrir la
+    // feuille et devenir un lieu qu'on garde.
+    node.classList.add("clickable");
+    node.title = `${seed.name} — enregistrer ce lieu`;
+    node.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openSheet({ lat, lon, seed });
+    });
+  }
+  pinSeed = seed;
+  pinMarker = domMarker(lat, lon, { element: node, anchor: "bottom" }).addTo(map);
 }
 
 function clearPin() {
   pinMarker?.remove();
   pinMarker = null;
+  pinSeed = null;
+}
+
+// Résultat de recherche mis en valeur sur la carte (geosearch.js). Le nom vient de
+// Nominatim, qui vient déjà de répondre : inutile de le lui redemander à l'ouverture de
+// la feuille — seule l'altitude reste à chercher.
+export function pingSearchResult({ lat, lon, name, sub }) {
+  showPin(lat, lon, { ping: true, label: name, seed: { name, context: sub || "" } });
 }
 
 // ---------- La feuille ----------
 // Deux états dans le même cadre, comme la feuille « repère » de la navigation : un point
 // tout juste épinglé (à nommer, à garder) et un lieu déjà enregistré (à retoucher, à
 // supprimer). Le bouton primaire porte la différence — « Enregistrer » puis « OK ».
-function openSheet({ lat, lon, place = null }) {
+function openSheet({ lat, lon, place = null, seed = null }) {
   commitName(); // un nom en cours de saisie sur un AUTRE lieu n'est jamais perdu
-  sheet = { place, lat, lon, saved: !!place };
+  sheet = { place, lat, lon, saved: !!place, context: seed?.context || "" };
   const token = ++lookupToken;
 
-  el("place-eyebrow").textContent = place ? "Mon lieu" : "Point épinglé";
+  el("place-eyebrow").textContent = place ? "Mon lieu" : seed ? "Lieu trouvé" : "Point épinglé";
   el("place-coords").innerHTML =
     `<span class="place-dec">${decimals(lat, lon)}</span><span class="place-dms">${dms(lat, lon)}</span>`;
   el("place-del").classList.toggle("hidden", !place);
   el("place-save").textContent = place ? "OK" : "Enregistrer";
 
   const nameInput = el("place-name");
-  nameInput.value = place?.name || "";
-  nameInput.placeholder = place ? "Nom du lieu" : "Recherche du lieu…";
-  setMeta(place ? metaOf(place) : "");
+  nameInput.value = place?.name || seed?.name || "";
+  nameInput.placeholder = place || seed ? "Nom du lieu" : "Recherche du lieu…";
+  setMeta(place ? metaOf(place) : seed ? metaOf({ context: seed.context }) : "");
 
   el("place-sheet").classList.remove("hidden");
 
   if (place) return;
-  // Point neuf : le nom et l'altitude arrivent en tâche de fond. Chacun s'affiche dès qu'il
-  // est là — un réseau lent ne doit pas retarder le geste « Enregistrer ».
+  // L'altitude manque toujours ; le nom, lui, est déjà là quand le point vient d'une
+  // recherche — pas de géocodage inverse dans ce cas.
+  pointElevation(lat, lon)
+    .then((ele) => {
+      if (token !== lookupToken || !sheet) return;
+      sheet.ele = ele;
+      setMeta(metaOf({ ele, context: sheet.context }));
+    })
+    .catch(() => {});
+  if (seed) return;
+  // Point neuf : le nom arrive en tâche de fond et s'affiche dès qu'il est là — un réseau
+  // lent ne doit pas retarder le geste « Enregistrer ».
   reverseName(lat, lon)
     .then(({ name, context }) => {
       if (token !== lookupToken || !sheet) return;
@@ -177,13 +221,6 @@ function openSheet({ lat, lon, place = null }) {
       if (token !== lookupToken) return;
       nameInput.placeholder = "Nom du lieu";
     });
-  pointElevation(lat, lon)
-    .then((ele) => {
-      if (token !== lookupToken || !sheet) return;
-      sheet.ele = ele;
-      setMeta(metaOf({ ele, context: sheet.context }));
-    })
-    .catch(() => {});
 }
 
 const metaOf = (p) => [p.ele != null ? `${p.ele} m` : null, p.context].filter(Boolean).join(" · ");
@@ -197,8 +234,11 @@ function setMeta(text) {
 function closeSheet() {
   commitName();
   // La punaise « fraîche » ne survit pas à la fermeture : un point non enregistré qui
-  // resterait planté sur la carte se confondrait avec un lieu gardé.
-  if (!sheet?.saved) clearPin();
+  // resterait planté sur la carte se confondrait avec un lieu gardé. Exception : celle
+  // d'une RECHERCHE, qui n'est pas un brouillon mais le résultat mis en valeur — la fermer
+  // par curiosité ne doit pas effacer ce qu'on vient de chercher. Elle part au prochain
+  // épinglage ou à la prochaine recherche.
+  if (!sheet?.saved && !pinSeed) clearPin();
   sheet = null;
   el("place-sheet")?.classList.add("hidden");
 }
@@ -299,9 +339,6 @@ export function flyToPlace(id) {
 }
 
 // ---------- Liste « Mes lieux » (onglet Itinéraires) ----------
-const escapeHtml = (s) =>
-  String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
 export function renderPlacesList() {
   const host = el("navview-places");
   if (!host) return;

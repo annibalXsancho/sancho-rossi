@@ -2992,8 +2992,9 @@ body.primal-active .nav-fabs { display: none; }
 /* Punaise sur la carte. Pleine = lieu enregistré ; contour = point tout juste épinglé, pas
    encore gardé — l'état se lit sans légende. Le liseré sombre porte le contraste sur tous
    les fonds, même logique que le tracé (TRACK_CASING). */
-.place-pin { width: 30px; height: 30px; cursor: pointer; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)); }
-.place-pin svg { width: 100%; height: 100%; display: block; }
+.place-pin { position: relative; width: 30px; height: 30px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)); }
+.place-pin svg { position: relative; width: 100%; height: 100%; display: block; }
+.place-pin.saved, .place-pin.clickable { cursor: pointer; }
 .place-pin.saved svg path { fill: var(--red); stroke: rgba(9, 9, 11, 0.62); stroke-width: 1.1; }
 .place-pin.saved svg circle { fill: #fff; }
 .place-pin.fresh svg path { fill: rgba(9, 9, 11, 0.55); stroke: #fff; stroke-width: 1.5; }
@@ -3003,7 +3004,44 @@ body.primal-active .nav-fabs { display: none; }
   from { transform: translateY(-14px) scale(0.7); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
-.place-pin.saved:hover { filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.55)); }
+.place-pin.saved:hover, .place-pin.clickable:hover { filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.55)); }
+
+/* Ping d'un résultat de recherche : un anneau qui irradie depuis la POINTE de la punaise
+   (le point désigné, pas le centre du dessin) et s'éteint au bout de trois battements —
+   il attire l'œil puis rend la carte, il ne clignote pas en boucle. */
+.place-ping {
+  position: absolute;
+  left: 50%; bottom: 0;
+  width: 16px; height: 16px;
+  margin: 0 0 -8px -8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--red) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--red) 70%, transparent);
+  animation: place-ping 1.7s ease-out 3 both;
+}
+@keyframes place-ping {
+  from { transform: scale(0.35); opacity: 0.95; }
+  70% { opacity: 0; }
+  to { transform: scale(3.4); opacity: 0; }
+}
+
+/* Étiquette du résultat : le nom cherché, posé au-dessus de la tête de punaise façon
+   Google — sur un massif cadré large, la punaise seule ne dit pas ce qu'on a demandé. */
+.place-pin-label {
+  position: absolute;
+  left: 50%; bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  max-width: 190px;
+  padding: 3px 9px;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-soft);
+  pointer-events: none;
+}
 
 /* Liste « Mes lieux » (onglet Itinéraires) : la punaise, le nom, un tap pour y aller. */
 .place-row {
@@ -3031,6 +3069,8 @@ body.primal-active .nav-fabs { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .place-pin.fresh { animation: none; }
+  /* Le ping garde sa forme mais ne bat pas : l'anneau reste posé sur la pointe. */
+  .place-ping { animation: none; opacity: 0.5; }
 }
 
 /* ============ Pré-alerte de la veille automatique ============ */

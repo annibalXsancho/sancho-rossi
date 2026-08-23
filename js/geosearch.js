@@ -19,6 +19,7 @@
 // passage » — d'où l'état déplacé en closure, une instance = un champ.
 import { state } from "./state.js";
 import { boundsOf, boundsZoomL, flyToL } from "./map.js";
+import { pingSearchResult } from "./places.js";
 import { switchTab } from "./ui.js";
 import { renderList } from "./trails.js";
 import { fetchRetry } from "./net.js";
@@ -212,6 +213,13 @@ export function initGeoSearch() {
       } else {
         flyToL(r.lat, r.lon, FIT_MAX_ZOOM, { duration: 900 });
       }
+      // Le vol seul ne DÉSIGNE rien : sur un massif cadré large, rien ne dit lequel des
+      // vingt villages visibles on a demandé. Une punaise pulsée marque le point exact,
+      // porte son nom, et un tap suffit à l'enregistrer (places.js) — le nom vient d'être
+      // renvoyé par Nominatim, aucun géocodage inverse ne sera nécessaire.
+      // On épingle le POINT du résultat, pas le centre de sa bbox : le centre du rectangle
+      // d'un massif tombe volontiers dans une vallée voisine.
+      pingSearchResult(r);
       closeDock();
     },
   });
