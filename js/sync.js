@@ -8,6 +8,8 @@
 //   itineraries/<id>.json  — un fichier par tracé de state.imported (id encodé en URI :
 //                             filename-safe même si un id contenait un caractère spécial).
 //   marks.json              — tableau complet des repères de terrain (store `marks`).
+//   outings.json            — tableau complet des sorties prévues (store `outings`).
+//   places.json             — tableau complet des lieux épinglés (store `places`).
 //   prefs.json               — { favorites, notes, contacts }.
 // Pas d'index.json à maintenir à la main : `GET contents/itineraries` renvoie déjà la liste
 // avec le sha de chaque fichier, qui sert d'index pour ne retélécharger que ce qui a changé.
@@ -28,6 +30,7 @@ import { fetchRetry } from "./net.js";
 import { idbGet, idbGetAll, idbClear, idbPut, idbDelete, putMeta, saveTraces } from "./storage.js";
 import { loadFieldMarks } from "./fieldmarks.js";
 import { loadFieldOutings } from "./outings.js";
+import { loadSavedPlaces } from "./places.js";
 import { toast } from "./toast.js";
 
 const API = "https://api.github.com";
@@ -41,6 +44,8 @@ const PREFS_TOUCHED = "sr-sync-prefs-touched";
 const PREFS_PUSHED = "sr-sync-prefs-pushed";
 const OUTINGS_TOUCHED = "sr-sync-outings-touched";
 const OUTINGS_PUSHED = "sr-sync-outings-pushed";
+const PLACES_TOUCHED = "sr-sync-places-touched";
+const PLACES_PUSHED = "sr-sync-places-pushed";
 
 class SyncAuthError extends Error {}
 
@@ -65,6 +70,9 @@ export function touchPrefs() {
 }
 export function touchOutings() {
   localStorage.setItem(OUTINGS_TOUCHED, String(Date.now()));
+}
+export function touchPlaces() {
+  localStorage.setItem(PLACES_TOUCHED, String(Date.now()));
 }
 
 function loadTombstones() {
@@ -258,87 +266,72 @@ async function syncItineraries() {
   return changed;
 }
 
-// ---------- Fichier unique (marks.json / prefs.json), dernier écrit gagne ----------
-async function syncMarks() {
+// ---------- Fichiers uniques (marks / outings / places), dernier écrit gagne ----------
+// Trois stores IndexedDB minuscules suivent EXACTEMENT le même protocole : un seul fichier
+// JSON réécrit en entier (une suppression locale s'efface donc d'elle-même de ce qui est
+// poussé), horodaté par `updatedAt` de fichier. Contrairement aux itinéraires — lourds,
+// donc un fichier chacun — la granularité par objet n'apporterait rien ici. D'où une seule
+// implémentation paramétrée : le troisième copier-coller de ce bloc était le mauvais chemin.
+//   file     : nom du fichier dans le coffre        · store : nom du store IndexedDB
+//   key      : clé du tableau dans le JSON          · touched/pushed : clés localStorage
+//   reload   : recharge le cache mémoire du module propriétaire après un tirage
+//   message  : message de commit
+async function syncStore({ file, store, key, touched, pushed, reload, message }) {
   let changed = false;
   let remote = null;
-  try { remote = await ghGetFile("marks.json"); }
+  try { remote = await ghGetFile(file); }
   catch (err) { if (err instanceof SyncAuthError) throw err; }
   let remoteObj = null;
   if (remote) { try { remoteObj = JSON.parse(remote.content); } catch {} }
 
-  const localTouched = Number(localStorage.getItem(MARKS_TOUCHED) || 0);
-  const localPushed = Number(localStorage.getItem(MARKS_PUSHED) || 0);
+  const localTouched = Number(localStorage.getItem(touched) || 0);
+  const localPushed = Number(localStorage.getItem(pushed) || 0);
 
   if (remoteObj && (remoteObj.updatedAt || 0) > localTouched) {
-    await idbClear("marks");
-    await Promise.all((remoteObj.marks || []).map((m) => idbPut("marks", m)));
-    await loadFieldMarks();
-    localStorage.setItem(MARKS_TOUCHED, String(remoteObj.updatedAt));
-    localStorage.setItem(MARKS_PUSHED, String(remoteObj.updatedAt));
-    await putMeta("sync:sha:marks.json", remote.sha);
+    await idbClear(store);
+    await Promise.all((remoteObj[key] || []).map((o) => idbPut(store, o)));
+    await reload();
+    localStorage.setItem(touched, String(remoteObj.updatedAt));
+    localStorage.setItem(pushed, String(remoteObj.updatedAt));
+    await putMeta(`sync:sha:${file}`, remote.sha);
     changed = true;
   } else if (localTouched > localPushed) {
-    const marks = await idbGetAll("marks");
-    const sha = await idbGet("meta", "sync:sha:marks.json");
+    const rows = await idbGetAll(store);
+    const sha = await idbGet("meta", `sync:sha:${file}`);
     try {
       const newSha = await ghPutFile(
-        "marks.json",
-        JSON.stringify({ updatedAt: localTouched, marks }),
+        file,
+        JSON.stringify({ updatedAt: localTouched, [key]: rows }),
         sha ?? remote?.sha,
-        "sync : repères de terrain"
+        message
       );
-      await putMeta("sync:sha:marks.json", newSha);
-      localStorage.setItem(MARKS_PUSHED, String(localTouched));
+      await putMeta(`sync:sha:${file}`, newSha);
+      localStorage.setItem(pushed, String(localTouched));
     } catch (err) {
       if (err instanceof SyncAuthError) throw err;
-      console.warn("Push repères échoué :", err);
+      console.warn(`Push ${key} échoué :`, err);
     }
   }
   return changed;
 }
 
-// Sorties prévues (S-V2-SORTIES) : même patron que syncMarks — fichier unique, petite
-// liste, pas de granularité par objet (contrairement aux itinéraires, potentiellement
-// lourds, qui méritent un fichier chacun).
-async function syncOutings() {
-  let changed = false;
-  let remote = null;
-  try { remote = await ghGetFile("outings.json"); }
-  catch (err) { if (err instanceof SyncAuthError) throw err; }
-  let remoteObj = null;
-  if (remote) { try { remoteObj = JSON.parse(remote.content); } catch {} }
+const syncMarks = () => syncStore({
+  file: "marks.json", store: "marks", key: "marks",
+  touched: MARKS_TOUCHED, pushed: MARKS_PUSHED,
+  reload: loadFieldMarks, message: "sync : repères de terrain",
+});
 
-  const localTouched = Number(localStorage.getItem(OUTINGS_TOUCHED) || 0);
-  const localPushed = Number(localStorage.getItem(OUTINGS_PUSHED) || 0);
+const syncOutings = () => syncStore({
+  file: "outings.json", store: "outings", key: "outings",
+  touched: OUTINGS_TOUCHED, pushed: OUTINGS_PUSHED,
+  reload: loadFieldOutings, message: "sync : sorties prévues",
+});
 
-  if (remoteObj && (remoteObj.updatedAt || 0) > localTouched) {
-    await idbClear("outings");
-    await Promise.all((remoteObj.outings || []).map((o) => idbPut("outings", o)));
-    await loadFieldOutings();
-    localStorage.setItem(OUTINGS_TOUCHED, String(remoteObj.updatedAt));
-    localStorage.setItem(OUTINGS_PUSHED, String(remoteObj.updatedAt));
-    await putMeta("sync:sha:outings.json", remote.sha);
-    changed = true;
-  } else if (localTouched > localPushed) {
-    const outings = await idbGetAll("outings");
-    const sha = await idbGet("meta", "sync:sha:outings.json");
-    try {
-      const newSha = await ghPutFile(
-        "outings.json",
-        JSON.stringify({ updatedAt: localTouched, outings }),
-        sha ?? remote?.sha,
-        "sync : sorties prévues"
-      );
-      await putMeta("sync:sha:outings.json", newSha);
-      localStorage.setItem(OUTINGS_PUSHED, String(localTouched));
-    } catch (err) {
-      if (err instanceof SyncAuthError) throw err;
-      console.warn("Push sorties échoué :", err);
-    }
-  }
-  return changed;
-}
+const syncPlaces = () => syncStore({
+  file: "places.json", store: "places", key: "places",
+  touched: PLACES_TOUCHED, pushed: PLACES_PUSHED,
+  reload: loadSavedPlaces, message: "sync : lieux épinglés",
+});
 
 async function syncPrefs() {
   let changed = false;
@@ -387,6 +380,7 @@ export async function runSync() {
     changed = (await syncItineraries()) || changed;
     changed = (await syncMarks()) || changed;
     changed = (await syncOutings()) || changed;
+    changed = (await syncPlaces()) || changed;
     changed = (await syncPrefs()) || changed;
     authFailed = false;
     localStorage.setItem(LAST_SYNC_KEY, String(Date.now()));

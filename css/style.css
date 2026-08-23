@@ -928,6 +928,15 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .overlay-row:hover { background: var(--surface-2); }
 .overlay-name { grid-area: name; font-size: 13px; font-weight: 600; color: var(--text-soft); }
 .overlay-row.active .overlay-name { color: var(--text); }
+/* Explication d'un interrupteur allumé mais sans effet (« Noms » sous un fond qui porte
+   déjà ses étiquettes) — révélée par map.js, jamais un état muet. */
+.overlay-hint {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px; font-style: normal; font-weight: 600;
+  color: var(--text-soft); opacity: 0.72;
+}
+.overlay-hint[hidden] { display: none; }
 .overlay-row .switch { grid-area: sw; }
 .overlay-row .layer-op { grid-area: op; display: none; margin: 2px 0 0; }
 .overlay-row.active .layer-op { display: block; }
@@ -1695,23 +1704,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .popup-title { font-weight: 800; font-size: 13.5px; margin-bottom: 2px; }
 .popup-meta { font-size: 12px; color: #5c625c; }
 
-/* Coordonnées d'un point (clic droit / appui long) */
-/* Sous Leaflet la largeur devait passer par l'option `minWidth` de L.popup, qui
-   dimensionnait le wrapper à l'ouverture en ignorant un min-width interne. MapLibre ne
-   mesure pas le contenu de la même façon : la règle redevient du CSS, à sa place. */
-.map-popup.coord .maplibregl-popup-content { min-width: 190px; }
-.coord-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8f938f; margin-bottom: 4px; }
-.coord-dec { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; font-weight: 700; }
-.coord-dms { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; color: #5c625c; margin-top: 2px; }
-.coord-copy {
-  margin-top: 8px; width: 100%; padding: 5px 8px;
-  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
-  background: transparent; color: inherit;
-  border: 1px solid #ff2d20; border-radius: 2px; transition: background 0.15s ease;
-}
-.coord-copy:hover { background: rgba(255, 45, 32, 0.12); }
-[data-theme="dark"] .coord-dms,
-:root:not([data-theme="light"]) .coord-dms { color: #8f938f; }
+/* (La bulle « Coordonnées » de S7 a disparu en S-V3-LIEUX : son habillage v1 — encadré
+   1px, angles à 2px, capitales espacées sur un bouton — violait la charte v2, et son
+   contenu est repris par la feuille du point épinglé, qui sait en plus l'enregistrer.) */
 
 .trail-marker {
   background: #f2f2f2;
@@ -2975,6 +2970,67 @@ body.primal-active .nav-fabs { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .mark-card { animation: none; }
   .mark-kind, .mark-close { transition: none; }
+}
+
+/* ============ Lieux épinglés (S-V3-LIEUX) ============ */
+/* La feuille reprend le cadre `.mark-*` ci-dessus (même geste, même grammaire) et n'ajoute
+   que son contenu : nom éditable, altitude + commune, coordonnées, actions. */
+.place-name { font-size: 14.5px; font-weight: 700; margin-bottom: var(--sp-2); }
+.place-meta { font-size: 12px; font-weight: 600; color: var(--text-soft); }
+.place-meta.hidden { display: none; }
+.place-coords {
+  display: flex; flex-direction: column; gap: 1px;
+  margin: 6px 0 var(--sp-2);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.place-dec { font-size: 12.5px; font-weight: 700; }
+.place-dms { font-size: 11px; color: var(--text-soft); }
+.place-foot-left { display: flex; align-items: center; gap: 2px; }
+.place-foot-left .hidden { display: none; }
+
+/* Punaise sur la carte. Pleine = lieu enregistré ; contour = point tout juste épinglé, pas
+   encore gardé — l'état se lit sans légende. Le liseré sombre porte le contraste sur tous
+   les fonds, même logique que le tracé (TRACK_CASING). */
+.place-pin { width: 30px; height: 30px; cursor: pointer; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)); }
+.place-pin svg { width: 100%; height: 100%; display: block; }
+.place-pin.saved svg path { fill: var(--red); stroke: rgba(9, 9, 11, 0.62); stroke-width: 1.1; }
+.place-pin.saved svg circle { fill: #fff; }
+.place-pin.fresh svg path { fill: rgba(9, 9, 11, 0.55); stroke: #fff; stroke-width: 1.5; }
+.place-pin.fresh svg circle { fill: #fff; }
+.place-pin.fresh { animation: place-drop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2); transform-origin: 50% 100%; }
+@keyframes place-drop {
+  from { transform: translateY(-14px) scale(0.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.place-pin.saved:hover { filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.55)); }
+
+/* Liste « Mes lieux » (onglet Itinéraires) : la punaise, le nom, un tap pour y aller. */
+.place-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px 0;
+}
+.place-row-pin { width: 20px; height: 20px; color: var(--red); }
+.place-row-pin svg { width: 100%; height: 100%; display: block; fill: currentColor; }
+.place-row-pin svg circle { fill: var(--surface); }
+.place-row-main {
+  display: flex; flex-direction: column; gap: 1px;
+  min-width: 0; padding: 8px 10px;
+  font: inherit; text-align: left; cursor: pointer;
+  color: var(--text); background: transparent; border: none;
+  border-radius: var(--radius);
+  transition: background 0.15s ease-out;
+}
+.place-row-main:hover { background: var(--surface-2); }
+.place-row-name { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place-row-meta { font-size: 11.5px; font-weight: 600; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.place-row-del { padding: 6px 10px; font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .place-pin.fresh { animation: none; }
 }
 
 /* ============ Pré-alerte de la veille automatique ============ */

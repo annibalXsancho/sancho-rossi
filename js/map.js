@@ -104,15 +104,49 @@ export const TILE_TEMPLATES = {
     dynamic: true,
     attribution: '<a href="https://rainviewer.com">RainViewer</a>',
   },
+  // Seule entrée VECTORIELLE de la table (S-V3-NOMS). Le satellite et le Terrain HD sont
+  // MUETS : leurs tuiles ne portent aucune étiquette. Une surcouche raster de noms (Esri
+  // « World Boundaries & Places », auditée : CORS `*`, 2 étiquettes par tuile à z13 sur
+  // Chamonix) reste floue au sur-agrandissement et ne descend pas au hameau. Les étiquettes
+  // VECTORIELLES sont nettes à tous les zooms, se déconflictent entre elles, se stylent aux
+  // tokens du projet et donnent `name:fr` — la seule façon d'obtenir un rendu de niveau
+  // Google Maps sans clé. Source OpenFreeMap (schéma OpenMapTiles, CORS `*`, sans clé).
+  // `vector: true` est le drapeau lu partout ailleurs : ce calque n'a ni tuile raster, ni
+  // `raster-opacity`, ni plafond de zoom natif.
+  noms: {
+    vector: true,
+    tilejson: "https://tiles.openfreemap.org/planet",
+    // Le vecteur ne s'agrandit pas, il se redessine : ce `maxZoom` ne sert donc PAS de
+    // plafond (updateZoomCap l'exclut), il dit juste que la couche suit la carte partout.
+    maxZoom: 22,
+    op: 100,
+    attribution: '&copy; OSM, <a href="https://openfreemap.org">OpenFreeMap</a>',
+  },
 };
+
+// Fonte des étiquettes vectorielles. OpenFreeMap ne sert que trois graisses de Noto Sans —
+// Regular, Bold, Italic ; « Noto Sans Medium » répond 404, ne pas l'appeler.
+const NAMES_GLYPHS = "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf";
 
 // Ordre d'empilement, du fond vers le dessus. Sous MapLibre l'ordre des couches du style
 // EST le z-index : tous les calques sont déclarés une fois pour toutes à l'initialisation
 // (cachés par défaut), si bien qu'allumer/éteindre ne réordonne jamais rien.
+// « noms » ferme la marche : des étiquettes passant SOUS le radar de pluie ou sous
+// l'ombrage seraient illisibles — elles doivent coiffer toute la pile de fonds.
 const LAYER_ORDER = [
   "plan", "topo", "satellite", "sombre", "terrainhd",
-  "hillshade", "trails", "mtb", "ski", "rain",
+  "hillshade", "trails", "mtb", "ski", "rain", "noms",
 ];
+
+// Fonds qui portent DÉJÀ leurs propres étiquettes, gravées dans la tuile (plan = OSM
+// France, topo = OpenTopoMap, sombre = CARTO dark_all). Superposer les nôtres par-dessus
+// doublerait chaque nom au même endroit — bouillie garantie. Le calque « Noms » reste donc
+// allumé en permanence mais s'EFFACE tant qu'un de ces fonds est visible : la carte porte
+// toujours ses noms, sans jamais les écrire deux fois, et sans un geste de l'utilisateur.
+const LABELLED_BASES = ["plan", "topo", "sombre"];
+const namesRedundant = () => LABELLED_BASES.some((n) => layersConfig[n]?.on);
+// Même règle pour la carte plein écran de fiche (detail.js), qui n'a qu'un fond à la fois.
+export const baseHasOwnLabels = (name) => LABELLED_BASES.includes(name);
 
 // Libellés + opacité minimale par calque — source unique consommée par le sélecteur de
 // carte ET la liste de calques de la bibliothèque (navview.js), qui ne scrape plus le DOM.
@@ -127,6 +161,12 @@ export const LAYER_META = {
   satellite: { label: "Satellite", min: 15, short: "Satellite", thumb: "assets/layer-previews/satellite.jpg" },
   sombre: { label: "Sombre", min: 15, short: "Sombre", thumb: "assets/layer-previews/sombre.png" },
   terrainhd: { label: "Terrain HD", min: 15, short: "Terrain", thumb: "assets/layer-previews/terrainhd.jpg" },
+  noms: {
+    label: "Noms des lieux", min: 40, short: "Noms", icon: "names",
+    // Affiché sous le nom quand un fond déjà étiqueté rend la surcouche inutile : le
+    // sélecteur DIT pourquoi rien ne change, plutôt que de laisser un interrupteur menteur.
+    hint: "Déjà fournis par ce fond de carte",
+  },
   hillshade: { label: "Relief (ombrage)", min: 10, short: "Relief", icon: "relief" },
   trails: { label: "Sentiers balisés", min: 15, short: "Sentiers", icon: "trail" },
   mtb: { label: "VTT balisé", min: 15, short: "VTT", icon: "mtb" },
@@ -144,6 +184,9 @@ export const LAYER_ICONS = {
   mtb: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M5.5 17.5 10 8.5h5l3.5 9M10 8.5l4 9M14 6h3"/>',
   // Fanion de piste planté dans la pente — deux skis parallèles se brouillent en miniature.
   ski: '<path d="M3.5 20.5h17"/><path d="M8 20.5 13.5 4"/><path d="M13.5 4.4c3.2 1 3.8 3.4 7 2.4-.9 2.6-4 3.4-6 2.6"/>',
+  // Un « A » posé sur le sol : le sens « du texte sur la carte » se lit à 17 px, là où un
+  // panneau ou une étiquette-bulle se referment en tache.
+  names: '<path d="M5.6 17.2 12 4.8l6.4 12.4"/><path d="M8.2 13h7.6"/><path d="M3.5 20.4h17"/>',
   rain: '<path d="M7.5 15.5a3.8 3.8 0 0 1 .6-7.6 5.4 5.4 0 0 1 10.2 1.3 3.2 3.2 0 0 1-.3 6.3"/><path d="M9 18.5v2.2M13 18v2.7M17 18.5v2.2"/>',
   water: '<path d="M12 3.2c3.6 4 5.6 6.8 5.6 9.4a5.6 5.6 0 0 1-11.2 0C6.4 10 8.4 7.2 12 3.2Z"/>',
   hut: '<path d="m3.2 11.2 8.8-7 8.8 7"/><path d="M6 10v9.5h12V10"/><path d="M10.2 19.5V14h3.6v5.5"/>',
@@ -156,6 +199,7 @@ export const LAYER_ICONS = {
 // Un groupe vide n'est pas rendu : « Transports » attend les calques de S-V3-CALQUES-LISIBLE.
 export const LAYER_GROUPS = [
   { id: "fond", label: "Fond de carte", kind: "base", items: ["plan", "topo", "satellite", "sombre", "terrainhd"] },
+  { id: "lisibilite", label: "Lisibilité", kind: "overlay", items: ["noms"] },
   { id: "relief", label: "Relief", kind: "overlay", items: ["hillshade"] },
   { id: "activites", label: "Activités", kind: "overlay", items: ["trails", "mtb", "ski"] },
   { id: "conditions", label: "Conditions", kind: "overlay", items: ["rain"] },
@@ -208,11 +252,95 @@ function tileUrls(def) {
 export const layerTiles = (name) =>
   TILE_TEMPLATES[name] ? tileUrls(TILE_TEMPLATES[name]) : null;
 
+// ---------- Étiquettes vectorielles du calque « Noms » ----------
+const NAMES_SOURCE = "src-noms";
+
+// `name:fr` d'abord (le schéma OpenMapTiles le porte pour toute l'Europe), puis le nom
+// latin, puis le nom local : sans ce repli en cascade, une commune sans traduction
+// disparaîtrait purement et simplement au lieu de s'afficher dans sa langue.
+const NAME_FIELD = ["coalesce", ["get", "name:fr"], ["get", "name:latin"], ["get", "name"]];
+
+// Blanc sur halo noir — un écart de LUMINANCE, pas de teinte : le seul contraste qui tienne
+// à la fois sur le satellite sombre, sur la neige et sur le calcaire en plein soleil. Même
+// raisonnement que le liseré du tracé (TRACK_CASING).
+const NAME_HALO = "rgba(9, 9, 11, 0.9)";
+
+// Table des couches d'étiquettes, DE LA MOINS À LA PLUS IMPORTANTE. Sous MapLibre, quand
+// deux étiquettes se chevauchent c'est celle de la couche la PLUS HAUTE dans le style qui
+// est gardée : cet ordre est donc l'ordre de priorité — un hameau ne chasse jamais une
+// ville. (Même ordonnancement que le style Liberty d'OpenFreeMap, vérifié.)
+const NAME_LAYERS = [
+  { id: "lieu-dit", from: "place", min: 12,
+    classes: ["hamlet", "isolated_dwelling", "farm", "locality", "neighbourhood", "suburb", "island"],
+    size: [[12, 10.5], [16, 13]], color: "rgba(255, 255, 255, 0.84)" },
+  { id: "eau", from: "water_name", min: 9, font: "Noto Sans Italic",
+    size: [[9, 11], [15, 14]], color: "#a9cdea" },
+  // Sommets et COLS : l'altitude en seconde ligne. C'est l'étiquette la plus utile en
+  // montagne et aucun fond raster du projet ne la porte.
+  { id: "sommet", from: "mountain_peak", min: 11, classes: ["peak", "volcano", "saddle"],
+    size: [[11, 10.5], [16, 13]], color: "#ffffff",
+    field: ["case", ["has", "ele"],
+      ["concat", NAME_FIELD, "\n", ["to-string", ["round", ["get", "ele"]]], " m"],
+      NAME_FIELD] },
+  { id: "village", from: "place", min: 10, classes: ["village"], size: [[10, 12], [16, 15.5]] },
+  { id: "ville", from: "place", min: 7, classes: ["town"], font: "Noto Sans Bold", size: [[7, 12.5], [14, 17]] },
+  { id: "cite", from: "place", min: 4, classes: ["city"], font: "Noto Sans Bold", size: [[4, 13], [12, 21]] },
+  // Régions et pays en capitales espacées — le seul emploi autorisé par la charte hors
+  // micro-étiquettes, et la convention cartographique universelle.
+  { id: "region", from: "place", min: 4, max: 10, classes: ["state", "province"],
+    font: "Noto Sans Bold", size: [[4, 11], [9, 14]], color: "rgba(255, 255, 255, 0.72)", caps: 0.16 },
+  { id: "pays", from: "place", min: 2, max: 8, classes: ["country"],
+    font: "Noto Sans Bold", size: [[2, 11], [7, 17]], color: "rgba(255, 255, 255, 0.82)", caps: 0.2 },
+];
+
+export const NAMES_LAYER_IDS = NAME_LAYERS.map((l) => `noms-${l.id}`);
+
+// Le préfixe distingue les deux consommateurs : la carte principale (`noms-…`) et la carte
+// plein écran de fiche (`fo-noms-…`, comme ses autres surcouches).
+function nameLayerSpec(l, prefix = "noms") {
+  return {
+    id: `${prefix}-${l.id}`,
+    type: "symbol",
+    source: NAMES_SOURCE,
+    "source-layer": l.from,
+    minzoom: l.min,
+    ...(l.max != null ? { maxzoom: l.max } : {}),
+    ...(l.classes ? { filter: ["in", ["get", "class"], ["literal", l.classes]] } : {}),
+    layout: {
+      visibility: "none",
+      "text-field": l.field || NAME_FIELD,
+      "text-font": [l.font || "Noto Sans Regular"],
+      "text-size": ["interpolate", ["linear"], ["zoom"], ...l.size.flat()],
+      "text-max-width": 8,
+      "text-padding": 4,
+      "text-line-height": 1.15,
+      ...(l.caps ? { "text-transform": "uppercase", "text-letter-spacing": l.caps } : {}),
+      // `rank` classe les étiquettes d'une même couche : la ville de rang 1 est posée avant
+      // celle de rang 9, donc c'est la plus importante qui survit à un chevauchement.
+      "symbol-sort-key": ["coalesce", ["get", "rank"], 99],
+    },
+    paint: {
+      "text-color": l.color || "#ffffff",
+      "text-halo-color": NAME_HALO,
+      "text-halo-width": 1.5,
+      "text-halo-blur": 0.5,
+    },
+  };
+}
+
 function buildStyle() {
   const sources = {};
   const layers = [];
   for (const name of LAYER_ORDER) {
     const def = TILE_TEMPLATES[name];
+    // Le calque vectoriel n'est pas une tuile raster : une source vecteur (TileJSON) et
+    // une pile de couches symbole, déclarées ici comme les autres pour que l'ordre du
+    // style reste le seul z-index du projet.
+    if (def.vector) {
+      sources[NAMES_SOURCE] = { type: "vector", url: def.tilejson, attribution: def.attribution };
+      NAME_LAYERS.forEach((l) => layers.push(nameLayerSpec(l)));
+      continue;
+    }
     sources[`src-${name}`] = {
       type: "raster",
       tiles: tileUrls(def),
@@ -228,7 +356,9 @@ function buildStyle() {
       paint: { "raster-opacity": (layersConfig[name]?.op ?? def.op) / 100 },
     });
   }
-  return { version: 8, sources, layers };
+  // `glyphs` est obligatoire dès qu'une couche symbole existe : sans lui, MapLibre lève
+  // « missing glyphs » et n'affiche aucun texte.
+  return { version: 8, glyphs: NAMES_GLYPHS, sources, layers };
 }
 
 export const map = new maplibregl.Map({
@@ -484,7 +614,9 @@ export function drawTrackOn(mapInstance, latlngs, opts = {}) {
 // tracé, et les deux surcouches qui le documentent. Radar, VTT et ski n'ont rien à dire
 // sur un itinéraire déjà tracé — ils resteraient du bruit sur une vue de consultation.
 export const FICHE_BASES = ["plan", "topo", "satellite", "sombre", "terrainhd"];
-export const FICHE_OVERLAYS = ["hillshade", "trails"];
+// « noms » en dernier : l'ordre du tableau est l'ordre d'empilement, les étiquettes doivent
+// coiffer l'ombrage et le calque des sentiers.
+export const FICHE_OVERLAYS = ["hillshade", "trails", "noms"];
 
 const rasterSpec = (name) => {
   const def = TILE_TEMPLATES[name];
@@ -517,13 +649,19 @@ export function createFicheMap(container, { inert = false, attribution = false, 
       });
     }
     for (const n of FICHE_OVERLAYS) {
+      const def = TILE_TEMPLATES[n];
+      if (def.vector) {
+        sources[NAMES_SOURCE] = { type: "vector", url: def.tilejson, attribution: def.attribution };
+        NAME_LAYERS.forEach((l) => layers.push(nameLayerSpec(l, "fo-noms")));
+        continue;
+      }
       sources[`fo-${n}`] = rasterSpec(n);
       layers.push({
         id: `fo-${n}`,
         type: "raster",
         source: `fo-${n}`,
         layout: { visibility: "none" },
-        paint: { "raster-opacity": TILE_TEMPLATES[n].op / 100 },
+        paint: { "raster-opacity": def.op / 100 },
       });
     }
   } else {
@@ -541,7 +679,7 @@ export function createFicheMap(container, { inert = false, attribution = false, 
     maxZoom: (stack ? 19 : 17) + OVERZOOM - ZOOM_OFFSET,
     ...(maxPitch != null ? { maxPitch } : {}),
     refreshExpiredTiles: false,
-    style: { version: 8, sources, layers },
+    style: { version: 8, glyphs: NAMES_GLYPHS, sources, layers },
   });
   if (inert) {
     m.dragPan.disable();
@@ -564,6 +702,15 @@ export function setFicheBase(m, name) {
 }
 
 export function setFicheOverlay(m, name, on) {
+  // « Noms » n'est pas une couche mais une pile de couches symbole (une par famille
+  // d'étiquettes) : elles s'allument et s'éteignent ensemble.
+  if (TILE_TEMPLATES[name]?.vector) {
+    for (const l of NAME_LAYERS) {
+      const id = `fo-noms-${l.id}`;
+      if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    }
+    return;
+  }
   if (m.getLayer(`fo-${name}`)) m.setLayoutProperty(`fo-${name}`, "visibility", on ? "visible" : "none");
 }
 
@@ -585,7 +732,12 @@ async function refreshRainLayer() {
 // Ainsi le sur-agrandissement reste borné à ce que la donnée la plus fine peut honnêtement
 // porter : topo seul (natif 17) monte à z19, plan ou satellite (natif 19) à z21.
 export function updateZoomCap() {
-  const natives = LAYER_ORDER.filter((n) => layersConfig[n]?.on).map((n) => NATIVE_MAX[n] ?? 17);
+  // Le calque vectoriel est EXCLU du calcul : ses étiquettes se redessinent à tous les
+  // zooms, son `maxZoom` de 22 ferait sauter le plafond à z24 et autoriserait un
+  // sur-agrandissement massif de tuiles raster qui, elles, s'arrêtent à 19.
+  const natives = LAYER_ORDER
+    .filter((n) => layersConfig[n]?.on && !TILE_TEMPLATES[n].vector)
+    .map((n) => NATIVE_MAX[n] ?? 17);
   const cap = (natives.length ? Math.max(...natives) : 17) + OVERZOOM;
   const glCap = cap - ZOOM_OFFSET;
   if (map.getMaxZoom() !== glCap) map.setMaxZoom(glCap); // MapLibre dézoome s'il était au-dessus
@@ -604,6 +756,16 @@ let dimFactor = 1;
 function paintLayer(name) {
   const cfg = layersConfig[name];
   whenMapReady(() => {
+    if (TILE_TEMPLATES[name].vector) {
+      // Une pile de couches symbole, pas une tuile : `text-opacity`, et l'effacement
+      // automatique quand le fond porte déjà ses noms (cf. LABELLED_BASES).
+      const on = cfg.on && !namesRedundant();
+      for (const id of NAMES_LAYER_IDS) {
+        map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+        map.setPaintProperty(id, "text-opacity", (cfg.op / 100) * dimFactor);
+      }
+      return;
+    }
     map.setLayoutProperty(`lyr-${name}`, "visibility", cfg.on ? "visible" : "none");
     map.setPaintProperty(`lyr-${name}`, "raster-opacity", (cfg.op / 100) * dimFactor);
   });
@@ -631,8 +793,19 @@ export function applyLayer(name) {
     const ov = row.querySelector(".op-val");
     if (ov) ov.textContent = `${cfg.op}%`;
   });
+  // Changer de fond change la réponse de `namesRedundant()` : le calque « Noms » se
+  // repeint dans la foulée, et sa ligne du sélecteur dit pourquoi il s'est effacé.
+  if (LABELLED_BASES.includes(name)) paintLayer("noms");
+  if (LABELLED_BASES.includes(name) || name === "noms") refreshNamesHint();
   localStorage.setItem("sr-layers", JSON.stringify(layersConfig));
   updateZoomCap();
+}
+
+// Bandeau discret sous « Noms des lieux » : visible seulement quand l'interrupteur est
+// allumé mais sans effet, faute de quoi il mentirait sur l'état réel de la carte.
+function refreshNamesHint() {
+  const on = layersConfig.noms?.on && namesRedundant();
+  document.querySelectorAll('[data-hint="noms"]').forEach((el) => (el.hidden = !on));
 }
 
 // ---------- Construction du sélecteur de calques (S-V3-CALQUES-UI) ----------
@@ -664,7 +837,9 @@ function overlayRow(name) {
   const cfg = layersConfig[name];
   return `<div class="overlay-row" data-layer="${name}">
       <span class="lp-ic">${svgIcon(m.icon)}</span>
-      <span class="overlay-name">${m.label}</span>
+      <span class="overlay-name">${m.label}${
+        m.hint ? `<em class="overlay-hint" data-hint="${name}" hidden>${m.hint}</em>` : ""
+      }</span>
       <label class="switch"><input type="checkbox" aria-label="${m.label}" /><span class="slider-sw"></span></label>
       <input type="range" class="layer-op" min="${m.min}" max="100" value="${cfg.op}" aria-label="Opacité ${m.label}" />
     </div>`;
@@ -1003,54 +1178,23 @@ export function showPreview(trail) {
   positionPreview(trail);
 }
 
-// ---------- Coordonnées d'un point (clic droit / appui long) ----------
-function toDMS(deg, [pos, neg]) {
-  const a = Math.abs(deg);
-  const d = Math.floor(a);
-  const m = Math.floor((a - d) * 60);
-  const s = ((a - d - m / 60) * 3600).toFixed(1);
-  return `${d}°${String(m).padStart(2, "0")}′${s.padStart(4, "0")}″${deg >= 0 ? pos : neg}`;
-}
-
-// Le geste « appui long / clic droit » est prêté : en navigation, il pose un repère
-// (S-V2-ANNOT-TERRAIN) au lieu d'ouvrir la bulle de coordonnées. nav.js le rend en
-// quittant la nav — un seul geste, un rôle par contexte, aucune duplication du détecteur.
+// ---------- Appui long / clic droit sur un point ----------
+// Le geste est PRÊTÉ selon le contexte, un seul détecteur pour tous :
+//   - hors navigation, il épingle le point (places.js, S-V3-LIEUX) — c'est le rôle par
+//     défaut, enregistré au boot par `setPinHandler` pour que map.js n'ait pas à connaître
+//     places.js, qui dépend déjà de lui ;
+//   - en navigation, nav.js l'emprunte par `setLongPress` pour poser un repère de terrain
+//     (S-V2-ANNOT-TERRAIN), et le rend en quittant la nav.
+// (Jusqu'à S-V3-LIEUX le rôle par défaut était une bulle de coordonnées en lecture seule :
+// elle est absorbée par la feuille du point épinglé, qui affiche décimal + DMS et copie.)
 let longPressHandler = null;
+let pinHandler = null;
 export function setLongPress(fn) { longPressHandler = fn || null; }
-const onLongPressPoint = (lngLat) => (longPressHandler || showCoordPopup)(lngLat);
-
-function showCoordPopup(lngLat) {
-  const dec = `${lngLat.lat.toFixed(5)}, ${lngLat.lng.toFixed(5)}`;
-  const html =
-    `<div class="coord-popup">` +
-    `<div class="coord-label">Coordonnées</div>` +
-    `<div class="coord-dec">${dec}</div>` +
-    `<div class="coord-dms">${toDMS(lngLat.lat, ["N", "S"])} · ${toDMS(lngLat.lng, ["E", "O"])}</div>` +
-    `<button class="coord-copy" data-coord="${dec}">Copier</button>` +
-    `</div>`;
-  // La largeur minimale est désormais du CSS pur (.map-popup.coord) : Leaflet exigeait un
-  // `minWidth` en option parce qu'il dimensionnait le wrapper à l'ouverture, MapLibre non.
-  const popup = new maplibregl.Popup({ className: "map-popup coord", closeButton: true })
-    .setLngLat(lngLat)
-    .setHTML(html)
-    .addTo(map);
-
-  // Leaflet offrait un `popupopen` global sur la carte ; ici le listener se pose sur
-  // l'instance, ce qui est de toute façon plus sûr (pas de délégation à l'aveugle).
-  const btn = popup.getElement()?.querySelector(".coord-copy");
-  btn?.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(btn.dataset.coord);
-      btn.textContent = "✓ Copié";
-    } catch {
-      btn.textContent = "⚠ copie impossible";
-    }
-    setTimeout(() => (btn.textContent = "Copier"), 1500);
-  });
-}
+export function setPinHandler(fn) { pinHandler = fn || null; }
+const onLongPressPoint = (lngLat) => (longPressHandler || pinHandler)?.(lngLat);
 
 // MapLibre n'émet pas `contextmenu` sur un appui long tactile (Leaflet le faisait) :
-// sans ce détecteur, la bulle de coordonnées deviendrait inaccessible au téléphone.
+// sans ce détecteur, épingler un point serait impossible au téléphone.
 function enableLongPress(onLongPress) {
   const canvas = map.getCanvasContainer();
   let timer = null;
@@ -1468,7 +1612,7 @@ export function initMap() {
     layersPanel.classList.add("hidden");
   });
 
-  // Clic droit (desktop) / appui long (mobile) : bulle des coordonnées du point pointé
+  // Clic droit (desktop) / appui long (mobile) : épingle le point pointé
   map.on("contextmenu", (e) => onLongPressPoint(e.lngLat));
   enableLongPress(onLongPressPoint);
 

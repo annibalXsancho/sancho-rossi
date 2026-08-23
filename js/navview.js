@@ -10,6 +10,7 @@ import { hasPack } from "./offline.js";
 import { renameImported, deleteImported } from "./trails.js";
 import { openPlannerForEdit } from "./planner.js";
 import { toast } from "./toast.js";
+import { renderPlacesList } from "./places.js";
 
 // Gestes d'ergonomie sur « Mes itinéraires » (façon apps pro) :
 //   • glisser vers la gauche  → révèle un bouton rouge poubelle → supprimer
@@ -351,5 +352,6 @@ function renderLayers() {
 export function renderNavView() {
   renderSession();
   renderTrails();
+  renderPlacesList(); // lieux épinglés (S-V3-LIEUX) — rendu par places.js, qui les détient
   renderLayers();
 }

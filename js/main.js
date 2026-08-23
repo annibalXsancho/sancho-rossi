@@ -15,6 +15,7 @@ import { initSecurity, checkWatch } from "./security.js";
 import { loadWikiPhotos } from "./photos.js";
 import { loadPersisted } from "./storage.js";
 import { loadFieldMarks } from "./fieldmarks.js";
+import { initPlaces, loadSavedPlaces } from "./places.js";
 import { initOffline } from "./offline.js";
 import { initExplorer } from "./explorer.js";
 import { initOutings, loadFieldOutings, renderOutingsBlock } from "./outings.js";
@@ -51,6 +52,7 @@ initSecurity();
 initRecommend();
 initExplorer();
 initOutings();
+initPlaces();
 
 // ---------- Version affichée (Réglages) ----------
 const versionEl = document.getElementById("setting-version");
@@ -122,6 +124,10 @@ loadPersisted().then(async (persisted) => {
 
   // Sorties prévues (S-V2-SORTIES) : même patron, jeu minuscule chargé en entier.
   await loadFieldOutings();
+
+  // Lieux épinglés (S-V3-LIEUX) : même patron encore — chargés en bloc, leurs punaises
+  // sont posées sur la carte dans la foulée.
+  await loadSavedPlaces();
 
   // Coffre GitHub (S-V2-SYNC) : tire le distant AVANT le premier rendu si configuré — un
   // itinéraire ajouté sur un autre appareil doit apparaître dès l'ouverture. No-op silencieux

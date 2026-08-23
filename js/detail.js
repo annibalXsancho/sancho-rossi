@@ -8,7 +8,7 @@ import { trailPhotos } from "./mapillary.js";
 import { putMeta } from "./storage.js";
 import {
   hidePreview, clearActiveTrack, createFicheMap, drawTrackOn, domMarker, makeIcon,
-  FICHE_BASES, FICHE_OVERLAYS, setFicheBase, setFicheOverlay, enableTerrainOn,
+  FICHE_BASES, FICHE_OVERLAYS, setFicheBase, setFicheOverlay, enableTerrainOn, baseHasOwnLabels,
 } from "./map.js";
 import { startCompass, stopCompass, shortestRotate } from "./compass.js";
 import { renderList, selectTrail, toggleFavorite, downloadGPX, deleteImported, renameImported } from "./trails.js";
@@ -277,10 +277,28 @@ function readLayerPrefs() {
     fullBase = FICHE_BASES.includes(saved) ? saved : "topo";
   }
   if (fullOverlays == null) {
-    let saved = [];
-    try { saved = JSON.parse(localStorage.getItem(OVERLAY_KEY) || "[]") || []; } catch { saved = []; }
-    fullOverlays = new Set(saved.filter((n) => FICHE_OVERLAYS.includes(n)));
+    // `null` = jamais réglé (à distinguer d'un tableau vide, qui est un choix) : « Noms »
+    // est alors allumé d'office, comme sur la carte principale. Il s'efface de lui-même
+    // sous un fond qui porte déjà ses étiquettes, donc l'allumer ne gâche rien.
+    let saved = null;
+    try {
+      const raw = localStorage.getItem(OVERLAY_KEY);
+      saved = raw == null ? null : JSON.parse(raw);
+    } catch { saved = null; }
+    fullOverlays = new Set(
+      Array.isArray(saved) ? saved.filter((n) => FICHE_OVERLAYS.includes(n)) : ["noms"]
+    );
   }
+}
+
+// Visibilité EFFECTIVE d'une surcouche : « Noms » s'efface tant que le fond grave déjà ses
+// propres étiquettes — sinon chaque nom serait écrit deux fois au même endroit.
+const overlayEffective = (name) =>
+  fullOverlays.has(name) && !(name === "noms" && baseHasOwnLabels(fullBase));
+
+function applyFullOverlays() {
+  if (!fullMap) return;
+  FICHE_OVERLAYS.forEach((n) => setFicheOverlay(fullMap, n, overlayEffective(n)));
 }
 
 const fullmapEl = document.getElementById("fullmap-overlay");
@@ -485,10 +503,15 @@ function paintFmLayerPanel() {
     card.classList.toggle("active", card.dataset.fmbase === fullBase)
   );
   document.querySelectorAll("[data-fmov]").forEach((row) => {
-    const on = fullOverlays.has(row.dataset.fmov);
+    const name = row.dataset.fmov;
+    const on = fullOverlays.has(name);
     row.classList.toggle("active", on);
     const cb = row.querySelector("input[type=checkbox]");
     if (cb) cb.checked = on;
+    // Même bandeau que le sélecteur de la carte principale : un interrupteur allumé mais
+    // sans effet DIT pourquoi.
+    const hint = row.querySelector(".overlay-hint");
+    if (hint) hint.hidden = !(on && !overlayEffective(name));
   });
 }
 
@@ -528,7 +551,7 @@ function openFullMap(t) {
   fullMap = createFicheMap("fullmap", { attribution: true, stack: true, layer: fullBase, maxPitch: 80 });
   fullMap.on("load", () => {
     if (!isFullMapOpen()) return; // fermé pendant le chargement du style
-    fullOverlays.forEach((n) => setFicheOverlay(fullMap, n, true));
+    applyFullOverlays();
     const line = drawTrackOn(fullMap, t.segments || t.track);
     addPoiMarkers(fullMap, t, { tooltips: true });
     fullBounds = line.getBounds();
@@ -1311,6 +1334,7 @@ export function initDetail() {
     fullBase = name;
     localStorage.setItem(BASE_KEY, name);
     if (fullMap) setFicheBase(fullMap, name);
+    applyFullOverlays(); // le nouveau fond peut rendre « Noms » redondant, ou l'inverse
     paintFmLayerPanel();
   };
   document.querySelectorAll("[data-fmbase]").forEach((card) => {
@@ -1326,7 +1350,7 @@ export function initDetail() {
       const name = row.dataset.fmov;
       if (e.target.checked) fullOverlays.add(name); else fullOverlays.delete(name);
       localStorage.setItem(OVERLAY_KEY, JSON.stringify([...fullOverlays]));
-      if (fullMap) setFicheOverlay(fullMap, name, e.target.checked);
+      if (fullMap) setFicheOverlay(fullMap, name, overlayEffective(name));
       paintFmLayerPanel();
     });
   });

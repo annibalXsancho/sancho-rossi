@@ -4,7 +4,7 @@
 // et à terme les tuiles offline. Feuille sans dépendance interne.
 
 const DB_NAME = "sancho-rossi";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbPromise = null;
 function openDb() {
@@ -46,6 +46,11 @@ function openDb() {
       // backlog) doivent pouvoir lister les sorties datées sans charger les tracés (lourds :
       // track/eles/ways). Additif, même patron que `marks` en v4.
       if (!db.objectStoreNames.contains("outings")) db.createObjectStore("outings", { keyPath: "id" });
+      // v6 — lieux épinglés (S-V3-LIEUX) : un point de la carte enregistré POUR LUI-MÊME
+      // (un départ de sentier, un parking, un bivouac repéré), sans itinéraire attaché.
+      // C'est ce qui le distingue des `marks`, indexés par tracé et sans existence propre :
+      // un lieu épinglé survit à la suppression de toute rando. Additif, même patron.
+      if (!db.objectStoreNames.contains("places")) db.createObjectStore("places", { keyPath: "id" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -110,6 +115,13 @@ export const loadMarks = () => idbGetAll("marks");
 export const putMark = (m) => idbPut("marks", m);
 export const delMark = (id) => idbDelete("marks", id);
 
+// ---------- Lieux épinglés (S-V3-LIEUX) ----------
+// Un enregistrement par lieu enregistré depuis la carte. Même patron que les repères :
+// jeu minuscule chargé en bloc au boot, donc lisible de façon synchrone par les rendus.
+export const loadPlaces = () => idbGetAll("places");
+export const putPlace = (p) => idbPut("places", p);
+export const delPlace = (id) => idbDelete("places", id);
+
 // ---------- Sorties prévues (S-V2-SORTIES) ----------
 // Un enregistrement par réservation (tracé + date + note + étapes) : liste courte,
 // chargée en bloc par outings.js, même patron que loadMarks/fieldmarks.js.
@@ -127,6 +139,7 @@ export function clearAll() {
     idbClear("zones"),
     idbClear("marks"),
     idbClear("outings"),
+    idbClear("places"),
   ]);
 }
 
