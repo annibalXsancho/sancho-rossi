@@ -46,6 +46,14 @@ L'exigence esthétique fait partie du produit : interface **belle, fluide, moder
 - Épuré : chaque écran montre peu ; le secondaire est accessible, pas affiché. En cas de doute, retirer.
 - Chaque sprint qui touche l'UI doit livrer à ce niveau — le polish n'est pas une étape « plus tard ».
 
+### Primitives à réutiliser *(posées en S-UI-V3, 01/09/2026 — ne pas réinventer)*
+- **Une seule colonne de contenu** : tout ce qui se centre dans une vue (titre, chapô, `.settings-group`, `.cards-grid`) se cale sur `--content-w`. Ne jamais reposer un `max-width` au jugé — c'est ainsi que le titre et les blocs s'étaient désalignés.
+- **Le rouge est rare** : un seul plein rouge par écran (l'action primaire), plus l'état actif et l'alerte. Jamais sur un curseur (`accent-color` peint la piste entière), jamais en barre de titre de section, jamais sur un badge à zéro.
+- **Aucun encadré 1px autour d'un contrôle.** Un séparateur INTERNE de liste est permis : filet `--hairline` posé en `box-shadow: inset`, jamais en `border`.
+- **Jetons** : `--elev-1/2/3` (posé / flottant / modal), `--fs-micro|sm|base|md|lg`, `--ease` + `--dur-1|2`, `--safe-t`/`--safe-b` (encoches). Aucune ombre ni taille de texte écrite à la main.
+- **Champs et curseurs** : les primitives `:where(select, input…)` et `input[type=range]` habillent tout par défaut, à specificité **zéro** — un composant qui a son propre habillage (recherche de carte, planificateur) le garde sans avoir à surenchérir. *(Piège : en sélecteurs d'éléments, elles gagnaient par ordre et un champ replié à `width: 0` conservait son rembourrage.)*
+- **Pictogrammes : `js/icons.js`**, grille 24, `currentColor`, classe `.ic` — jamais d'emoji dans l'interface (le système d'exploitation les dessine, la charte n'a pas la main). Les emojis des messages SORTANTS (SMS, WhatsApp, ntfy) restent. Écran vide = `emptyState(nom, texte)`.
+
 ## Méthode de travail
 - **`git fetch origin` AVANT de lire ROADMAP.md**, en tout début de session. Le travail se fait depuis plusieurs machines : le ROADMAP local peut être en retard sur `origin/main` et annoncer comme « à faire » un sprint déjà livré. Comparer `git log --oneline main..origin/main` avant d'annoncer le prochain sprint. *(Le 16/07/2026, S8 et S9 étaient faits sur le distant et ont été annoncés comme disponibles ; découvert seulement au push de S-PLAN-A, qui a dû être fusionné après coup.)*
 - **1 session = 1 sprint = 1 scope fermé**, défini dans `ROADMAP.md`. Lire ROADMAP.md en début de session ; en fin de sprint : vérifier dans le navigateur, cocher la case, committer.

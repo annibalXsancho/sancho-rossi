@@ -110,7 +110,7 @@ function renderTrails() {
   if (!trails.length) {
     host.innerHTML = `
       <p class="muted">Aucun itinéraire enregistré pour l'instant. Créez le vôtre avec le
-      planificateur, ou importez une trace GPX (bouton ⤒ GPX en haut de l'écran).</p>
+      planificateur, ou importez une trace GPX (bouton GPX, en haut de l'écran).</p>
       <button class="btn" id="navview-plan">Ouvrir le planificateur</button>`;
     document.getElementById("navview-plan").addEventListener("click", () => {
       switchTab("carte");
@@ -328,7 +328,7 @@ function renderLayers() {
     const label = LAYER_META[name]?.label || name;
     const min = LAYER_META[name]?.min || 15;
     return `
-      <div class="layer-row" data-layer="${name}">
+      <div class="layer-row${cfg.on ? " active" : ""}" data-layer="${name}">
         <label class="switch"><input type="checkbox" ${cfg.on ? "checked" : ""} /><span class="slider-sw"></span></label>
         <span class="layer-name">${label}</span>
         <input type="range" class="layer-op" min="${min}" max="100" value="${cfg.op}" />

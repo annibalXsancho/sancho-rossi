@@ -1,26 +1,40 @@
 /* Sancho Rossi — identité v2 (17/07/2026, révision utilisateur) : noir profond,
    hiérarchie par NUANCES et OMBRES plutôt que par bordures — les encadrés 1px et les
    angles 2px de la v1 « sport » sont abandonnés. Boutons sans cadre (plein / tonal /
-   texte), angles adoucis, micro-interactions. Le rouge vif reste l'unique accent. */
+   texte), angles adoucis, micro-interactions. Le rouge vif reste l'unique accent.
+
+   Refonte S-UI-V3 (01/09/2026) : la charte ne change pas, elle est enfin tenue partout.
+   Trois corrections de fond, dans cet ordre d'importance visuelle :
+   (1) UNE SEULE COLONNE DE CONTENU (`--content-w`) — titres de vue et cartes étaient
+       centrés sur des largeurs différentes (1100 px / 640 px), toute la page Réglages
+       partait de travers ;
+   (2) LE ROUGE REDEVIENT RARE — il barbouillait chaque curseur d'opacité, chaque titre
+       de section et deux boutons pleins par écran. Il ne reste qu'à l'action primaire,
+       à l'état actif et à l'alerte ; les curseurs passent en neutre ;
+   (3) PLUS AUCUN TRAIT 1px SUR UN CONTRÔLE — vestiges v1 encore présents sur les
+       `select`, les toasts, les résultats OSM et le header : remplacés par des surfaces.
+   S'y ajoutent une échelle typographique et une échelle d'élévation nommées, pour ne
+   plus poser de `font-size: 13.5px` ni d'ombre au jugé. */
 
 :root {
   --red: #ff2d20;
   --red-dim: #cc2419;
-  --text: #ececec;
-  --text-soft: #8f938f;
-  --border: #26262a;
-  --border-strong: #3a3a40;
-  --bg: #0b0b0c;
-  --surface: #131315;
-  --surface-2: #1c1c1f;
-  --surface-3: #26262b;           /* état survolé des remplissages tonals */
+  --text: #f2f2f4;
+  --text-soft: #9a9aa4;           /* neutre franc : l'ancien #8f938f tirait sur le vert */
+  --border: #232327;
+  --border-strong: #35353c;
+  --bg: #0a0a0b;
+  --surface: #141416;
+  --surface-2: #1d1d21;
+  --surface-3: #27272d;           /* état survolé des remplissages tonals */
+  --surface-4: #32323a;           /* pastilles actives, pistes de curseur */
   --green-line: #ff2d20;          /* profil d'altitude */
-  --chart-text: #ececec;
-  --chart-text2: #8f938f;
+  --chart-text: #f2f2f4;
+  --chart-text2: #9a9aa4;
   --radius: 10px;                 /* contrôles : boutons, inputs, petits blocs */
   --radius-lg: 16px;              /* cartes, panneaux, feuilles */
   --radius-full: 999px;           /* chips, pills, recherches */
-  --header-h: 56px;
+  --header-h: 58px;
   --panel-w: 400px;
   --shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
   --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -33,21 +47,54 @@
   --sp-3: 12px;
   --sp-4: 16px;
   --sp-5: 24px;
+  /* --- S-UI-V3 --- */
+  /* Colonne de contenu unique : TOUT ce qui se centre dans une vue (titre, chapô,
+     groupes de réglages, cartes) s'y cale. C'était la faute la plus visible de l'app :
+     le titre était centré sur 1100 px et les cartes sur 640 px, si bien qu'aucune vue
+     de réglages n'avait de bord gauche commun. */
+  --content-w: 760px;
+  /* Filet : un séparateur INTERNE (dans une liste, entre deux lignes d'un même bloc),
+     jamais un encadré autour d'un contrôle — la charte interdit le second, pas le
+     premier. Assez faible pour se lire comme une respiration. */
+  --hairline: color-mix(in srgb, var(--text) 9%, transparent);
+  /* Élévation : trois marches nommées, au lieu d'ombres improvisées bloc par bloc.
+     1 = posé sur la page, 2 = flottant au-dessus de la carte, 3 = feuille modale. */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --elev-3: 0 2px 8px rgba(0, 0, 0, 0.4), 0 28px 64px rgba(0, 0, 0, 0.6);
+  /* Typographie : l'app posait des 11/12/12.5/13/13.5/14 px au jugé. Cinq crans. */
+  --fs-micro: 10.5px;
+  --fs-sm: 12px;
+  --fs-base: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 20px;
+  /* Mouvement : une seule courbe, deux durées (charte : 150–250 ms, ease-out). */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-1: 150ms;
+  --dur-2: 240ms;
+  /* Encoches et barres système du téléphone (mode plein écran / PWA). */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
 [data-theme="light"] {
   --text: #141414;
-  --text-soft: #6a6f6a;
+  --text-soft: #6a6a72;
   --border: #e3e3e6;
   --border-strong: #c9c9cf;
   --bg: #fafafa;
   --surface: #ffffff;
-  --surface-2: #f0f0f2;
+  --surface-2: #f1f1f4;
   --surface-3: #e6e6ea;
+  --surface-4: #d9d9df;
   --chart-text: #141414;
-  --chart-text2: #6a6f6a;
+  --chart-text2: #6a6a72;
+  --hairline: color-mix(in srgb, var(--text) 12%, transparent);
   --shadow: 0 2px 12px rgba(10, 10, 10, 0.12);
   --shadow-soft: 0 1px 2px rgba(10, 10, 10, 0.06), 0 8px 24px rgba(10, 10, 10, 0.10);
+  --elev-1: 0 1px 2px rgba(10, 10, 10, 0.08);
+  --elev-2: 0 1px 2px rgba(10, 10, 10, 0.06), 0 10px 30px rgba(10, 10, 10, 0.12);
+  --elev-3: 0 2px 8px rgba(10, 10, 10, 0.08), 0 28px 64px rgba(10, 10, 10, 0.18);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -57,7 +104,17 @@ html, body {
   font-family: "Manrope", system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
+  /* Sur fond noir, le rendu sous-pixel par défaut engraisse les lettres et fait
+     « bavocher » les titres : le lissage en niveaux de gris rend la Manrope nette. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Anneau de focus visible et unique pour toute l'app — au clavier seulement, jamais
+   à la souris (les contrôles gardaient sinon le halo bleu du navigateur). */
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+::selection { background: color-mix(in srgb, var(--red) 32%, transparent); }
 
 button { color: inherit; }
 
@@ -81,6 +138,11 @@ button { color: inherit; }
   text-transform: uppercase;
   color: var(--text-soft);
 }
+
+/* Pictogramme au trait posé dans un libellé (bouton, titre, ligne de liste). Grille 24,
+   `currentColor` : il suit la couleur du texte qui le porte, y compris au survol et sur
+   l'action primaire. Généré par js/icons.js ou écrit à la main dans index.html. */
+.ic { width: 16px; height: 16px; flex: none; }
 
 /* Bloc d'information : la primitive que réutilisent tous les bandeaux de la fiche et
    du planificateur (météo à l'heure de passage aujourd'hui ; conditions du sentier,
@@ -150,16 +212,20 @@ button { color: inherit; }
 }
 
 /* ============ Header ============ */
+/* Le filet 1px sous le header était le dernier encadré de la coque : remplacé par un
+   voile de surface + une ombre rasante, la hiérarchie revient à la valeur (charte v2). */
 .header {
   position: fixed;
   inset: 0 0 auto 0;
   height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 18px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 1px 0 var(--hairline), 0 6px 20px rgba(0, 0, 0, 0.28);
   z-index: 1200;
 }
 
@@ -170,24 +236,35 @@ button { color: inherit; }
 [data-theme="dark"] .brand-img, :root:not([data-theme="light"]) .brand-img,
 [data-theme="dark"] .tab-logo-img, :root:not([data-theme="light"]) .tab-logo-img { filter: invert(1) hue-rotate(180deg); }
 
-.tab-nav { display: flex; gap: 2px; height: 100%; }
+/* Contrôle segmenté : les onglets vivent dans une gouttière tonale et l'onglet actif
+   est une pastille pleine. L'ancien soulignement rouge 2px collé au bas du header
+   était un motif de site web, pas d'application — et il remettait du rouge sur un
+   élément qui n'est pas une action. */
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
 
 .tab-nav-btn {
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-soft);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  padding: 0 14px;
-  height: 100%;
+  border-radius: var(--radius-full);
+  padding: 0 var(--sp-4);
+  height: 34px;
   cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
 
 .tab-nav-btn:hover { color: var(--text); }
-.tab-nav-btn.active { color: var(--text); border-bottom-color: var(--red); }
+.tab-nav-btn.active { color: var(--text); background: var(--surface-3); box-shadow: var(--elev-1); }
 
 /* Libellés sur grand écran, icônes traits simples sur mobile (voir @media 700px) */
 .tab-nav-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
@@ -205,47 +282,60 @@ button { color: inherit; }
   gap: 7px;
   font: inherit;
   font-weight: 700;
-  font-size: 12.5px;
-  color: var(--text);
-  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  color: var(--text-soft);
+  background: none;
   border: none;
   border-radius: var(--radius-full);
-  padding: 8px 14px;
+  padding: 8px 13px;
   cursor: pointer;
-  transition: background 0.15s ease-out, color 0.15s ease-out;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
-.nav-btn:hover { background: var(--surface-3); color: var(--red); }
+.nav-btn svg { width: 17px; height: 17px; flex: none; }
+.nav-btn:hover { background: var(--surface-2); color: var(--text); }
 .nav-btn.active { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 .nav-btn-icon { padding: 8px 10px; }
 
+/* Compteur de favoris : neutre à zéro (rien à signaler), rouge dès qu'il y a quelque
+   chose — un badge rouge permanent sur « 0 » criait pour ne rien dire. */
 .fav-count {
-  background: var(--red);
-  color: #fff;
-  font-size: 10.5px;
+  background: var(--surface-3);
+  color: var(--text-soft);
+  font-size: var(--fs-micro);
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   border-radius: var(--radius-full);
   padding: 1px 7px;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
+.fav-count.has-items { background: var(--red); color: #fff; }
 
 /* ============ Vues ============ */
 main { position: fixed; inset: var(--header-h) 0 0 0; }
 
-.view { position: absolute; inset: 0; overflow-y: auto; padding: 26px clamp(20px, 5vw, 64px) 60px; }
+.view { position: absolute; inset: 0; overflow-y: auto; padding: var(--sp-5) clamp(16px, 5vw, 64px) 72px; }
 .view.hidden { display: none; }
 #view-carte { padding: 0; overflow: hidden; }
 
-.view-title {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin-bottom: 18px;
-  max-width: 1100px;
+/* Titre de vue et contenu partagent la MÊME colonne (--content-w) : c'est ce qui
+   manquait — le titre se centrait sur 1100 px et les blocs sur 640, la page entière
+   paraissait décalée. Tout ce qui se centre dans une vue passe par `.view-col`. */
+.view-col, .view-title, .view-intro, .settings-group, .settings-section-title,
+.nav-session, .cards-grid {
+  max-width: var(--content-w);
   margin-left: auto;
   margin-right: auto;
 }
 
-.view-intro { max-width: 1100px; margin: -8px auto 20px; font-size: 13.5px; }
+.view-title {
+  font-size: clamp(24px, 3.4vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin-bottom: var(--sp-2);
+}
+
+.view-intro { margin: 0 auto var(--sp-5); font-size: var(--fs-base); max-width: var(--content-w); }
 
 /* ============ Accueil ============ */
 .home-hero { max-width: 760px; margin: 14px auto 24px; text-align: center; }
@@ -292,19 +382,15 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  max-width: 1100px;
+  max-width: var(--content-w);
   margin: 0 auto 14px;
-  padding-left: 10px;
-  border-left: 2px solid var(--red);
 }
 
 /* ============ Grille ============ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
-  max-width: 1100px;
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-3);
 }
 
 /* ============ Carte ============ */
@@ -320,12 +406,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   align-items: center;
   gap: 10px;
   width: min(380px, 88vw);
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: none;
   border-radius: var(--radius-full);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--elev-2);
   padding: 10px 16px;
 }
 
@@ -341,7 +427,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .map-search-dock {
   position: absolute;
   right: 12px;
-  bottom: 10px;
+  bottom: calc(12px + var(--safe-b));
   z-index: 1002;
   width: auto;
   max-width: calc(100vw - 24px);
@@ -353,8 +439,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   flex: none;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -369,11 +455,15 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .search-toggle:active { transform: scale(0.92); }
 .map-search-dock.open .search-toggle { color: var(--red); }
 
-/* Le champ n'existe qu'ouvert : replié il ne doit ni s'afficher, ni prendre le focus. */
+/* Le champ n'existe qu'ouvert : replié il ne doit ni s'afficher, ni prendre le focus.
+   `padding: 0` est indispensable — depuis que les champs portent un remplissage commun
+   (S-UI-V3), un champ à `width: 0` conservait 24 px de rembourrage et poussait la
+   pastille de recherche hors de l'écran sur téléphone. */
 .map-search-dock > input {
   width: 0;
   min-width: 0;
   margin-left: 0;
+  padding: 0;
   opacity: 0;
   pointer-events: none;
   transition: width 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
@@ -386,6 +476,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .map-search-dock.open > input {
   width: 290px;
   margin-left: 18px;
+  padding: 0;
   opacity: 1;
   pointer-events: auto;
 }
@@ -436,13 +527,13 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   width: 100%;
   padding: 10px 14px;
   border: none;
-  border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 -1px 0 var(--hairline);
   background: transparent;
   text-align: left;
   cursor: pointer;
   transition: background 150ms ease-out;
 }
-.geo-item:last-child { border-bottom: none; }
+.geo-item:last-child { box-shadow: none; }
 .geo-item:hover,
 .geo-item.active { background: var(--surface-2); }
 
@@ -486,6 +577,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   min-width: 0;
   border: none;
   outline: none;
+  padding: 0;
   background: transparent;
   font: inherit;
   font-size: 14px;
@@ -518,41 +610,50 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .chip:hover { color: var(--text); background: var(--surface-3); }
 .chip.active { color: var(--red); background: color-mix(in srgb, var(--red) 14%, transparent); }
 
-/* Pile de contrôles à droite de la carte */
+/* Pile de contrôles à droite de la carte (S-UI-V3) : les quatre pastilles espacées de
+   6 px lisaient comme quatre objets sans lien, et leur ombre se répétait quatre fois
+   sur le fond clair du plan. Elles forment maintenant UN bloc flottant unique — une
+   seule surface, une seule ombre — comme la pile de contrôles d'une carte native. */
 .map-stack {
   position: absolute;
-  top: 12px;
+  top: calc(12px + var(--safe-t));
   right: 12px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--sp-1);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--elev-2);
 }
 
 .map-ctl {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   color: var(--text);
   border: none;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 84%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--shadow-soft);
+  background: none;
   cursor: pointer;
-  transition: color 0.15s ease-out, background 0.15s ease-out;
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 
 .map-ctl svg { width: 20px; height: 20px; }
-.map-ctl:hover { color: var(--red); background: color-mix(in srgb, var(--surface-2) 88%, transparent); }
-.map-ctl.active { color: var(--red); background: color-mix(in srgb, var(--red) 16%, var(--surface)); }
+.map-ctl:hover { color: var(--text); background: var(--surface-3); }
+.map-ctl:active { transform: scale(0.94); }
+.map-ctl.active { color: var(--red); background: color-mix(in srgb, var(--red) 18%, transparent); }
 .map-ctl:disabled { opacity: 0.6; cursor: wait; }
+@media (prefers-reduced-motion: reduce) { .map-ctl:active { transform: none; } }
 
-.map-stack .layers-panel { position: absolute; top: 0; right: 50px; }
+.map-stack .layers-panel { position: absolute; top: 0; right: calc(100% + 8px); }
 
 /* Le compteur de filtres actifs se pose sur le bouton rond de la pile. */
 .map-ctl-badged { position: relative; }
@@ -627,24 +728,36 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* Le trait fin du contrôle natif disparaissait sur le satellite et le topo chargé. Ici le
    contraste ne dépend d'aucun fond : c'est le damier noir/blanc qui le porte, cerné d'un
    liseré sombre — même principe que le tracé (écart de luminance, pas de teinte). */
+/* Posée à même la carte, l'échelle était illisible : texte blanc cerné d'une ombre
+   sur le fond crème du plan, et un damier noir/blanc qui accrochait l'œil plus que le
+   relief. Elle vit désormais sur une plaque translucide, comme les autres contrôles —
+   même matière, même ombre : elle appartient enfin à l'interface. */
 .map-scale {
   position: absolute;
-  top: 14px;
-  left: 14px;
+  top: calc(12px + var(--safe-t));
+  left: 12px;
   z-index: 999;
+  padding: 5px 10px 6px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--elev-2);
   pointer-events: none;
   user-select: none;
 }
 
+.map-scale-ticks, .map-scale-bar { width: var(--scale-w, 90px); }
+
 .map-scale-ticks {
   position: relative;
-  height: 14px;
+  height: 13px;
   margin-bottom: 3px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-soft);
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
 }
 
 .map-scale-ticks span { position: absolute; top: 0; white-space: nowrap; }
@@ -654,14 +767,17 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .map-scale-bar {
   display: flex;
-  height: 8px;
-  border-radius: 1px;
+  gap: 2px;
+  height: 4px;
+  border-radius: var(--radius-full);
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(9, 9, 11, 0.85), 0 1px 4px rgba(0, 0, 0, 0.45);
 }
 
-.map-scale-bar i { flex: 1; background: #fff; }
-.map-scale-bar i:nth-child(even) { background: #0b0b0c; }
+/* Segments alternés : plein / atténué. Sur la plaque sombre, un segment peint en
+   `--surface-4` disparaissait purement et simplement — la barre semblait deux fois
+   plus courte que sa graduation. */
+.map-scale-bar i { flex: 1; border-radius: var(--radius-full); background: var(--text); }
+.map-scale-bar i:nth-child(even) { background: color-mix(in srgb, var(--text) 26%, transparent); }
 
 /* Le coin bas-droit appartient à la recherche : l'attribution vit à gauche, tout en bas,
    et s'efface pendant la saisie — sur téléphone le champ déplié couvre toute la largeur. */
@@ -728,7 +844,6 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
      suffit à zoomer. Le contrôle reste au desktop, où il ne gêne rien. (S-V2-EXPLORER-B
      le retirera partout, au profit de la seule localisation.) */
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; }
-  .map-scale { top: 12px; left: 12px; }
 }
 
 .layers-panel {
@@ -770,30 +885,40 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .layers-title:first-child { margin-top: 0; }
 
+/* Une rangée = une ligne (S-UI-V3). Le curseur d'opacité occupait auparavant une
+   SECONDE ligne sur toute la largeur du bloc : dix calques donnaient dix barres de
+   900 px de long, un mur de réglages pour une valeur qu'on touche une fois par an.
+   Il tient maintenant à droite du nom, sur une largeur fixe, à côté de sa valeur. */
 .layer-row {
   display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "sw name" ". op";
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-areas: "sw name op val";
   align-items: center;
-  column-gap: 10px;
-  row-gap: 2px;
-  padding: 6px 0;
+  column-gap: var(--sp-3);
+  padding: var(--sp-2) 0;
 }
 
+.layer-row + .layer-row { box-shadow: inset 0 1px 0 var(--hairline); }
 .layer-row .switch { grid-area: sw; }
 .layer-row .layer-name { grid-area: name; font-size: 13px; font-weight: 600; }
-.layer-row .layer-op { grid-area: op; width: calc(100% - 46px); accent-color: var(--red); height: 3px; }
+.layer-row .layer-op { grid-area: op; width: 140px; }
+/* L'opacité d'un calque ÉTEINT ne pilote rien : le curseur s'efface au lieu d'offrir un
+   réglage sans effet — mais garde sa place, car basculer un calque ne doit pas faire
+   sauter la mise en page (charte v2 : jamais de saut de layout). */
+.layer-row:not(.active) .layer-op,
+.layer-row:not(.active) .op-val { opacity: 0; pointer-events: none; }
+.layer-row .layer-op, .layer-row .op-val { transition: opacity var(--dur-1) var(--ease); }
 .layer-row .op-val {
-  grid-area: op;
-  justify-self: end;
-  font-size: 10.5px;
+  grid-area: val;
+  font-size: var(--fs-micro);
   font-weight: 700;
   color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
   width: 38px;
   text-align: right;
 }
 
-.poi-row { grid-template-areas: "sw name"; }
+.poi-row { grid-template-areas: "sw name name name"; }
 .poi-hint { margin-top: 8px; }
 
 /* Interrupteur — pastille arrondie (S-V3-CALQUES-UI). L'ancien rectangle cerné d'un trait
@@ -823,9 +948,14 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   transition: transform 0.16s ease-out, background 0.16s ease-out;
 }
 
+.slider-sw:hover { background: var(--surface-4); }
 .switch input:checked + .slider-sw { background: var(--red); }
+.switch input:checked + .slider-sw:hover { background: var(--red-dim); }
 .switch input:checked + .slider-sw::before { transform: translateX(16px); background: #fff; }
 .switch input:focus-visible + .slider-sw { box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) {
+  .slider-sw, .slider-sw::before { transition: none; }
+}
 
 /* ===== Sélecteur de calques (S-V3-CALQUES-UI) =====
    Refonte du sélecteur de S-V2-EXPLORER-B, jugé « trop moche » à l'usage. Trois causes
@@ -941,9 +1071,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .overlay-row .layer-op { grid-area: op; display: none; margin: 2px 0 0; }
 .overlay-row.active .layer-op { display: block; }
 
-/* Curseur d'opacité — un seul style pour les deux présentations. */
-.layer-op { accent-color: var(--red); height: 3px; cursor: pointer; }
-.layer-op:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* Curseur d'opacité — un seul style pour les deux présentations (primitive globale
+   `input[type=range]` : piste neutre, pastille claire). */
+.layer-op { cursor: pointer; }
 
 /* Bouton « Charger les randos de cette zone » dans la feuille Explorer */
 .sheet-load {
@@ -969,12 +1099,12 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   z-index: 1001;
   width: 340px;
   max-width: calc(100vw - 24px);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--border);
-  border-left: 2px solid var(--red);
-  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
   overflow: hidden;
 }
 
@@ -1050,10 +1180,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  padding: 8px 9px;
-  border: 1px solid var(--border-strong);
+  padding: 9px 12px;
+  border: none;
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -1068,8 +1198,10 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   gap: 7px;
   font-size: 12px;
   font-weight: 700;
-  border: 1px solid var(--border-strong);
-  padding: 5px 9px;
+  background: var(--surface-2);
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 5px 11px;
 }
 
 .builder-step button { border: none; background: none; color: var(--red); font-weight: 800; cursor: pointer; }
@@ -1088,17 +1220,17 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font-size: 15px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
+  padding: 9px 12px;
+  border: none;
   border-radius: var(--radius);
-  background: var(--bg);
+  background: var(--surface-2);
   color: var(--text);
 }
 .loops-unit { font-size: 12px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; flex: 1; }
 .loops-status { font-size: 11.5px; line-height: 1.4; margin-bottom: 8px; }
 .loops-status.hidden { display: none; }
 .loops-result.hidden { display: none; }
-.loops-result { border-top: 1px solid var(--border); padding-top: 10px; margin-bottom: 10px; }
+.loops-result { box-shadow: inset 0 1px 0 var(--hairline); padding-top: 10px; margin-bottom: 10px; }
 .loops-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
 .loops-metric { text-align: center; padding: 6px 4px; border-left: 1px solid var(--border); }
 .loops-metric:first-child { border-left: none; }
@@ -1283,15 +1415,15 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   align-items: center;
   gap: 9px;
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius);
-  padding: 8px 11px;
+  padding: 10px 12px;
   margin-bottom: 10px;
 }
 .plan-search-wrap .search-icon { display: flex; color: var(--text-soft); }
 .plan-search-wrap .search-icon svg { width: 15px; height: 15px; }
 .plan-search-wrap input {
-  flex: 1; min-width: 0;
+  flex: 1; min-width: 0; padding: 0;
   background: none; border: none; outline: none;
   color: var(--text); font: inherit; font-size: 13px;
 }
@@ -1491,10 +1623,16 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 /* Poignée : visible seulement en feuille mobile (voir @media 700px). */
 .sheet-grip { display: none; }
 
+/* Cinq remplissages tonals côte à côte formaient un bandeau de boîtes — exactement ce
+   que la charte v2 a banni. La rampe d'outils est désormais posée à même la feuille :
+   icône + mot, le fond n'apparaît qu'au survol, et un filet interne la sépare du
+   contenu qui défile dessous. */
 .sheet-actions {
   display: flex;
-  gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-2);
+  margin-bottom: var(--sp-1);
+  box-shadow: inset 0 -1px 0 var(--hairline);
   flex: none;
 }
 .sheet-act {
@@ -1502,23 +1640,25 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   position: relative;
   font: inherit;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: var(--text);
-  background: var(--surface-2);
+  color: var(--text-soft);
+  background: none;
   border: none;
   border-radius: var(--radius);
-  padding: 9px 4px;
+  padding: var(--sp-2) 2px;
   cursor: pointer;
-  transition: background 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 .sheet-act svg { width: 20px; height: 20px; }
-.sheet-act:hover { background: var(--surface-3); color: var(--red); }
-.sheet-act:active { transform: translateY(1px); }
-.sheet-act .filters-badge { position: absolute; top: 5px; right: calc(50% - 26px); }
+.sheet-act:hover { background: var(--surface-2); color: var(--text); }
+.sheet-act:active { transform: scale(0.95); }
+.sheet-act .filters-badge { position: absolute; top: 2px; right: calc(50% - 24px); }
+@media (prefers-reduced-motion: reduce) { .sheet-act:active { transform: none; } }
 
 .sheet-scroll {
   flex: 1;
@@ -1559,17 +1699,93 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .filter-row { display: flex; gap: 5px; padding: 0 10px 9px; }
 
-.filter-row select, .settings-row select, .plan-form select, .plan-form input,
-.contact-form input, .contact-form select {
+/* Champs et listes déroulantes : remplissage tonal, aucun contour — et le chevron du
+   navigateur (gris système, non thémable) remplacé par le nôtre. C'était le détail qui
+   trahissait le plus le prototype sur l'écran Réglages. */
+/* `:where()` met ces règles à specificité ZÉRO : c'est une base, pas une contrainte.
+   Tout champ déjà habillé par son composant (la recherche de carte, le champ du
+   planificateur, la date de la course du soleil) garde son propre habillage sans avoir
+   à le redéclarer en plus fort. */
+:where(select, input[type="text"], input[type="search"], input[type="number"],
+input[type="date"], input[type="time"], input[type="tel"], input[type="email"], textarea) {
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
-  padding: 7px 8px;
-  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  border: none;
   border-radius: var(--radius);
-  background: var(--surface);
+  padding: 9px 12px;
+  transition: background var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+
+:where(select, input, textarea):hover:not([type="range"]) { background-color: var(--surface-3); }
+:where(input, textarea)::placeholder { color: var(--text-soft); font-weight: 600; }
+
+:where(select) {
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9aa4' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+}
+/* Le menu déroulant lui-même est peint par le système : sans cette teinte il s'ouvre
+   en blanc au milieu d'une interface noire. */
+:where(select) option { background: var(--surface); color: var(--text); }
+
+/* ---- Curseurs (S-UI-V3) ---- */
+/* `accent-color: red` peignait la piste ENTIÈRE en rouge vif : sur la liste des
+   calques, dix curseurs à 100 % faisaient dix barres rouges pleine largeur — le
+   contraire d'un accent. Piste neutre, pastille claire, rouge seulement à la prise
+   en main. La pastille (18 px) et la zone de saisie (20 px de haut) restent des
+   cibles tactiles confortables. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-4);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-4);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--text);
+  box-shadow: var(--elev-1);
+}
+input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+input[type="range"]:active::-webkit-slider-thumb { background: var(--red); }
+input[type="range"]:active::-moz-range-thumb { background: var(--red); }
+input[type="range"]:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-full); }
+@media (prefers-reduced-motion: reduce) {
+  input[type="range"]::-webkit-slider-thumb { transition: none; }
 }
 
 .filter-row select { flex: 1; min-width: 0; }
@@ -1589,15 +1805,16 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.12em;
   color: var(--red);
-  border: 1px solid var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border: none;
   border-radius: var(--radius);
   padding: 7px 10px;
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-2);
 }
 
 .osm-head button { border: none; background: none; cursor: pointer; color: inherit; font-weight: 800; }
@@ -1611,16 +1828,16 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font: inherit;
   font-size: 13px;
   text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border: none;
   border-radius: var(--radius);
-  padding: 8px 11px;
-  margin-bottom: 5px;
+  padding: 9px 12px;
+  margin-bottom: var(--sp-1);
   cursor: pointer;
-  transition: border-color 0.12s;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
-.osm-item:hover { border-color: var(--red); }
+.osm-item:hover { background: var(--surface-3); }
 .osm-item span { color: var(--text-soft); font-weight: 600; white-space: nowrap; }
 
 /* ============ Cartes d'itinéraires ============ */
@@ -1734,9 +1951,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .hover-card {
   width: 230px;
   background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-left: 2px solid var(--red);
-  box-shadow: var(--shadow);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--elev-2);
   overflow: hidden;
 }
 
@@ -1946,7 +2163,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   gap: 2px var(--sp-5);
   margin-top: var(--sp-3);
   padding-top: var(--sp-3);
-  border-top: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--hairline);
 }
 .fullmap-detail.hidden { display: none; }
 .fm-detail-row {
@@ -2029,18 +2246,20 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 }
 .side-profile > .muted { margin: auto; }
 
+/* Le bandeau était cerné en haut ET en bas, chaque chiffre reséparé par un filet, et
+   le premier marqué d'un trait rouge sans que ce chiffre soit plus important que les
+   autres. Il devient une surface : les chiffres se lisent, rien ne les encadre. */
 .detail-statsbar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 4px;
-  margin-bottom: 16px;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 
-.bigstat { border-left: 1px solid var(--border); padding-left: 14px; }
-.bigstat:first-child { border-left: 2px solid var(--red); }
+.bigstat + .bigstat { box-shadow: inset 1px 0 0 var(--hairline); padding-left: var(--sp-4); }
 .bigstat-v { font-size: 25px; font-weight: 800; letter-spacing: -0.02em; }
 .bigstat-v small { font-size: 14px; font-weight: 700; color: var(--text-soft); }
 .bigstat-l { font-size: 10.5px; font-weight: 700; color: var(--text-soft); margin-top: 2px; }
@@ -2125,7 +2344,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 .pill-sac { background: var(--surface-3); color: var(--text-soft); }
 
 /* Onglets fiche */
-.tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tab-bar { display: flex; gap: 2px; box-shadow: inset 0 -1px 0 var(--hairline); margin-bottom: 16px; }
 
 .tab {
   font: inherit;
@@ -2148,10 +2367,9 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  margin: 20px 0 10px;
-  padding-left: 9px;
-  border-left: 2px solid var(--red);
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+  margin: var(--sp-5) 0 var(--sp-3);
 }
 
 .detail-description { font-size: 14px; line-height: 1.7; max-width: 760px; }
@@ -2191,8 +2409,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   position: absolute; top: 4px; pointer-events: none;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border: 1px solid var(--border-strong); border-radius: var(--radius);
-  padding: 2px 7px; font-size: 11px; white-space: nowrap; color: var(--text);
+  border: none; border-radius: var(--radius);
+  padding: 3px 8px; font-size: 11px; white-space: nowrap; color: var(--text);
   font-variant-numeric: tabular-nums; box-shadow: var(--shadow); z-index: 2;
 }
 .prof-tip b { font-weight: 700; }
@@ -2308,7 +2526,7 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .progress-row { display: flex; align-items: center; gap: 14px; padding: 14px 2px; flex-wrap: wrap; }
 .progress-row.hidden { display: none; }
-.progress-row input[type="range"] { flex: 1; min-width: 140px; accent-color: var(--red); height: 3px; }
+.progress-row input[type="range"] { flex: 1; min-width: 140px; }
 .progress-info { font-size: 13.5px; font-weight: 800; color: var(--red); min-width: 110px; text-align: right; font-variant-numeric: tabular-nums; }
 .f3d-play { white-space: nowrap; }
 .f3d-layers { display: flex; gap: 2px; background: var(--surface-2); border-radius: var(--radius-full); padding: 2px; }
@@ -2349,9 +2567,11 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   border: 0; border-radius: var(--radius); padding: 7px var(--sp-3);
 }
 .sun-date:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-.sun-controls input[type="range"] {
-  flex: 1; min-width: 150px; height: 3px; accent-color: var(--sun);
-}
+/* Seule exception à la pastille neutre : la course du soleil, dont l'accent propre
+   (--sun) EST l'information portée par le curseur. */
+.sun-controls input[type="range"] { flex: 1; min-width: 150px; }
+.sun-controls input[type="range"]::-webkit-slider-thumb { background: var(--sun); }
+.sun-controls input[type="range"]::-moz-range-thumb { background: var(--sun); }
 .sun-read {
   font-size: 13px; font-weight: 700; color: var(--sun);
   font-variant-numeric: tabular-nums; min-width: 168px; text-align: right;
@@ -2444,8 +2664,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
 
 .weather-day {
   font: inherit;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: none;
+  background: var(--surface-2);
   border-radius: var(--radius);
   padding: 9px 5px;
   text-align: center;
@@ -2469,8 +2689,8 @@ main { position: fixed; inset: var(--header-h) 0 0 0; }
   gap: 12px;
   font-size: 12.5px;
   font-weight: 600;
-  padding: 6px 9px;
-  border-bottom: 1px solid var(--border);
+  padding: 7px 9px;
+  box-shadow: inset 0 -1px 0 var(--hairline);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3219,10 +3439,11 @@ body.primal-active .nav-fabs { display: none; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13.5px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-base);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--hairline);
 }
+.contact-row:last-child { border-bottom: none; }
 
 .contact-form { display: grid; grid-template-columns: 1fr auto 1.4fr auto; gap: 6px; margin-top: 12px; }
 .plan-form { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -3230,42 +3451,47 @@ body.primal-active .nav-fabs { display: none; }
 .plan-share { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 8px; }
 
 .settings-group {
-  max-width: 640px;
-  margin: 0 auto 18px;
+  margin: 0 auto var(--sp-3);
   background: var(--surface);
   border: none;
   border-radius: var(--radius-lg);
-  padding: 18px 22px;
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  box-shadow: var(--elev-1);
 }
 
 /* Titre de section dans Réglages (ex. « Sécurité » fusionnée) : sépare les groupes. */
 .settings-section-title {
-  max-width: 640px;
-  margin: 28px auto 12px;
-  font-size: 15px;
+  margin: var(--sp-5) auto var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-md);
   font-weight: 800;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
 }
+.settings-section-title svg { width: 18px; height: 18px; color: var(--text-soft); }
 
+/* Le trait rouge de 2px qui coiffait CHAQUE titre de groupe revenait huit fois sur la
+   page des réglages : l'accent n'accentuait plus rien. Le titre redevient une simple
+   micro-étiquette (.eyebrow), la séparation est portée par le fond du bloc. */
 .settings-group h3 {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  margin-bottom: 10px;
-  padding-left: 9px;
-  border-left: 2px solid var(--red);
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+  margin-bottom: var(--sp-3);
 }
 
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  font-size: 13.5px;
+  gap: var(--sp-4);
+  font-size: var(--fs-base);
   font-weight: 600;
-  padding: 9px 0;
-  border-top: 1px solid var(--border);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--hairline);
 }
 
 .settings-group h3 + .settings-row, .settings-group h3 + p, .settings-group h3 + div { border-top: none; }
@@ -3291,7 +3517,7 @@ body.primal-active .nav-fabs { display: none; }
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--hairline);
 }
 .pack-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pack-info strong { font-size: 13.5px; }
@@ -3318,8 +3544,7 @@ body.primal-active .nav-fabs { display: none; }
 
 /* ---- Onglet Navigation (S-NAV) ---- */
 .nav-session {
-  max-width: 640px;
-  margin: 0 auto 18px;
+  margin: 0 auto var(--sp-3);
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: 18px 22px;
@@ -3414,7 +3639,7 @@ body.primal-active .nav-fabs { display: none; }
   -webkit-touch-callout: none;      /* pas de menu/loupe natifs à l'appui long */
   transition: transform 200ms ease-out;
 }
-.itin-item:not(:first-of-type) .itin-card { border-top: 1px solid var(--border); }
+.itin-item:not(:first-of-type) .itin-card { box-shadow: inset 0 1px 0 var(--hairline); }
 .navview-info strong.editing {
   -webkit-user-select: text;
   user-select: text;
@@ -3467,11 +3692,11 @@ body.primal-active .nav-fabs { display: none; }
   letter-spacing: 0.06em;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 10px 18px;
   cursor: pointer;
-  box-shadow: var(--shadow);
+  box-shadow: var(--elev-2);
 }
 
 .btn-filters:hover { border-color: var(--red); color: var(--red); }
@@ -3496,8 +3721,8 @@ body.primal-active .nav-fabs { display: none; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  max-width: 1100px;
-  margin: 0 auto 18px;
+  max-width: var(--content-w);
+  margin: 0 auto var(--sp-4);
 }
 
 .view-title-row .view-title { margin: 0; }
@@ -3525,21 +3750,31 @@ body.primal-active .nav-fabs { display: none; }
   scrollbar-color: var(--surface-3) transparent;
   background: var(--surface);
   border: none;
-  border-top: 2px solid var(--red);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
-  padding: 18px 20px;
+  box-shadow: var(--elev-3);
+  /* Le rembourrage vertical passe à l'en-tête et au pied, qui sont collants : la barre
+     d'action reste visible même quand la liste de filtres dépasse la hauteur d'écran.
+     Auparavant « Voir N itinéraires » — l'action principale du panneau — se retrouvait
+     sous le bord bas de la fenêtre sur un portable 900 px. */
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
 }
 
 .filters-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.09em;
-  margin-bottom: 14px;
+  letter-spacing: 0.12em;
+  color: var(--text-soft);
+  background: var(--surface);
+  padding: var(--sp-4) 0 var(--sp-3);
 }
 
 .filters-head button { border: none; background: none; font-size: 16px; cursor: pointer; color: var(--text-soft); }
@@ -3578,21 +3813,29 @@ body.primal-active .nav-fabs { display: none; }
 
 .filters-grid-2 select, .filters-grid-2 input {
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
-  padding: 9px 10px;
-  border: 1px solid var(--border-strong);
+  padding: 10px 12px;
+  border: none;
   border-radius: var(--radius);
-  background: var(--bg);
+  /* `background-color` et non `background` : le raccourci effacerait le chevron du
+     `select`, qui est une image de fond. */
+  background-color: var(--surface-2);
 }
+.filters-grid-2 select { padding-right: 32px; }
 
 .filters-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+  margin-top: auto;
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--hairline);
+  padding: var(--sp-3) 0 var(--sp-4);
 }
 
 /* ============ Météo sur la route ============ */
@@ -3634,8 +3877,8 @@ body.primal-active .nav-fabs { display: none; }
   gap: 14px;
   font-size: 13px;
   font-weight: 600;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  box-shadow: inset 0 -1px 0 var(--hairline);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3649,8 +3892,29 @@ body.primal-active .nav-fabs { display: none; }
 
 /* ============ Divers ============ */
 .muted { font-size: 12.5px; line-height: 1.55; color: var(--text-soft); }
-.empty-state { text-align: center; padding: 42px 20px; color: var(--text-soft); }
-.empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+/* Les emojis (🧭, 🥾) servaient d'illustration aux écrans vides : ils portent le style
+   graphique du système d'exploitation, pas celui de l'app, et cassaient net la tenue du
+   thème sombre. Remplacés par un pictogramme au trait, posé dans un disque tonal. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--text-soft);
+}
+.empty-state .empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: var(--sp-3);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-soft);
+}
+.empty-state .empty-icon svg { width: 24px; height: 24px; }
+.empty-state p { font-size: var(--fs-base); font-weight: 600; max-width: 30ch; line-height: 1.5; }
 
 /* MapLibre : contrôles et bulles adaptés au thème */
 [data-theme="dark"] .maplibregl-ctrl-group,
@@ -3721,29 +3985,50 @@ body.primal-active .nav-fabs { display: none; }
     height: var(--tabbar-h);
     padding: 0 0 env(safe-area-inset-bottom, 0px);
     gap: 0;
-    border-bottom: none;
-    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    box-shadow: 0 -1px 0 var(--hairline), 0 -10px 30px rgba(0, 0, 0, 0.45);
     z-index: 1400;
   }
   .header-brand, .header-nav { display: none; }
 
+  /* La gouttière tonale du contrôle segmenté n'a de sens que dans le bandeau du haut :
+     en bas, la barre d'onglets EST la surface. */
   .tab-nav {
     flex: 1;
     height: 54px;
     display: flex;
     align-items: center;
     justify-content: space-around;
+    padding: 0;
+    background: none;
+    border-radius: 0;
   }
 
   .tab-nav-btn {
     flex: 1;
     font-size: 10.5px;
     height: 54px;
-    border-bottom: none;
-    border-top: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    position: relative;
   }
 
-  .tab-nav-btn.active { border-top-color: var(--red); }
+  /* L'onglet actif se signale par la COULEUR de son icône et un point sous elle — le
+     liseré rouge de 2px collé en haut de la barre lisait comme un trait de séparation
+     mal placé plutôt que comme un état. */
+  .tab-nav-btn.active { color: var(--red); background: none; box-shadow: none; }
+  .tab-nav-btn.active::after {
+    content: "";
+    position: absolute;
+    bottom: 9px;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    margin-left: -2px;
+    border-radius: var(--radius-full);
+    background: var(--red);
+  }
+  .tab-nav-logo.active::after { content: none; }
   /* Icônes seules dans la barre du bas : plus de mots rognés */
   .tab-nav-btn { flex-direction: column; gap: 0; padding: 0 4px; }
   .tab-nav-btn svg { display: block; }
@@ -3767,9 +4052,38 @@ body.primal-active .nav-fabs { display: none; }
   .detail-panel { bottom: var(--tabbar-h); }
   .view { padding: 18px 14px 80px; }
 
+  /* Rangée de calque en deux lignes sous 700 px : le nom garde toute la largeur (« Terrain
+     HD » se coupait en deux) et le curseur passe dessous, où il reste manœuvrable au
+     pouce. La ligne du curseur est réservée MÊME calque éteint : la liste ne saute pas
+     quand on bascule un interrupteur. */
+  .layer-row {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "sw name name" ". op val";
+    row-gap: var(--sp-1);
+  }
+  .layer-row .layer-op { width: 100%; }
+  .poi-row { grid-template-areas: "sw name name"; }
+  /* Calque éteint : la deuxième ligne se replie au lieu de laisser un vide de 40 px
+     répété quinze fois. Le repli est ANIMÉ (hauteur + opacité) — c'est une révélation,
+     pas un saut. */
+  .layer-row:not(.active) { row-gap: 0; }
+  .layer-row .layer-op, .layer-row .op-val {
+    height: 20px;
+    overflow: hidden;
+    transition: height var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
+  }
+  .layer-row:not(.active) .layer-op, .layer-row:not(.active) .op-val { height: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    .layer-row .layer-op, .layer-row .op-val { transition: none; }
+  }
+
   .btn-filters { padding: 10px 12px; flex-shrink: 0; }
   .map-list-btn { display: inline-flex; }
-  .map-stack { top: 10px; right: 10px; }
+  .map-stack { top: calc(10px + var(--safe-t)); right: 10px; }
+  .map-scale { top: calc(10px + var(--safe-t)); left: 10px; }
+  /* Repliée, la recherche est un disque : sans largeur explicite, la règle générique
+     `.map-search` (min(380px, 88vw)) l'étirait en pastille ovale sur téléphone. */
+  .map-search-dock:not(.open) { width: 48px; }
   /* #view-carte s'arrête DÉJÀ au-dessus de la barre d'onglets : un décalage de la
      hauteur de celle-ci ferait flotter le bouton bien trop haut. */
   /* Recherche posée juste au-dessus de la feuille Explorer (peek 112px), et au-dessus
@@ -3922,13 +4236,13 @@ body.primal-active .nav-fabs { display: none; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  max-width: 1100px;
+  max-width: var(--content-w);
   margin: 0 auto 14px;
 }
 .home-reco-head .home-section-title { margin: 0; }
 .reco-shuffle { flex-shrink: 0; }
 .home-reco-foot {
-  max-width: 1100px;
+  max-width: var(--content-w);
   margin: 16px auto 0;
   display: flex;
   justify-content: center;
@@ -3984,13 +4298,13 @@ body.primal-active .nav-fabs { display: none; }
 .drive-max input {
   width: 68px;
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--text);
-  padding: 9px 10px;
-  border: 1px solid var(--border-strong);
+  padding: 9px 12px;
+  border: none;
   border-radius: var(--radius);
-  background: var(--bg);
+  background-color: var(--surface-2);
 }
 #filter-drive-status:empty { display: none; }
 
@@ -4015,13 +4329,13 @@ body.primal-active .nav-fabs { display: none; }
   align-items: flex-start;
   gap: 12px;
   padding: 12px 12px 12px 14px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-strong);
-  border-left: 2px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-2) 97%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: none;
+  border-left: 2px solid var(--surface-4);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--elev-3);
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.45;
@@ -4031,8 +4345,8 @@ body.primal-active .nav-fabs { display: none; }
 }
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.leaving { opacity: 0; transform: translateY(10px); }
-.toast--error { border-left-color: var(--red); }        /* rouge = erreur */
-.toast--success { border-left-color: var(--text-soft); } /* pas de vert (banni) : accent neutre */
+.toast--error { border-left-color: var(--red); }   /* rouge = erreur */
+.toast--success { border-left-color: var(--text); } /* pas de vert (banni) : accent neutre */
 .toast__msg { flex: 1; white-space: pre-line; }
 .toast__close {
   flex-shrink: 0;

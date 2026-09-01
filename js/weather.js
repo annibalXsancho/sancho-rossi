@@ -158,7 +158,7 @@ function routeWeatherHTML(trail) {
     <h3 class="section-title">Météo sur la route pour y aller</h3>
     <div class="route-form">
       <input id="route-origin" type="text" placeholder="Ville de départ (ex. Milan, Lyon…)" />
-      <button class="btn" id="route-mypos" title="Partir de ma position">📍</button>
+      <button class="btn btn-ic" id="route-mypos" title="Partir de ma position" aria-label="Partir de ma position"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg></button>
       <input id="route-depart" type="datetime-local" value="${defaultDate}" />
       <button class="btn btn-primary" id="route-go">Calculer</button>
     </div>
@@ -173,7 +173,7 @@ function bindRouteWeather(trail, container) {
     navigator.geolocation?.getCurrentPosition(
       (pos) => {
         myPos = { lat: pos.coords.latitude, lon: pos.coords.longitude, label: "Ma position" };
-        container.querySelector("#route-origin").value = "📍 Ma position";
+        container.querySelector("#route-origin").value = "Ma position";
         e.target.classList.add("faved");
       },
       (err) => (resultEl.innerHTML = `<p class="muted">Position indisponible : ${err.message}</p>`)
@@ -190,7 +190,7 @@ function bindRouteWeather(trail, container) {
     const originText = container.querySelector("#route-origin").value.trim();
     const departISO = container.querySelector("#route-depart").value;
     if (!myPos && !originText) {
-      resultEl.innerHTML = `<p class="muted">Indiquez une ville de départ ou utilisez 📍.</p>`;
+      resultEl.innerHTML = `<p class="muted">Indiquez une ville de départ, ou partez de votre position.</p>`;
       return;
     }
     if (new Date(departISO) - Date.now() > 6.5 * 86400000) {

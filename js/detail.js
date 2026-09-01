@@ -641,7 +641,7 @@ export function renderDetail(id) {
       <span class="pill">${t.type}</span>
       ${t.bivouac ? `<span class="pill pill-bivouac">⛺ 2 jours · 1 nuit</span>` : ""}
       ${t.sac?.level ? `<span class="pill pill-sac" title="${t.sac.estimated ? "Cotation estimée (pente)" : "Cotation OSM"} · ${SAC_LABEL[t.sac.level] || ""}">${t.sac.level}${t.sac.estimated ? " (est.)" : ""}</span>` : ""}
-      <span class="detail-location">📍 ${t.location}</span>
+      <span class="detail-location"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg> ${t.location}</span>
     </div>
 
     <div class="detail-media">
@@ -669,14 +669,14 @@ export function renderDetail(id) {
       <button class="btn btn-primary btn-lg" id="btn-follow">▶ Suivre ce tracé</button>
       <div class="action-row">
         <button class="btn ${faved ? "faved" : ""}" id="btn-detail-fav">${faved ? "♥ Enregistré" : "♡ Sauvegarder"}</button>
-        <button class="btn" id="btn-itinerary">🧭 Voir sur la carte</button>
+        <button class="btn" id="btn-itinerary"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5-5 2v12l5-2 6 2 5-2V5l-5 2z"/><path d="M9 5v12M15 7v12"/></svg> Voir sur la carte</button>
         <button class="btn ${hasPack(id) ? "faved" : ""}" id="btn-offline">${hasPack(id) ? "✓ Hors-ligne" : "⤓ Terrain"}</button>
         <button class="btn ${outingsFor(id).length ? "faved" : ""}" id="btn-plan-outing">${outingsFor(id).length ? "📅 Sortie planifiée" : "📅 Réserver une sortie"}</button>
       </div>
       <div class="action-row action-row-minor">
         <button class="btn-ghost" id="btn-gpx">⤓ GPX</button>
         <button class="btn-ghost" id="btn-share-link">↗ Partager le lien</button>
-        <button class="btn-ghost" id="btn-safety">🛟 Plan de marche</button>
+        <button class="btn-ghost" id="btn-safety"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6"/><path d="m5.6 5.6 3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9"/></svg> Plan de marche</button>
         ${t.imported ? `<button class="btn-ghost btn-ghost-danger" id="btn-delete-gpx">🗑 Supprimer</button>` : ""}
       </div>
     </div>

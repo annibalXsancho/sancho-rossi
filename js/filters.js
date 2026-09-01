@@ -101,7 +101,7 @@ async function osrmTableMinutes(origin, dests) {
 export async function ensureDriveTimes() {
   if (driveBusy || state.driveMax == null) return;
   if (!state.userPos) {
-    driveStatus("Activez 📍 ma position pour filtrer par temps de route.");
+    driveStatus("Activez « ma position » pour filtrer par temps de route.");
     return;
   }
   const q = state.search.trim().toLowerCase();

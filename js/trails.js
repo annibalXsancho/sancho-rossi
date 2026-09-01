@@ -12,6 +12,7 @@ import { trailMarks } from "./fieldmarks.js";
 import { ANNOT_KINDS, annotKind, trackLocator, ANNOT_NEAR_M } from "./annotations.js";
 import { touchPrefs, tombstoneTrace } from "./sync.js";
 import { computeGain, computeLoss, naismithHours, fmtDuration, sacRating } from "./metrics.js";
+import { emptyState } from "./icons.js";
 
 // ---------- Rendu des cartes d'itinéraires ----------
 export function cardHTML(t) {
@@ -63,7 +64,7 @@ export function renderList() {
   listEl.innerHTML = trails.length
     ? trails.slice(0, 80).map(cardHTML).join("") +
       (trails.length > 80 ? `<p class="muted" style="text-align:center">… et ${trails.length - 80} autres (affinez les filtres)</p>` : "")
-    : `<div class="empty-state"><div class="empty-icon">🥾</div><p>Aucun itinéraire ne correspond.</p></div>`;
+    : emptyState("signpost", "Aucun itinéraire ne correspond.");
 
   // Les itinéraires exclus par les filtres disparaissent aussi de la carte
   const visible = new Set(trails.map((t) => t.id));
@@ -172,7 +173,11 @@ export function toggleFavorite(id) {
 }
 
 export function renderFavCount() {
-  document.getElementById("fav-count").textContent = state.favorites.size;
+  const el = document.getElementById("fav-count");
+  el.textContent = state.favorites.size;
+  // Un badge rouge sur « 0 » alerte sans rien signaler : il ne s'allume qu'à partir
+  // du premier itinéraire enregistré.
+  el.classList.toggle("has-items", state.favorites.size > 0);
 }
 
 // ---------- Sélection d'un itinéraire ----------
