@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub de Révision - Performance Énergétique & Réseaux d'Utilités</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; }
+        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 35vh; max-height: 350px; }
+        .tab-active { border-bottom: 4px solid #0d9488; color: #0d9488; font-weight: bold; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 300ms; }
+        
+        /* Spinner animation for IA */
+        .spinner {
+            border: 3px solid rgba(13, 148, 136, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #0d9488;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Custom scrollbar for output boxes */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; rounded: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <!-- Chosen Palette: Slate and Teal. Warm neutrals (slate-50 to slate-900) with teal-600 as the accent color to maintain a professional, academic engineering feel. -->
+    <!-- Application Structure Plan: The SPA is an interactive learning platform split into technical domains (Ventilation, Électricité, Chauffage, Froid, Vapeur), a Vocab/Mindset module, an ISO 50001 module, and the AI Copilot. The AI Copilot is now expanded into a 2x2 grid containing 4 advanced LLM tools: APE Diagnostic, Exam Generator, ISO 50001 Mapper, and a Text-to-Speech Podcast Generator. This provides a multi-modal learning experience. -->
+    <!-- Visualization & Content Choices: 
+         1. CAPEX/OPEX (Goal: Compare) -> Bar Chart (Chart.js) under Froid.
+         2. Electrical Power (Goal: Inform/Compare) -> Bar Chart (Chart.js) under Électricité.
+         3. Flash Steam (Goal: Relationships) -> Line Chart (Chart.js) with interactive slider under Vapeur.
+         4. Condensation (Goal: Change) -> Interactive toggle card under Chauffage.
+         5. Gemini AI Assistant (Goal: Synthesize & Learn) -> Interactive HTML Form & AJAX endpoints using text generation and TTS APIs.
+         NO SVG/Mermaid used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 text-white shadow-md z-10">
+        <div class="container mx-auto px-4 py-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-wide flex items-center gap-2">
+                    <span>&#9881;</span> Hub Performance Énergétique <span class="text-xs bg-teal-500 text-slate-950 font-semibold px-2 py-0.5 rounded-full">Examen VE 2026</span>
+                </h1>
+                <p class="text-slate-300 mt-0.5 text-xs max-w-xl">Outil de révision interactive : Remise en cause du besoin, physique des utilités et management selon David Brun.</p>
+            </div>
+            <div class="bg-slate-800 border border-slate-700 p-2 rounded-lg text-[11px] max-w-xs flex flex-col">
+                <span class="text-teal-400 font-bold mb-1">&#10024; Hub IA Gemini Actif :</span> 
+                <span class="text-slate-300">Générateurs, diagnostics et podcasts de révision audio intégrés.</span>
+            </div>
+        </div>
+        
+        <!-- Navigation bar -->
+        <div class="bg-slate-950 border-t border-slate-800 overflow-x-auto">
+            <nav class="container mx-auto px-4 flex flex-nowrap md:flex-wrap gap-2 text-xs md:text-sm font-medium min-w-max">
+                <button onclick="navigate('module-ventilation')" id="nav-module-ventilation" class="tab-active py-3 px-2 transition-all whitespace-nowrap">&#127811; Ventilation</button>
+                <button onclick="navigate('module-elec')" id="nav-module-elec" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all whitespace-nowrap">&#9889; Électricité</button>
+                <button onclick="navigate('module-chauffage')" id="nav-module-chauffage" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all whitespace-nowrap">&#128293; Chauffage</button>
+                <button onclick="navigate('module-froid')" id="nav-module-froid" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all whitespace-nowrap">&#10052; Froid</button>
+                <button onclick="navigate('module-vapeur')" id="nav-module-vapeur" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all whitespace-nowrap">&#9832; Vapeur</button>
+                <button onclick="navigate('module-mindset')" id="nav-module-mindset" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all font-semibold whitespace-nowrap">&#128373; Mindset</button>
+                <button onclick="navigate('module-iso')" id="nav-module-iso" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all whitespace-nowrap">&#128202; ISO 50001</button>
+                <button onclick="navigate('module-ai')" id="nav-module-ai" class="py-3 px-2 text-slate-400 hover:text-teal-400 transition-all font-bold text-teal-400 whitespace-nowrap">&#10024; Copilote IA</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-6">
+
+        <!-- MODULE: VENTILATION -->
+        <section id="module-ventilation" class="block animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Domaine Technique : Ventilation & Traitement d'Air</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    Le traitement de l'air est une utilité complexe caractérisée par des mélanges gazeux et des changements de phase (condensation). Contrairement à l'eau, les propriétés de l'air varient fortement avec la température et la pression. L'Energy Manager doit maîtriser l'usage de l'air humide, limiter les débris de filtration, optimiser les débits (Vitesse d'écoulement variable - VEV) et se prémunir du risque d'explosion (ATEX) lors du dépoussiérage.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wide mb-2">Refroidissement / Séchage & Point de Rosée</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            • <strong>Sensible :</strong> Baisse de température sèche sans variation de la masse d'eau. L'humidité relative ($HR$) augmente mécaniquement jusqu'à atteindre saturation ($100\%$ $HR$).<br>
+                            • <strong>Chaleur Latente / Rosée :</strong> Sous le point de rosée, la vapeur se liquéfie (condensation). Idéal pour la déshumidification dans une CTA.<br>
+                            • <strong>Bypass Factor (BF) :</strong> Fraction de l'air qui traverse la batterie froide sans toucher les tubes d'échange thermique :
+                            <code class="block bg-white p-2 rounded text-center text-teal-700 font-mono mt-2 border border-slate-100">BF = (θ_sortie - θ_batterie) / (θ_entrée - θ_batterie)</code>
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wide mb-2">Mélange d'Air & Conservation de Masse</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            Le mélange d'air neuf et d'air repris dans une CTA obéit aux lois de conservation de masse d'air sec et de vapeur d'eau. La température finale du mélange ($\Theta_m$) est calculée au prorata des débits massiques :
+                            <code class="block bg-white p-2 rounded text-center text-teal-700 font-mono my-2 border border-slate-100">θ_m = (qm1 × θ1 + qm2 × θ2) / (qm1 + qm2)</code>
+                            • <strong>Astuce de calcul :</strong> Convertissez toujours vos débits volumiques ($m^3/h$) en débits massiques ($kg/h$) en utilisant le volume spécifique de l'air humide pour éviter les erreurs de bilan thermique.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-teal-50 border border-teal-100 p-4 rounded-lg text-xs text-teal-900 leading-relaxed">
+                    <strong>💡 Recommandation APE :</strong> Préférez des convoyages mécaniques aux aspirations d'air très énergivores. Si la ventilation est indispensable, appliquez une régulation par variateur de vitesse (VEV) asservie au taux de polluant ou au besoin réel, et prélevez les calories à la source chaude plutôt que sur un flux dilué.
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: ELECTRICITE -->
+        <section id="module-elec" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Domaine Technique : Électricité Industrielle</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    L'électricité est une énergie de "luxe" hautement transformée. Son diagnostic exige d'éviter le piège de la pince ampèremétrique (qui ignore le déphasage $\cos \phi$) et de concevoir des Schémas de Liaison à la Terre (SLT) adaptés au profil de l'usine.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="space-y-4">
+                        <div class="p-3 bg-slate-50 border-l-4 border-green-500 rounded-r-lg text-xs text-slate-700">
+                            <span class="font-bold text-green-700">Puissance Active (P) - kW :</span> C'est l'énergie utile convertie en force motrice ou en chaleur. Facturée en kWh.
+                            <code class="block bg-white p-1 rounded font-mono text-[10px] text-slate-600 mt-1">P = √3 × U × I × cos(φ)</code>
+                        </div>
+                        <div class="p-3 bg-slate-50 border-l-4 border-amber-500 rounded-r-lg text-xs text-slate-700">
+                            <span class="font-bold text-amber-700">Puissance Réactive (Q) - kVAR :</span> Nécessaire à la magnétisation des bobinages moteurs. Facturée au-delà d'un seuil par le distributeur. Surcharge les réseaux de câbles.
+                        </div>
+                        <div class="p-3 bg-slate-50 border-l-4 border-slate-500 rounded-r-lg text-xs text-slate-700">
+                            <span class="font-bold text-slate-700">Puissance Apparente (S) - kVA :</span> Produit brut $U \times I$ qui régit la taille physique des transformateurs et des câbles (CAPEX).
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-lg shadow-inner border border-slate-100 flex flex-col justify-center">
+                        <h3 class="text-center text-xs font-semibold text-slate-800 mb-2">Simulateur : Facteur de puissance (cos φ) & Puissance Apparente</h3>
+                        <div class="flex justify-center mb-3">
+                            <button id="btn-cos-good" onclick="updatePowerChart(0.95)" class="mx-1 px-3 py-1 bg-teal-600 text-white rounded text-xs">Bon (cos φ = 0.95)</button>
+                            <button id="btn-cos-bad" onclick="updatePowerChart(0.70)" class="mx-1 px-3 py-1 bg-slate-200 text-slate-700 rounded text-xs transition-all">Mauvais (cos φ = 0.70)</button>
+                        </div>
+                        <div class="chart-container h-44">
+                            <canvas id="powerChart"></canvas>
+                        </div>
+                        <p id="power-insight" class="text-center text-xs font-semibold text-teal-600 mt-1">Réseau électrique optimal.</p>
+                    </div>
+                </div>
+
+                <h3 class="text-sm font-bold text-slate-800 mb-3">Schémas de Liaison à la Terre (SLT)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="bg-white p-4 rounded-lg border border-slate-200">
+                        <h4 class="font-bold text-slate-800">Régime TT (Particuliers / Tertiaire)</h4>
+                        <p class="text-slate-600 mt-1">Le neutre est relié à la terre, les masses aussi. Un défaut d'isolement crée une fuite à la terre. Protection obligatoire par dispositifs différentiels (DDR) qui coupent instantanément dès le 1er défaut.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg border border-slate-200">
+                        <h4 class="font-bold text-slate-800 font-semibold text-amber-700">Régime TN (Grande industrie)</h4>
+                        <p class="text-slate-600 mt-1">Neutre relié à la terre, masses raccordées au conducteur neutre (PEN). Un défaut d'isolement est un court-circuit franc entraînant une coupure rapide via disjoncteurs magnétiques. Interdit en zone inflammable (ATEX).</p>
+                    </div>
+                    <div class="bg-slate-800 text-white p-4 rounded-lg">
+                        <h4 class="font-bold text-teal-400">Régime IT (Industrie continue / Hôpital)</h4>
+                        <p class="text-slate-300 mt-1">Neutre isolé de la terre (ou très impédant), masses à la terre. Le premier défaut ne présente pas de danger de contact et n'interrompt pas le process. Un contrôleur d'isolement alerte la maintenance.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: CHAUFFAGE -->
+        <section id="module-chauffage" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Domaine Technique : Chauffage & Réseaux d'Eau Chaude</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    Le chauffage à eau chaude est l'utilité thermique de base. Son efficacité dépend de la température de retour d'eau à la chaudière, qui régit la possibilité d'exploiter la condensation. L'eau surchauffée permet des applications haute température sans les inconvénients de la vapeur.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wide mb-2">Le Défi de la Condensation</h3>
+                        <p class="text-xs text-slate-600 leading-relaxed mb-4">
+                            Une chaudière à condensation n'est performante que si la température de l'eau de retour est <strong>inférieure au point de rosée des fumées</strong> (environ $55^\circ\text{C}$ pour le gaz de ville). L'eau de retour refroidit les fumées, déclenche le changement de phase et capte la chaleur latente.
+                        </p>
+                        <!-- Interactive condensation simulator -->
+                        <div class="bg-white p-3 rounded border border-slate-200">
+                            <span class="block text-xs font-semibold text-slate-700 mb-1">Simulez la température de retour d'eau :</span>
+                            <div class="flex gap-2">
+                                <button onclick="setBoilerCondensation(65)" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-[10px] font-bold rounded">Retour à 65°C</button>
+                                <button onclick="setBoilerCondensation(45)" class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 text-[10px] font-bold rounded">Retour à 45°C</button>
+                            </div>
+                            <div id="condensation-result" class="text-xs font-medium text-slate-600 mt-2">Cliquez sur un bouton pour simuler.</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs">
+                        <h3 class="text-sm font-bold text-teal-800 uppercase tracking-wide mb-2">Chiffres Clés Hydrauliques</h3>
+                        <p class="text-slate-600 leading-relaxed">
+                            • <strong>Chaleur massique de l'eau :</strong> $\sim 4190\ \text{J}\cdot\text{kg}^{-1}\cdot\text{K}^{-1}$ (contre $\sim 2000$ pour l'huile thermique). L'eau stocke deux fois plus d'énergie à volume égal.<br><br>
+                            • <strong>Vitesse d'écoulement :</strong> En industrie, concevez vos réseaux pour $3$ à $5\ \text{m/s}$ pour équilibrer CAPEX (taille tubes) et OPEX (pompage).<br><br>
+                            • <strong>Traitement d'eau :</strong> En circuit fermé, limitez absolument l'apport d'eau neuve pour éviter l'oxygène dissous (source de corrosion).
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: FROID -->
+        <section id="module-froid" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Domaine Technique : Réseaux de Froid</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    Le froid industriel est extrêmement coûteux en électricité. Un groupe froid (GF) mal configuré ou surdimensionné dégrade son coefficient de performance (COP).
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="text-xs text-slate-600 space-y-3">
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                            <strong class="text-slate-800 block mb-1">Le coefficient de performance (COP) :</strong>
+                            Le COP mesure le rapport entre la chaleur extraite (kW thermiques) et l'énergie électrique consommée (kW électriques). Un condenseur encrassé augmente la pression de condensation, réduisant le COP et augmentant la conso électrique jusqu'à 30%.
+                        </div>
+                        <div class="bg-teal-50 border border-teal-100 p-3 rounded text-teal-900">
+                            <strong>💡 Alternative Systémique : Le Freecooling</strong><br>
+                            Avant d'installer un GF de 200kW, interrogez l'échange de température. En augmentant la surface d'échange des pièces froides ou en décalant les températures d'échange, un aérotherme extérieur de 4kW peut substituer le GF entier l'hiver.
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-lg shadow-inner border border-slate-100">
+                        <h3 class="text-center text-xs font-semibold text-slate-800 mb-2">Étude de Sizing Froid (CAPEX vs OPEX sur 10 ans)</h3>
+                        <div class="chart-container h-44">
+                            <canvas id="capexOpexChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: VAPEUR -->
+        <section id="module-vapeur" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Domaine Technique : Vapeur & Condensats</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    La vapeur transporte l'énergie sous forme de chaleur latente ($\sim 2257\ \text{kJ/kg}$ à 1 atm). Néanmoins, ses pertes thermiques et ses re-vaporisations au niveau des retours condensats exigent une vigilance extrême.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="space-y-4 text-xs text-slate-600">
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                            <strong class="text-slate-800">Coups de bélier (Dangers) :</strong><br>
+                            Dûs à la présence d'eau liquide dans un réseau vapeur. Entraînées par la vapeur ($\sim 30\ \text{m/s}$), ces poches d'eau provoquent des chocs mécaniques risquant de rompre la canalisation.
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                            <strong class="text-slate-800">Types de Purgeurs :</strong><br>
+                            • <strong>Mécanique :</strong> Évacuation instantanée des condensats.<br>
+                            • <strong>Thermodynamique :</strong> Utilise Bernoulli ; une fuite de vapeur ferme le clapet.<br>
+                            • <strong>Thermostatique (bilame) :</strong> S'ouvre lorsque la température baisse.
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-lg shadow-md border border-slate-200">
+                        <h3 class="text-xs font-bold text-slate-800 mb-2 text-center">Simulateur de Re-vaporisation (Vapeur de Flash)</h3>
+                        <p class="text-[10px] text-center text-slate-500 mb-4">Perte d'eau pure à l'évent (détente de condensats saturés vers 0 bar g).</p>
+                        
+                        <div class="mb-4">
+                            <label for="pressureSlider" class="block text-xs font-medium text-slate-700 mb-1">Pression des condensats amont : <span id="pressureVal" class="text-teal-600 font-bold text-sm">4</span> bars g</label>
+                            <input type="range" id="pressureSlider" min="1" max="15" value="4" class="w-full h-1.5 bg-slate-200 rounded-lg cursor-pointer accent-teal-600">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 text-center mb-3">
+                            <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                                <div class="text-[10px] text-slate-500 uppercase">Taux de Flash</div>
+                                <div id="flashPercent" class="text-xl font-black text-red-500">9.8 %</div>
+                            </div>
+                            <div class="bg-slate-50 p-2 rounded border border-slate-200">
+                                <div class="text-[10px] text-slate-500 uppercase">Perte éner. (6.4 T/h)</div>
+                                <div id="flashPower" class="text-xl font-black text-slate-800">~ 455 kW</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container h-28">
+                            <canvas id="flashChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: VOCABULAIRE & MINDSET -->
+        <section id="module-mindset" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Mindset de l'Energy Manager & Vocabulaire</h2>
+                <p class="text-slate-600 text-sm mb-6 leading-relaxed">
+                    L'Energy Manager est un stratège qui réconcilie investissement (CAPEX) et exploitation (OPEX). Il rejette l'empirisme du surdimensionnement pour s'appuyer sur la mesure physique et le foisonnement.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-teal-50 border border-teal-100 p-4 rounded-lg text-xs text-teal-900 leading-relaxed">
+                        <h3 class="font-bold text-teal-950 mb-2">Les 4 Piliers du Mindset :</h3>
+                        • <strong>1. Remettre en cause le besoin :</strong> Ne jamais optimiser une machine sans s'assurer de l'utilité du besoin final.<br><br>
+                        • <strong>2. Mesurer plutôt que surdimensionner :</strong> Refuser les marges empiriques qui doublent le CAPEX.<br><br>
+                        • <strong>3. Se méfier de la mesure :</strong> Distinguer justesse et fidélité ; identifier l'incertitude des capteurs.<br><br>
+                        • <strong>4. Approche systémique :</strong> Conserver une vision globale des utilités (pas d'optimisation isolée).
+                    </div>
+
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Flashcards Mémo :</h3>
+                        <div id="vocab-container" class="space-y-3">
+                            <!-- Vocab items injected via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: ISO 50001 -->
+        <section id="module-iso" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-6 border border-slate-100">
+                <h2 class="text-xl font-bold text-slate-800 mb-3 border-l-4 border-teal-600 pl-3">Systèmes de Management de l'Énergie (ISO 50001)</h2>
+                <p class="text-slate-600 text-sm mb-4 leading-relaxed">
+                    La norme ISO 50001 structure l'amélioration continue (PDCA). Elle sépare l'exploitant (seul maître de l'usage) du Facility Manager (souvent contraint aux seuls rendements des générateurs).
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600">
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="font-bold text-slate-800 mb-2 uppercase tracking-wide">Indicateurs de Performance Énergétique (IPÉ)</h3>
+                        <p class="leading-relaxed mb-3">
+                            Un IPÉ corrèle l'énergie consommée avec l'usage ou la production (ex: $kWh / \text{tonne}$).
+                        </p>
+                        <div class="bg-white p-3 rounded border border-slate-200 font-medium text-slate-700">
+                            <strong>⚠️ Piège classique :</strong> Ne confondez pas <em>Efficacité</em> (rendement machine) et <em>Performance</em>. Une chaudière à 98% d'efficacité qui chauffe un hangar vide a une très mauvaise performance énergétique.
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="font-bold text-slate-800 mb-2 uppercase tracking-wide">Usage Énergétique Significatif (UES)</h3>
+                        <p class="leading-relaxed mb-3">
+                            Postes consommant une part importante de l'énergie ou offrant un potentiel d'économie majeur.
+                        </p>
+                        <div class="bg-teal-50 text-teal-950 p-3 rounded border border-teal-100">
+                            <strong>La Revue Énergétique :</strong> Audit qui fige la consommation de référence afin de chiffrer l'énergie "non consommée" suite aux APE.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODULE: COPILOTE IA -->
+        <section id="module-ai" class="hidden animate-fade-in">
+            <div class="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white rounded-xl shadow-md p-6 mb-6 border border-teal-800">
+                <h2 class="text-xl font-bold mb-1 flex items-center gap-2 text-teal-300">
+                    <span>✨</span> Hub Intelligence Artificielle Gemini
+                </h2>
+                <p class="text-slate-300 text-xs leading-relaxed">
+                    La puissance de Gemini au service de vos révisions. Générez des exercices interactifs, diagnostiquez des projets industriels, cartographiez votre usine pour l'ISO 50001, et écoutez des synthèses vocales générées en temps réel.
+                </p>
+            </div>
+
+            <!-- AI Tools 2x2 Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- TOOL 1: APE Diagnostic -->
+                <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <span class="text-teal-600">✨</span> Évaluateur de Devis & APE
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-3">Soumettez un projet technique empirique pour obtenir une contre-expertise systémique.</p>
+                    <textarea id="ape-input" rows="3" class="w-full p-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-teal-500 mb-3 custom-scrollbar" placeholder="Ex: Notre prestataire propose de remplacer notre groupe froid actuel de 100kW par une nouvelle machine..."></textarea>
+                    <button onclick="evaluateApeWithAI()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-3 rounded flex justify-center items-center gap-2 transition-all shadow text-xs">
+                        Lancer l'audit
+                    </button>
+                    <div id="ape-loader" class="hidden flex flex-col items-center justify-center my-4"><div class="spinner mb-1.5"></div><span class="text-[10px] text-slate-500">Analyse systémique...</span></div>
+                    <div id="ape-output" class="hidden mt-3 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] leading-relaxed custom-scrollbar overflow-y-auto max-h-[150px]"></div>
+                </div>
+
+                <!-- TOOL 2: Exam Generator -->
+                <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <span class="text-teal-600">✨</span> Simulateur d'Examen
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-3">Générez un cas d'étude complexe et soumettez votre raisonnement pour correction.</p>
+                    <select id="exam-topic" class="w-full p-2 border border-slate-200 rounded-lg text-xs text-slate-800 mb-3 bg-slate-50">
+                        <option value="Thermodynamique et Vapeur">Thermodynamique / Vapeur</option>
+                        <option value="Électricité Industrielle (kVA, cos phi)">Électricité Industrielle</option>
+                        <option value="Psychrométrie et Air Humide">Air Humide / Traitement d'Air</option>
+                        <option value="Sizing global CAPEX/OPEX">Dimensionnement CAPEX/OPEX</option>
+                    </select>
+                    <button onclick="generateExamProblem()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-1.5 px-3 rounded flex justify-center items-center gap-2 transition-all shadow text-xs">
+                        Générer le problème
+                    </button>
+                    
+                    <div id="problem-loader" class="hidden flex flex-col items-center justify-center my-4"><div class="spinner mb-1.5"></div><span class="text-[10px] text-slate-500">Création de l'usine...</span></div>
+                    <div id="problem-box" class="hidden mt-3 p-2 bg-teal-50 border border-teal-100 rounded text-xs text-slate-800 font-medium custom-scrollbar max-h-[120px] overflow-y-auto"></div>
+                    
+                    <div id="answer-section" class="hidden flex-col mt-2">
+                        <textarea id="student-answer" rows="2" class="w-full p-2 border border-slate-200 rounded text-xs text-slate-800 mb-2 custom-scrollbar" placeholder="Votre calcul et proposition..."></textarea>
+                        <button onclick="submitAnswerForGrading()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 rounded text-xs transition-all shadow">Corriger ma réponse</button>
+                    </div>
+                    
+                    <div id="grade-loader" class="hidden flex flex-col items-center justify-center my-4"><div class="spinner mb-1.5"></div><span class="text-[10px] text-slate-500">Correction...</span></div>
+                    <div id="grade-output" class="hidden mt-3 p-3 bg-slate-50 rounded border border-slate-200 text-[11px] leading-relaxed custom-scrollbar overflow-y-auto max-h-[150px]"></div>
+                </div>
+
+                <!-- TOOL 3: ISO 50001 Mapper -->
+                <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <span class="text-teal-600">✨</span> Cartographie ISO 50001
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-3">Décrivez un site industriel. Gemini structurera un tableau de bord (UES & IPÉ).</p>
+                    <textarea id="iso-input" rows="3" class="w-full p-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-teal-500 mb-3 custom-scrollbar" placeholder="Ex: Scierie industrielle utilisant des fours de séchage bois, une chaufferie biomasse et d'immenses convoyeurs pneumatiques..."></textarea>
+                    <button onclick="generateIsoMapping()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-1.5 px-3 rounded flex justify-center items-center gap-2 transition-all shadow text-xs">
+                        Dresser le plan d'action
+                    </button>
+                    <div id="iso-loader" class="hidden flex flex-col items-center justify-center my-4"><div class="spinner mb-1.5"></div><span class="text-[10px] text-slate-500">Génération des IPÉ...</span></div>
+                    <div id="iso-output" class="hidden mt-3 p-3 bg-slate-50 border border-slate-200 rounded text-[11px] leading-relaxed custom-scrollbar overflow-y-auto max-h-[150px]"></div>
+                </div>
+
+                <!-- TOOL 4: TTS Podcast -->
+                <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                        <span class="text-teal-600">✨</span> Podcast Express (Audio TTS)
+                    </h3>
+                    <p class="text-xs text-slate-500 mb-3">Générez un mini-podcast de synthèse lu à haute voix par l'IA pour réviser un point clé.</p>
+                    <select id="podcast-topic" class="w-full p-2 border border-slate-200 rounded-lg text-xs text-slate-800 mb-3 bg-slate-50">
+                        <option value="Le refus de l'empirisme et la notion de foisonnement">Le Foisonnement (Mindset)</option>
+                        <option value="La différence entre puissance active, réactive et apparente">Puissance Électrique</option>
+                        <option value="Le point de rosée et la déshumidification dans l'air humide">Point de Rosée (Ventilation)</option>
+                        <option value="Le principe de la vapeur de flash et les pertes aux purgeurs">Vapeur de Flash</option>
+                    </select>
+                    <button onclick="generatePodcast()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-1.5 px-3 rounded flex justify-center items-center gap-2 transition-all shadow text-xs">
+                        Générer & Écouter
+                    </button>
+                    
+                    <div id="podcast-loader" class="hidden flex flex-col items-center justify-center my-4"><div class="spinner mb-1.5"></div><span class="text-[10px] text-slate-500">Écriture et Synthèse Vocale...</span></div>
+                    
+                    <div id="podcast-text" class="hidden mt-3 p-3 bg-teal-50 border border-teal-100 rounded text-[11px] text-teal-900 italic mb-2"></div>
+                    <audio id="podcast-audio" class="hidden w-full h-8 outline-none mt-2" controls></audio>
+                </div>
+
+            </div>
+            
+            <div id="api-alert" class="hidden mt-4 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-800 flex items-center gap-2">
+                <span>⚠️</span> <strong>Test local :</strong> Si l'API renvoie une erreur, vérifiez que l'environnement dispose de la clé Gemini-2.5.
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-100 border-t border-slate-200 py-4 mt-auto text-center text-slate-500 text-[10px]">
+        Généré pour la préparation de l'examen "Réseaux d'Utilités Industrielles VE2026"
+    </footer>
+
+    <script>
+        // --- State Management & Navigation ---
+        let currentGeneratedProblem = '';
+        
+        function navigate(moduleId) {
+            ['module-ventilation', 'module-elec', 'module-chauffage', 'module-froid', 'module-vapeur', 'module-mindset', 'module-iso', 'module-ai'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById('nav-' + id).classList.remove('tab-active', 'font-bold', 'text-teal-400');
+                if(id !== 'module-ai') document.getElementById('nav-' + id).classList.add('text-slate-400');
+            });
+            
+            document.getElementById(moduleId).classList.remove('hidden');
+            document.getElementById('nav-' + moduleId).classList.add('tab-active');
+            document.getElementById('nav-' + moduleId).classList.remove('text-slate-400');
+            
+            if(moduleId === 'module-ai') {
+                document.getElementById('nav-' + moduleId).classList.add('font-bold', 'text-teal-400');
+            }
+        }
+
+        // --- Data Storage: Mindset Flashcards ---
+        const flashcards = [
+            { term: "CAPEX (Capital Expenditure)", def: "Dépenses d'investissement initiales. Conditionnées par la puissance brute de vos installations d'utilités (ex: taille physique des compresseurs, pompes, tuyauteries)." },
+            { term: "OPEX (Operational Expenditure)", def: "Dépenses d'exploitation quotidiennes. Conditionnées directement par l'énergie consommée dans le temps (ex: kWh d'électricité ou m³ de gaz sur vos factures)." },
+            { term: "Principe du Foisonnement", def: "Constat que tous les équipements d'un atelier n'appellent jamais leur puissance maximale simultanément. S'appuyer dessus permet de réduire les diamètres de câbles, tuyauteries et d'acheter des générateurs bien plus petits (gains massifs de CAPEX)." },
+            { term: "Approche Systémique", def: "Règle d'or consistant à analyser l'interaction entre génération, distribution et usage final d'un fluide caloporteur plutôt que d'isoler des équipements sans vision globale." }
+        ];
+
+        function renderVocab() {
+            const container = document.getElementById('vocab-container');
+            flashcards.forEach((card, index) => {
+                const el = document.createElement('div');
+                el.className = 'bg-slate-50 border border-slate-200 rounded p-2 cursor-pointer hover:bg-slate-100 transition-colors text-xs';
+                el.innerHTML = `
+                    <div class="flex justify-between items-center" onclick="toggleCard(${index})">
+                        <h4 class="font-bold text-slate-700">${card.term}</h4>
+                        <span id="icon-${index}" class="text-slate-400 font-mono text-sm">+</span>
+                    </div>
+                    <p id="def-${index}" class="text-slate-600 hidden mt-1.5 pt-1.5 border-t border-slate-200 leading-relaxed">${card.def}</p>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function toggleCard(index) {
+            const defEl = document.getElementById(`def-${index}`);
+            const iconEl = document.getElementById(`icon-${index}`);
+            if (defEl.classList.contains('hidden')) { defEl.classList.remove('hidden'); iconEl.innerText = '-'; } 
+            else { defEl.classList.add('hidden'); iconEl.innerText = '+'; }
+        }
+
+        // --- Interactive Charts & Utilities ---
+        let capexChart, powerChartInstance, flashChartInstance;
+
+        function setBoilerCondensation(temp) {
+            const resultBox = document.getElementById('condensation-result');
+            if (temp === 45) {
+                resultBox.className = "text-xs font-semibold text-green-700 mt-2 bg-green-50 p-2 rounded border border-green-200";
+                resultBox.innerHTML = "✅ Retour à 45°C : Inférieur au point de rosée (55°C). La vapeur des fumées condense ! Gains thermiques majeurs récupérés en chaleur latente.";
+            } else {
+                resultBox.className = "text-xs font-semibold text-red-700 mt-2 bg-red-50 p-2 rounded border border-red-200";
+                resultBox.innerHTML = "❌ Retour à 65°C : Supérieur au point de rosée (55°C). Aucune condensation. Votre chaudière haut rendement se comporte comme une chaudière basique.";
+            }
+        }
+
+        function initCharts() {
+            // Chart 1: CAPEX vs OPEX (Froid)
+            const ctxCapex = document.getElementById('capexOpexChart').getContext('2d');
+            capexChart = new Chart(ctxCapex, {
+                type: 'bar',
+                data: {
+                    labels: ['Sizing Empirique (100kW)', 'Sizing Mesuré (50kW)'],
+                    datasets: [
+                        { label: 'CAPEX (Achat & Install)', data: [80000, 40000], backgroundColor: '#0f766e', stack: 'Stack 0' },
+                        { label: 'OPEX (Énergie & Maint. 10 ans)', data: [350000, 180000], backgroundColor: '#64748b', stack: 'Stack 0' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } },
+                    scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { callback: v => v/1000 + 'k €' } } }
+                }
+            });
+
+            // Chart 2: Power Triangle (Elec)
+            const ctxPower = document.getElementById('powerChart').getContext('2d');
+            powerChartInstance = new Chart(ctxPower, {
+                type: 'bar',
+                data: {
+                    labels: ['Active (kW) utile', 'Apparente (kVA) tirée'],
+                    datasets: [{ data: [100, 105], backgroundColor: ['#22c55e', '#64748b'], borderRadius: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 150 } } }
+            });
+
+            // Chart 3: Flash Steam % (Vapeur)
+            const ctxFlash = document.getElementById('flashChart').getContext('2d');
+            const pressures = [1, 2, 4, 6, 8, 10, 12, 14];
+            const flashPercents = [3.5, 6.2, 9.8, 12.3, 14.1, 15.6, 16.9, 18.0]; 
+            flashChartInstance = new Chart(ctxFlash, {
+                type: 'line',
+                data: {
+                    labels: pressures,
+                    datasets: [{ data: flashPercents, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 1.5, pointBackgroundColor: '#ef4444', pointRadius: 2, fill: true, tension: 0.3 }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { title: { display: true, text: 'Pression amont (bar g)', font: {size: 9} }, grid: { display: false} }, y: { min: 0, max: 20, ticks: { callback: v => v + '%' } } }, animation: false
+                }
+            });
+        }
+
+        function updatePowerChart(cosPhi) {
+            const activePower = 100;
+            const apparentPower = Math.round(activePower / cosPhi);
+            powerChartInstance.data.datasets[0].data = [activePower, apparentPower];
+            
+            if(cosPhi > 0.9) {
+                powerChartInstance.data.datasets[0].backgroundColor[1] = '#64748b'; 
+                document.getElementById('power-insight').innerText = "Réseau électrique optimal.";
+                document.getElementById('power-insight').className = "text-center text-xs font-semibold text-teal-600 mt-1";
+                document.getElementById('btn-cos-good').className = "mx-1 px-3 py-1 bg-teal-600 text-white rounded text-xs transition-all";
+                document.getElementById('btn-cos-bad').className = "mx-1 px-3 py-1 bg-slate-200 text-slate-700 rounded text-xs transition-all";
+            } else {
+                powerChartInstance.data.datasets[0].backgroundColor[1] = '#f59e0b'; 
+                document.getElementById('power-insight').innerText = "Surcharge de courant réactif sur câbles/transfo (CAPEX gaspillé).";
+                document.getElementById('power-insight').className = "text-center text-xs font-semibold text-amber-600 mt-1";
+                document.getElementById('btn-cos-bad').className = "mx-1 px-3 py-1 bg-amber-500 text-white rounded text-xs transition-all";
+                document.getElementById('btn-cos-good').className = "mx-1 px-3 py-1 bg-slate-200 text-slate-700 rounded text-xs transition-all";
+            }
+            powerChartInstance.update();
+        }
+
+        document.getElementById('pressureSlider').addEventListener('input', function(e) {
+            const p = parseFloat(e.target.value);
+            document.getElementById('pressureVal').innerText = p;
+            let flashP = 0;
+            if(p<=1) flashP=3.5; else if(p<=2) flashP=3.5+(p-1)*(6.2-3.5); else if(p<=4) flashP=6.2+((p-2)/2)*(9.8-6.2); else if(p<=6) flashP=9.8+((p-4)/2)*(12.3-9.8); else if(p<=8) flashP=12.3+((p-6)/2)*(14.1-12.3); else if(p<=10) flashP=14.1+((p-8)/2)*(15.6-14.1); else if(p<=12) flashP=15.6+((p-10)/2)*(16.9-15.6); else if(p<=15) flashP=16.9+((p-12)/3)*(18.5-16.9);
+            document.getElementById('flashPercent').innerText = flashP.toFixed(1) + ' %';
+            document.getElementById('flashPower').innerText = "~ " + Math.round((6400 * (flashP/100) * 2613) / 3600) + " kW";
+        });
+
+        // --- Gemini API & AI Tools ---
+        const apiKey = ""; 
+
+        async function callGemini(prompt, systemInstruction, parseJson = false) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] } };
+            
+            let delay = 1000;
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (response.ok) {
+                        const data = await response.json();
+                        return data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    }
+                } catch (e) { /* Retry */ }
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2;
+            }
+            throw new Error("Impossible de joindre l'IA.");
+        }
+
+        function showInlineError(element, message) {
+            element.innerHTML = `<div class="bg-red-50 text-red-800 p-2 text-[10px] rounded border border-red-200"><strong>Erreur :</strong> ${message}</div>`;
+            element.classList.remove('hidden');
+        }
+
+        // TOOL 1: APE
+        function loadApeScenario(id) {
+            const input = document.getElementById('ape-input');
+            if (id===1) input.value = "Un prestataire propose de refroidir un four de 200kW avec un nouveau groupe froid haute perf. L'usine tourne en 3x8.";
+            if (id===2) input.value = "Réseau vapeur 10 bar produisant 5 t/h. Les condensats reviennent à 100°C dans une bâche atmosphérique. L'appoint d'eau est énorme.";
+            if (id===3) input.value = "Mise en place d'une chaudière gaz à condensation. Le réseau de chauffage actuel (aérothermes) est alimenté en 80/70°C.";
+        }
+
+        async function evaluateApeWithAI() {
+            const input = document.getElementById('ape-input').value.trim();
+            const outBox = document.getElementById('ape-output');
+            const loader = document.getElementById('ape-loader');
+            if(!input) return showInlineError(outBox, "Veuillez saisir un projet.");
+            outBox.classList.add('hidden'); loader.classList.remove('hidden');
+
+            const sys = "Tu es un auditeur en Performance Énergétique (école David Brun). Démolis l'empirisme. Critique le projet soumis en 3 points max (Texte court, direct). HTML <p> et <ul> uniquement, sans structure complète de page.";
+            try { outBox.innerHTML = await callGemini(input, sys); loader.classList.add('hidden'); outBox.classList.remove('hidden'); } 
+            catch(err) { loader.classList.add('hidden'); showInlineError(outBox, err.message); }
+        }
+
+        // TOOL 2: Exam Problem
+        async function generateExamProblem() {
+            const topic = document.getElementById('exam-topic').value;
+            const pbBox = document.getElementById('problem-box');
+            const loader = document.getElementById('problem-loader');
+            const ansSec = document.getElementById('answer-section');
+            const gradeBox = document.getElementById('grade-output');
+            
+            pbBox.classList.add('hidden'); gradeBox.classList.add('hidden'); ansSec.classList.add('hidden'); loader.classList.remove('hidden');
+
+            const prompt = `Génère un énoncé court d'exercice industriel sur : "${topic}". Inclus des valeurs (kW, bar, kg/h). Demande de corriger l'erreur de conception.`;
+            const sys = "Tu es examinateur technique. Fournis juste l'énoncé de la question en HTML (<p>). Pas de solution.";
+            try { 
+                currentGeneratedProblem = await callGemini(prompt, sys); 
+                loader.classList.add('hidden'); pbBox.innerHTML = currentGeneratedProblem; pbBox.classList.remove('hidden'); ansSec.classList.remove('hidden'); 
+            } catch(err) { loader.classList.add('hidden'); showInlineError(pbBox, err.message); }
+        }
+
+        async function submitAnswerForGrading() {
+            const ans = document.getElementById('student-answer').value.trim();
+            const gradeBox = document.getElementById('grade-output');
+            const loader = document.getElementById('grade-loader');
+            if(!ans) return showInlineError(gradeBox, "Saisissez une réponse.");
+            gradeBox.classList.add('hidden'); loader.classList.remove('hidden');
+
+            const prompt = `Exercice : "${currentGeneratedProblem}". Réponse étudiant : "${ans}". Note sur 20 et donne une correction très synthétique.`;
+            const sys = "Tu es le correcteur de l'examen. Rends une note en gras et la justification en HTML (<strong>, <p>).";
+            try { gradeBox.innerHTML = await callGemini(prompt, sys); loader.classList.add('hidden'); gradeBox.classList.remove('hidden'); } 
+            catch(err) { loader.classList.add('hidden'); showInlineError(gradeBox, err.message); }
+        }
+
+        // TOOL 3: ISO 50001 Mapper
+        async function generateIsoMapping() {
+            const input = document.getElementById('iso-input').value.trim();
+            const outBox = document.getElementById('iso-output');
+            const loader = document.getElementById('iso-loader');
+            if(!input) return showInlineError(outBox, "Décrivez d'abord votre site.");
+            outBox.classList.add('hidden'); loader.classList.remove('hidden');
+
+            const prompt = `L'utilisateur a une usine : ${input}. Génère 2 UES (Usages Énergétiques Significatifs). Pour chaque UES, donne un IPÉ pertinent et le type de compteur/capteur à installer.`;
+            const sys = "Tu es auditeur ISO 50001. Formate la réponse proprement en HTML (<ul>, <li>, <strong>). Sois direct et industriel.";
+            try { outBox.innerHTML = await callGemini(prompt, sys); loader.classList.add('hidden'); outBox.classList.remove('hidden'); } 
+            catch(err) { loader.classList.add('hidden'); showInlineError(outBox, err.message); }
+        }
+
+        // TOOL 4: Audio TTS Podcast
+        async function generatePodcast() {
+            const topic = document.getElementById('podcast-topic').value;
+            const loader = document.getElementById('podcast-loader');
+            const audioEl = document.getElementById('podcast-audio');
+            const textDisplay = document.getElementById('podcast-text');
+
+            audioEl.classList.add('hidden'); textDisplay.classList.add('hidden'); loader.classList.remove('hidden');
+
+            // 1. Text generation
+            const prompt = `Rédige un très court script audio (3 phrases max) pour réviser la notion : ${topic}. Ton professoral et direct pour un ingénieur.`;
+            const sys = "Ne renvoie QUE le texte à lire, sans mise en forme, ni titre.";
+            let textToRead = "";
+            try { textToRead = await callGemini(prompt, sys); } 
+            catch(e) { loader.classList.add('hidden'); return showInlineError(textDisplay, "Erreur génération texte."); }
+
+            textDisplay.innerHTML = `<strong>Script lu :</strong> <i>"${textToRead}"</i>`;
+
+            // 2. TTS Generation
+            try {
+                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const payload = { contents: [{ parts: [{ text: textToRead }] }], generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } } } };
+                const res = await fetch(ttsUrl, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                if (!res.ok) throw new Error("TTS Request failed");
+                const data = await res.json();
+                const base64Audio = data.candidates[0].content.parts[0].inlineData.data;
+
+                // Decode base64 to PCM byte array
+                const binaryString = atob(base64Audio);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+                
+                // Convert to WAV
+                const wavBuffer = pcmToWav(bytes.buffer, 24000);
+                const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+                
+                audioEl.src = URL.createObjectURL(blob);
+                loader.classList.add('hidden');
+                textDisplay.classList.remove('hidden');
+                audioEl.classList.remove('hidden');
+                audioEl.play();
+            } catch(e) {
+                loader.classList.add('hidden'); showInlineError(textDisplay, "Erreur lors de la génération vocale (TTS). Vérifiez l'accès au modèle TTS.");
+            }
+        }
+
+        // PCM to WAV converter function
+        function pcmToWav(pcmData, sampleRate) {
+            const numChannels = 1, bitsPerSample = 16;
+            const blockAlign = numChannels * bitsPerSample / 8;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = pcmData.byteLength;
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            const writeStr = (v, offset, str) => { for (let i = 0; i < str.length; i++) v.setUint8(offset + i, str.charCodeAt(i)); };
+            writeStr(view, 0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(view, 8, 'WAVE');
+            writeStr(view, 12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true); view.setUint32(28, byteRate, true); view.setUint16(32, blockAlign, true); view.setUint16(34, bitsPerSample, true);
+            writeStr(view, 36, 'data'); view.setUint32(40, dataSize, true);
+            
+            new Uint8Array(buffer, 44).set(new Uint8Array(pcmData));
+            return buffer;
+        }
+
+        window.onload = () => { renderVocab(); initCharts(); };
+    </script>
+</body>
+</html>
